@@ -414,36 +414,6 @@ let rec decomp_stack = function
         | _ ->
             Some (v.(0), (Zapp (Array.sub v 1 (Array.length v - 1)) :: s)))
   | _ -> None
-let array_of_stack s =
-  let rec stackrec = function
-  | [] -> []
-  | Zapp args :: s -> args :: (stackrec s)
-  | _ -> assert false
-  in Array.concat (stackrec s)
-let rec stack_assign s p c = match s with
-  | Zapp args :: s ->
-      let q = Array.length args in
-      if p >= q then
-	Zapp args :: stack_assign s (p-q) c
-      else
-        (let nargs = Array.copy args in
-         nargs.(p) <- c;
-         Zapp nargs :: s)
-  | _ -> s
-let rec stack_tail p s =
-  if Int.equal p 0 then s else
-    match s with
-      | Zapp args :: s ->
-	  let q = Array.length args in
-	  if p >= q then stack_tail (p-q) s
-	  else Zapp (Array.sub args p (q-p)) :: s
-      | _ -> failwith "stack_tail"
-let rec stack_nth s p = match s with
-  | Zapp args :: s ->
-      let q = Array.length args in
-      if p >= q then stack_nth s (p-q)
-      else args.(p)
-  | _ -> raise Not_found
 
 (* Lifting. Preserves sharing (useful only for cell with norm=Red).
    lft_fconstr always create a new cell, while lift_fconstr avoids it
@@ -705,7 +675,7 @@ let get_nth_arg head n stk =
           (Some (stk', args.(n)), append_stack aft s')
     | Zupdate(m)::s ->
         strip_rec rstk (update m h.norm h.term) n s
-    | s -> (None, List.rev rstk @ s) in
+    | s -> (None, List.rev_append rstk s) in
   strip_rec [] head n stk
 
 (* Beta reduction: look for an applied argument in the stack.

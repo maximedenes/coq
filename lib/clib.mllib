@@ -22,6 +22,8 @@ Serialize
 Deque
 CObj
 CList
+BitUtils
+Hamt
 CString
 CArray
 CStack

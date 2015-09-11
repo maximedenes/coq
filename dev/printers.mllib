@@ -29,6 +29,8 @@ Unicodetable
 Unicode
 CObj
 CList
+BitUtils
+Hamt
 CString
 CArray
 CStack

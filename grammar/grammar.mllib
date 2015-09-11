@@ -22,6 +22,8 @@ Feedback
 Pp
 
 CList
+BitUtils
+Hamt
 CString
 CArray
 CStack

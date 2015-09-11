@@ -675,15 +675,14 @@ let terminal u = {univ=u; lt=[]; le=[]; rank=0; predicative=false; status = Unse
 module UMap :
 sig
   type key = Level.t
-  type +'a t
+  type 'a t
   val empty : 'a t
   val add : key -> 'a -> 'a t -> 'a t
   val find : key -> 'a t -> 'a
-  val equal : ('a -> 'a -> bool) -> 'a t -> 'a t -> bool
   val fold : (key -> 'a -> 'b -> 'b) -> 'a t -> 'b -> 'b
   val iter : (key -> 'a -> unit) -> 'a t -> unit
   val mapi : (key -> 'a -> 'b) -> 'a t -> 'b t
-end = HMap.Make(Level)
+end = Hamt.Make(Hamt.StdConfig)(Level)
 
 (* A Level.t is either an alias for another one, or a canonical one,
    for which we know the universes that are above *)
@@ -1229,8 +1228,6 @@ let empty_universes = UMap.empty
 
 (* Prop = Set is forbidden here. *)
 let initial_universes = enforce_univ_lt Level.prop Level.set UMap.empty
-
-let is_initial_universes g = UMap.equal (==) g initial_universes
 
 let add_universe vlev g = 
   let v = terminal vlev in
