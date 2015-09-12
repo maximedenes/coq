@@ -464,12 +464,14 @@ let loop () =
   while not !quit do
     try
       let xml_query = Xml_parser.parse xml_ic in
-(*       pr_with_pid (Xml_printer.to_string_fmt xml_query); *)
+      if !Flags.ideslave_xml_echo then
+	pr_with_pid (Xml_printer.to_string_fmt xml_query);
       let q = Xmlprotocol.to_call xml_query in
       let () = pr_debug_call q in
       let r = eval_call xml_oc (slave_logger xml_oc Pp.Notice) q in
       let () = pr_debug_answer q r in
-(*       pr_with_pid (Xml_printer.to_string_fmt (Xmlprotocol.of_answer q r)); *)
+      if !Flags.ideslave_xml_echo then
+	pr_with_pid (Xml_printer.to_string_fmt (Xmlprotocol.of_answer q r));
       print_xml xml_oc (Xmlprotocol.of_answer q r);
       flush out_ch
     with
@@ -492,6 +494,9 @@ let loop () =
 let rec parse = function
   | "--help-XML-protocol" :: rest ->
         Xmlprotocol.document Xml_printer.to_string_fmt; exit 0
+
+  | "--XML-echo" :: rest -> Flags.ideslave_xml_echo := true; parse rest
+
   | x :: rest -> x :: parse rest
   | [] -> []
 
@@ -505,3 +510,4 @@ let () = Coqtop.toploop_init := (fun args ->
 let () = Coqtop.toploop_run := loop
 
 let () = Usage.add_to_usage "coqidetop" "  --help-XML-protocol    print the documentation of the XML protocol used by CoqIDE\n"
+let () = Usage.add_to_usage "coqidetop" "  --XML-echo    print all XML exchanges between Coq and CoqIDE\n"

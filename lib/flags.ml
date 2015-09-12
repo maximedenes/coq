@@ -85,6 +85,7 @@ let coqtop_ui = ref false
 
 let ide_slave = ref false
 let ideslave_coqtop_flags = ref None
+let ideslave_xml_echo = ref false
 
 let time = ref false
 
