@@ -54,6 +54,8 @@ let compare_stack_shape stk1 stk2 =
     | (_, (Zupdate _|Zshift _)::s2) -> compare_rec bal stk1 s2
     | (Zapp l1::s1, _) -> compare_rec (bal+Array.length l1) s1 stk2
     | (_, Zapp l2::s2) -> compare_rec (bal-Array.length l2) stk1 s2
+    | (ZappT (l1,_) :: s1, _) -> compare_rec (bal+Array.length l1) s1 stk2
+    | (_, ZappT (l2,_) :: s2) -> compare_rec (bal-Array.length l2) stk1 s2
     | (Zproj (n1,m1,p1)::s1, Zproj (n2,m2,p2)::s2) ->
         Int.equal bal 0 && compare_rec 0 s1 s2
     | ((Zcase(c1,_,_)|ZcaseT(c1,_,_,_))::s1,
@@ -85,13 +87,15 @@ let pure_stack lfts stk =
             | (Zshift n,(l,pstk)) -> (el_shft n l, pstk)
             | (Zapp a, (l,pstk)) ->
                 (l,zlapp (Array.map (fun t -> (l,t)) a) pstk)
+            | (ZappT (a,e), (l,pstk)) ->
+                (l,zlapp (Array.map (fun t -> (l,mk_clos e t)) a) pstk)
 	    | (Zproj (n,m,c), (l,pstk)) ->
 		(l, Zlproj (c,l)::pstk)
             | (Zfix(fx,a),(l,pstk)) ->
                 let (lfx,pa) = pure_rec l a in
                 (l, Zlfix((lfx,fx),pa)::pstk)
             | (ZcaseT(ci,p,br,e),(l,pstk)) ->
-                (l,Zlcase(ci,l,mk_clos e p,Array.map (mk_clos e) br)::pstk)
+                (l,Zlcase(ci,l,mk_clos e p,CArray.Fun1.map mk_clos e br)::pstk)
             | (Zcase(ci,p,br),(l,pstk)) ->
                 (l,Zlcase(ci,l,p,br)::pstk)) in
   snd (pure_rec lfts stk)
@@ -236,6 +240,7 @@ let rec no_arg_available = function
   | Zupdate _ :: stk -> no_arg_available stk
   | Zshift _ :: stk -> no_arg_available stk
   | Zapp v :: stk -> Int.equal (Array.length v) 0 && no_arg_available stk
+  | ZappT (v,_) :: stk -> Int.equal (Array.length v) 0 && no_arg_available stk
   | Zproj _ :: _ -> true
   | Zcase _ :: _ -> true
   | ZcaseT _ :: _ -> true
@@ -249,6 +254,10 @@ let rec no_nth_arg_available n = function
       let k = Array.length v in
       if n >= k then no_nth_arg_available (n-k) stk
       else false
+  | ZappT (v,_) :: stk ->
+      let k = Array.length v in
+      if n >= k then no_nth_arg_available (n-k) stk
+      else false
   | Zproj _ :: _ -> true
   | Zcase _ :: _ -> true
   | ZcaseT _ :: _ -> true
@@ -256,9 +265,10 @@ let rec no_nth_arg_available n = function
 
 let rec no_case_available = function
   | [] -> true
-  | Zupdate _ :: stk -> no_case_available stk
-  | Zshift _ :: stk -> no_case_available stk
-  | Zapp _ :: stk -> no_case_available stk
+  | Zupdate _ :: stk
+  | Zshift _ :: stk
+  | Zapp _ :: stk
+  | ZappT _ :: stk -> no_case_available stk
   | Zproj (_,_,p) :: _ -> false
   | Zcase _ :: _ -> false
   | ZcaseT _ :: _ -> false
@@ -266,7 +276,7 @@ let rec no_case_available = function
 
 let in_whnf (t,stk) =
   match fterm_of t with
-    | (FLetIn _ | FCase _ | FCaseT _ | FApp _ 
+    | (FLetIn _ | FCase _ | FCaseT _ | FApp _ | FAppT _
 	  | FCLOS _ | FLIFT _ | FCast _) -> false
     | FLambda _ -> no_arg_available stk
     | FConstruct _ -> no_case_available stk
@@ -532,8 +542,10 @@ and eqappr cv_pb l2r infos (lft1,st1) (lft2,st2) cuniv =
         else raise NotConvertible
 
      (* Should not happen because both (hd1,v1) and (hd2,v2) are in whnf *)
-     | ( (FLetIn _, _) | (FCase _,_) | (FCaseT _,_) | (FApp _,_) | (FCLOS _,_) | (FLIFT _,_)
-       | (_, FLetIn _) | (_,FCase _) | (_,FCaseT _) | (_,FApp _) | (_,FCLOS _) | (_,FLIFT _)
+     | ( (FLetIn _, _) | (FCase _,_) | (FCaseT _,_) | (FApp _,_) | (FAppT _, _)
+       | (FCLOS _,_) | (FLIFT _,_)
+       | (_, FLetIn _) | (_,FCase _) | (_,FCaseT _) | (_,FApp _) | (_, FAppT _)
+       | (_,FCLOS _) | (_,FLIFT _)
        | (FLOCKED,_) | (_,FLOCKED) ) -> assert false
 
      (* In all other cases, terms are not convertible *)

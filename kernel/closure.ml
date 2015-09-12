@@ -343,6 +343,7 @@ and fterm =
   | FInd of pinductive
   | FConstruct of pconstructor
   | FApp of fconstr * fconstr array
+  | FAppT of fconstr * constr array * fconstr subs
   | FProj of projection * fconstr
   | FFix of fixpoint * fconstr subs
   | FCoFix of cofixpoint * fconstr subs
@@ -376,6 +377,7 @@ let update v1 no t =
 
 type stack_member =
   | Zapp of fconstr array
+  | ZappT of constr array * fconstr subs
   | Zcase of case_info * fconstr * fconstr array
   | ZcaseT of case_info * constr * constr array * fconstr subs
   | Zproj of int * int * constant
@@ -392,58 +394,16 @@ let append_stack v s =
   | Zapp l :: s -> Zapp (Array.append v l) :: s
   | _ -> Zapp v :: s
 
+let append_stackT e v s =
+  if Int.equal (Array.length v) 0 then s else
+  ZappT(v,e) :: s
+
 (* Collapse the shifts in the stack *)
 let zshift n s =
   match (n,s) with
       (0,_) -> s
     | (_,Zshift(k)::s) -> Zshift(n+k)::s
     | _ -> Zshift(n)::s
-
-let rec stack_args_size = function
-  | Zapp v :: s -> Array.length v + stack_args_size s
-  | Zshift(_)::s -> stack_args_size s
-  | Zupdate(_)::s -> stack_args_size s
-  | _ -> 0
-
-(* When used as an argument stack (only Zapp can appear) *)
-let rec decomp_stack = function
-  | Zapp v :: s ->
-      (match Array.length v with
-          0 -> decomp_stack s
-        | 1 -> Some (v.(0), s)
-        | _ ->
-            Some (v.(0), (Zapp (Array.sub v 1 (Array.length v - 1)) :: s)))
-  | _ -> None
-let array_of_stack s =
-  let rec stackrec = function
-  | [] -> []
-  | Zapp args :: s -> args :: (stackrec s)
-  | _ -> assert false
-  in Array.concat (stackrec s)
-let rec stack_assign s p c = match s with
-  | Zapp args :: s ->
-      let q = Array.length args in
-      if p >= q then
-	Zapp args :: stack_assign s (p-q) c
-      else
-        (let nargs = Array.copy args in
-         nargs.(p) <- c;
-         Zapp nargs :: s)
-  | _ -> s
-let rec stack_tail p s =
-  if Int.equal p 0 then s else
-    match s with
-      | Zapp args :: s ->
-	  let q = Array.length args in
-	  if p >= q then stack_tail (p-q) s
-	  else Zapp (Array.sub args p (q-p)) :: s
-      | _ -> failwith "stack_tail"
-let rec stack_nth s p = match s with
-  | Zapp args :: s ->
-      let q = Array.length args in
-      if p >= q then stack_nth s (p-q)
-      else args.(p)
-  | _ -> raise Not_found
 
 (* Lifting. Preserves sharing (useful only for cell with norm=Red).
    lft_fconstr always create a new cell, while lift_fconstr avoids it
@@ -518,6 +478,11 @@ let mk_clos e t =
         {norm = Red; term = FCLOS(t,e)}
 
 let mk_clos_vect env v = CArray.Fun1.map mk_clos env v
+
+(* Fusing lift and closure creation for better performance (allocates fewer arrays) *)
+let lift_mk_clos_fconstr_vect k e v =
+  if Int.equal k 0 then mk_clos_vect e v
+  else Array.map (fun t -> lft_fconstr k (mk_clos e t)) v
 
 (* Translate the head constructor of t from constr to fconstr. This
    function is parameterized by the function to apply on the direct
@@ -594,6 +559,9 @@ let rec to_constr constr_fun lfts v =
     | FApp (f,ve) ->
 	mkApp (constr_fun lfts f,
 	       CArray.Fun1.map constr_fun lfts ve)
+    | FAppT (f,v,e) ->
+	mkApp (constr_fun lfts f,
+	       Array.map (fun b -> constr_fun lfts (mk_clos e b)) v)
     | FProj (p,c) ->
         mkProj (p,constr_fun lfts c)
 
@@ -646,6 +614,7 @@ let rec zip m stk =
   match stk with
     | [] -> m
     | Zapp args :: s -> zip {norm=neutr m.norm; term=FApp(m, args)} s
+    | ZappT(args,e) :: s -> zip {norm=neutr m.norm; term=FAppT(m, args, e)} s
     | Zcase(ci,p,br)::s ->
         let t = FCase(ci, p, m, br) in
         zip {norm=neutr m.norm; term=t} s
@@ -678,6 +647,9 @@ let strip_update_shift_app_red head stk =
     | (Zapp args :: s) ->
         strip_rec (Zapp args :: rstk)
           {norm=h.norm;term=FApp(h,args)} depth s
+    | (ZappT(args,e) as b :: s) ->
+        strip_rec (b :: rstk)
+          {norm=h.norm;term=FApp(h,mk_clos_vect e args)} depth s
     | Zupdate(m)::s ->
         strip_rec rstk (update m h.norm h.term) depth s
     | stk -> (depth,List.rev rstk, stk) in
@@ -703,6 +675,17 @@ let get_nth_arg head n stk =
           let stk' =
             List.rev (if Int.equal n 0 then rstk else (Zapp bef :: rstk)) in
           (Some (stk', args.(n)), append_stack aft s')
+    | ZappT (args,e) as b ::s' ->
+        let q = Array.length args in
+        if n >= q
+        then
+          strip_rec (b::rstk) {norm=h.norm;term=FApp(h,mk_clos_vect e args)} (n-q) s'
+        else
+          let bef = Array.sub args 0 n in
+          let aft = Array.sub args (n+1) (q-n-1) in
+          let stk' =
+            List.rev (if Int.equal n 0 then rstk else (ZappT (bef,e) :: rstk)) in
+          (Some (stk', mk_clos e args.(n)), append_stackT e aft s')
     | Zupdate(m)::s ->
         strip_rec rstk (update m h.norm h.term) n s
     | s -> (None, List.rev rstk @ s) in
@@ -727,11 +710,21 @@ let rec get_args n tys f e stk =
         else (* more lambdas *)
           let etys = List.skipn na tys in
           get_args (n-na) etys f (subs_cons(l,e)) s
+    | ZappT (l,e') :: s ->
+        let na = Array.length l in
+        if n == na then (Inl (subs_cons(mk_clos_vect e' l,e)),s)
+        else if n < na then (* more arguments *)
+	  let args = Array.init n (fun i -> mk_clos e' l.(i)) in
+          let eargs = Array.sub l n (na-n) in
+          (Inl (subs_cons(args,e)), ZappT (eargs,e') :: s)
+        else (* more lambdas *)
+          let etys = List.skipn na tys in
+          get_args (n-na) etys f (subs_cons(mk_clos_vect e' l,e)) s
     | _ -> (Inr {norm=Cstr;term=FLambda(n,tys,f,e)}, stk)
 
 (* Eta expansion: add a reference to implicit surrounding lambda at end of stack *)
 let rec eta_expand_stack = function
-  | (Zapp _ | Zfix _ | Zcase _ | ZcaseT _ | Zproj _ 
+  | (Zapp _ | ZappT _ | Zfix _ | Zcase _ | ZcaseT _ | Zproj _ 
 	| Zshift _ | Zupdate _ as e) :: s ->
       e :: eta_expand_stack s
   | [] ->
@@ -741,8 +734,10 @@ let rec eta_expand_stack = function
    branches *)
 let rec reloc_rargs_rec depth stk =
   match stk with
-      Zapp args :: s ->
+    | Zapp args :: s ->
         Zapp (lift_fconstr_vect depth args) :: reloc_rargs_rec depth s
+    | ZappT (args,e) :: s ->
+        Zapp (lift_mk_clos_fconstr_vect depth e args) :: reloc_rargs_rec depth s
     | Zshift(k)::s -> if Int.equal k depth then s else reloc_rargs_rec (depth-k) s
     | _ -> stk
 
@@ -751,13 +746,20 @@ let reloc_rargs depth stk =
 
 let rec try_drop_parameters depth n argstk =
   match argstk with
-      Zapp args::s ->
+    | Zapp args::s ->
         let q = Array.length args in
         if n > q then try_drop_parameters depth (n-q) s
         else if Int.equal n q then reloc_rargs depth s
         else
           let aft = Array.sub args n (q-n) in
           reloc_rargs depth (append_stack aft s)
+    | ZappT (args,e)::s ->
+        let q = Array.length args in
+        if n > q then try_drop_parameters depth (n-q) s
+        else if Int.equal n q then reloc_rargs depth s
+        else
+          let aft = Array.sub args n (q-n) in
+          reloc_rargs depth (append_stackT e aft s)
     | Zshift(k)::s -> try_drop_parameters (depth-k) n s
     | [] -> 
 	if Int.equal n 0 then []
@@ -803,6 +805,10 @@ let rec project_nth_arg n argstk =
       let q = Array.length args in
 	if n >= q then project_nth_arg (n - q) s
 	else (* n < q *) args.(n)
+  | ZappT (args,e) :: s -> 
+      let q = Array.length args in
+	if n >= q then project_nth_arg (n - q) s
+	else (* n < q *) mk_clos e args.(n)
   | _ -> assert false
       (* After drop_parameters we have a purely applicative stack *)
 
@@ -842,6 +848,7 @@ let rec knh info m stk =
     | FCLOS(t,e) -> knht info e t (zupdate m stk)
     | FLOCKED -> assert false
     | FApp(a,b) -> knh info a (append_stack b (zupdate m stk))
+    | FAppT(a,t,e) -> knh info a (append_stackT e t (zupdate m stk))
     | FCase(ci,p,t,br) -> knh info t (Zcase(ci,p,br)::zupdate m stk)
     | FCaseT(ci,p,t,br,e) -> knh info t (ZcaseT(ci,p,br,e)::zupdate m stk)
     | FFix(((ri,n),(_,_,_)),_) ->
@@ -869,7 +876,7 @@ let rec knh info m stk =
 and knht info e t stk =
   match kind_of_term t with
     | App(a,b) ->
-        knht info e a (append_stack (mk_clos_vect e b) stk)
+        knht info e a (append_stackT e b stk)
     | Case(ci,p,t,br) ->
         knht info e t (ZcaseT(ci, p, br, e)::stk)
     | Fix _ -> knh info (mk_clos2 e t) stk
@@ -953,6 +960,8 @@ let rec zip_term zfun m stk =
     | [] -> m
     | Zapp args :: s ->
         zip_term zfun (mkApp(m, Array.map zfun args)) s
+    | ZappT (args,e) :: s ->
+        zip_term zfun (mkApp(m, Array.map (fun b -> zfun (mk_clos e b)) args)) s
     | Zcase(ci,p,br)::s ->
         let t = mkCase(ci, zfun p, m, Array.map zfun br) in
         zip_term zfun t s

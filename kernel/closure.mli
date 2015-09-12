@@ -116,6 +116,7 @@ type fterm =
   | FInd of inductive puniverses
   | FConstruct of constructor puniverses
   | FApp of fconstr * fconstr array
+  | FAppT of fconstr * constr array * fconstr subs
   | FProj of projection * fconstr
   | FFix of fixpoint * fconstr subs
   | FCoFix of cofixpoint * fconstr subs
@@ -136,6 +137,7 @@ type fterm =
 
 type stack_member =
   | Zapp of fconstr array
+  | ZappT of constr array * fconstr subs
   | Zcase of case_info * fconstr * fconstr array
   | ZcaseT of case_info * constr * constr array * fconstr subs
   | Zproj of int * int * constant
@@ -148,12 +150,6 @@ and stack = stack_member list
 val empty_stack : stack
 val append_stack : fconstr array -> stack -> stack
 
-val decomp_stack : stack -> (fconstr * stack) option
-val array_of_stack : stack -> fconstr array
-val stack_assign : stack -> int -> fconstr -> stack
-val stack_args_size : stack -> int
-val stack_tail : int -> stack -> stack
-val stack_nth : stack -> int -> fconstr
 val zip_term : (fconstr -> constr) -> constr -> stack -> constr
 val eta_expand_stack : stack -> stack
 
