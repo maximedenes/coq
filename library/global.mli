@@ -31,12 +31,12 @@ val set_engagement : Declarations.engagement -> unit
 (** Variables, Local definitions, constants, inductive types *)
 
 val push_named_assum : (Id.t * Constr.types * bool) Univ.in_universe_context_set -> unit
-val push_named_def   : (Id.t * Entries.definition_entry) -> Univ.universe_context_set
+val push_named_def   : (Id.t * Safe_typing.Entries.definition_entry) -> Univ.universe_context_set
 
 val add_constant :
   DirPath.t -> Id.t -> Safe_typing.global_declaration -> constant
 val add_mind :
-  DirPath.t -> Id.t -> Entries.mutual_inductive_entry -> mutual_inductive
+  DirPath.t -> Id.t -> Safe_typing.Entries.mutual_inductive_entry -> mutual_inductive
 
 (** Extra universe constraints *)
 val add_constraints : Univ.constraints -> unit
@@ -47,12 +47,12 @@ val push_context_set : bool -> Univ.universe_context_set -> unit
 (** Non-interactive modules and module types *)
 
 val add_module :
-  Id.t -> Entries.module_entry -> Declarations.inline ->
+  Id.t -> Safe_typing.Entries.module_entry -> Declarations.inline ->
     module_path * Mod_subst.delta_resolver
 val add_modtype :
-  Id.t -> Entries.module_type_entry -> Declarations.inline -> module_path
+  Id.t -> Safe_typing.Entries.module_type_entry -> Declarations.inline -> module_path
 val add_include :
-  Entries.module_struct_entry -> bool -> Declarations.inline ->
+  Safe_typing.Entries.module_struct_entry -> bool -> Declarations.inline ->
     Mod_subst.delta_resolver
 
 (** Interactive modules and module types *)
@@ -61,13 +61,13 @@ val start_module : Id.t -> module_path
 val start_modtype : Id.t -> module_path
 
 val end_module : Summary.frozen -> Id.t ->
-  (Entries.module_struct_entry * Declarations.inline) option ->
+  (Safe_typing.Entries.module_struct_entry * Declarations.inline) option ->
     module_path * MBId.t list * Mod_subst.delta_resolver
 
 val end_modtype : Summary.frozen -> Id.t -> module_path * MBId.t list
 
 val add_module_parameter :
-  MBId.t -> Entries.module_struct_entry -> Declarations.inline ->
+  MBId.t -> Safe_typing.Entries.module_struct_entry -> Declarations.inline ->
     Mod_subst.delta_resolver
 
 (** {6 Queries in the global environment } *)

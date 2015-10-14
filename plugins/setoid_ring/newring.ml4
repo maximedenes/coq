@@ -28,7 +28,7 @@ open Libobject
 open Printer
 open Declare
 open Decl_kinds
-open Entries
+open Safe_typing.Entries
 open Misctypes
 
 DECLARE PLUGIN "newring_plugin"

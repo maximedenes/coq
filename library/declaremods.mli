@@ -13,7 +13,7 @@ open Vernacexpr
 
 type 'modast module_interpretor =
   Environ.env -> Misctypes.module_kind -> 'modast ->
-    Entries.module_struct_entry * Misctypes.module_kind
+    Safe_typing.Entries.module_struct_entry * Misctypes.module_kind
 
 type 'modast module_params =
   (Id.t Loc.located list * ('modast * inline)) list

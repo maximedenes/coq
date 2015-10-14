@@ -12,14 +12,14 @@ open Environ
 open Declarations
 open Entries
 
-val translate_local_def : env -> Id.t -> definition_entry ->
+val translate_local_def : structure_body -> env -> Id.t -> definition_entry ->
   constant_def * types * constant_universes
 
 val translate_local_assum : env -> types -> types
 
 val mk_pure_proof : constr -> proof_output
 
-val handle_side_effects : env -> constr -> Declareops.side_effects -> constr
+val handle_side_effects : env -> constr -> side_effects -> constr
 (** Returns the term where side effects have been turned into let-ins or beta
     redexes. *)
 
@@ -28,7 +28,9 @@ val handle_entry_side_effects : env -> definition_entry -> definition_entry
     {!Entries.const_entry_body} field. It is meant to get a term out of a not
     yet type checked proof. *)
 
-val translate_constant : env -> constant -> constant_entry -> constant_body
+val uniq_seff : side_effects -> side_effects
+
+val translate_constant : structure_body -> env -> constant -> constant_entry -> constant_body
 
 val translate_mind :
   env -> mutual_inductive -> mutual_inductive_entry -> mutual_inductive_body
@@ -37,7 +39,7 @@ val translate_recipe : env -> constant -> Cooking.recipe -> constant_body
 
 (** Internal functions, mentioned here for debug purpose only *)
 
-val infer_declaration : env -> constant option -> 
+val infer_declaration : trust:structure_body -> env -> constant option -> 
   constant_entry -> Cooking.result
 
 val build_constant_declaration :

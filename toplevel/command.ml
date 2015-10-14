@@ -14,7 +14,7 @@ open Term
 open Vars
 open Context
 open Termops
-open Entries
+open Safe_typing.Entries
 open Environ
 open Redexpr
 open Declare
@@ -169,7 +169,7 @@ let declare_definition ident (local, p, k) ce imps hook =
     gr
   | Discharge | Local | Global ->
     declare_global_definition ident ce local k imps in
-  Lemmas.call_hook (Future.fix_exn_of ce.Entries.const_entry_body) hook local r
+  Lemmas.call_hook (Future.fix_exn_of ce.const_entry_body) hook local r
 
 let _ = Obligations.declare_definition_ref := declare_definition
 
@@ -178,7 +178,7 @@ let do_definition ident k pl bl red_option c ctypopt hook =
     if Flags.is_program_mode () then
       let env = Global.env () in
       let (c,ctx), sideff = Future.force ce.const_entry_body in
-      assert(Declareops.side_effects_is_empty sideff);
+      assert(Safe_typing.empty_private_constants = sideff);
       assert(Univ.ContextSet.is_empty ctx);
       let typ = match ce.const_entry_type with 
 	| Some t -> t
@@ -1129,7 +1129,7 @@ let declare_fixpoint local poly ((fixnames,fixdefs,fixtypes),ctx,fiximps) indexe
       List.map_i (fun i _ -> mkFix ((indexes,i),fixdecls)) 0 fixnames in
     let ctx = Evd.evar_universe_context_set Univ.UContext.empty ctx in
     let ctx = Universes.restrict_universe_context ctx vars in
-    let fixdecls = List.map Term_typing.mk_pure_proof fixdecls in
+    let fixdecls = List.map Safe_typing.mk_pure_proof fixdecls in
     let ctx = Univ.ContextSet.to_context ctx in
     ignore (List.map4 (declare_fix (local, poly, Fixpoint) ctx)
 	      fixnames fixdecls fixtypes fiximps);
@@ -1158,7 +1158,7 @@ let declare_cofixpoint local poly ((fixnames,fixdefs,fixtypes),ctx,fiximps) ntns
     let fixdefs = List.map Option.get fixdefs in
     let fixdecls = prepare_recursive_declaration fixnames fixtypes fixdefs in
     let fixdecls = List.map_i (fun i _ -> mkCoFix (i,fixdecls)) 0 fixnames in
-    let fixdecls = List.map Term_typing.mk_pure_proof fixdecls in
+    let fixdecls = List.map Safe_typing.mk_pure_proof fixdecls in
     let fiximps = List.map (fun (len,imps,idx) -> imps) fiximps in
     let ctx = Evd.evar_universe_context_set Univ.UContext.empty ctx in
     let ctx = Univ.ContextSet.to_context ctx in

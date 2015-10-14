@@ -8,7 +8,7 @@
 
 open Context
 open Declarations
-open Entries
+open Safe_typing.Entries
 open Opaqueproof
 
 val process_inductive :

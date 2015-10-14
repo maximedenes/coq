@@ -7,7 +7,7 @@ open Context
 open Namegen
 open Names
 open Pp
-open Entries
+open Safe_typing.Entries
 open Tactics
 open Indfun_common
 open Functional_principles_proofs
@@ -334,7 +334,7 @@ let generate_functional_principle (evd: Evd.evar_map ref)
 	ignore(
 	  Declare.declare_constant
 	    name
-	    (Entries.DefinitionEntry ce,
+	    (DefinitionEntry ce,
 	     Decl_kinds.IsDefinition (Decl_kinds.Scheme))
 	);
 	Declare.definition_message name;
@@ -447,7 +447,7 @@ let get_funs_constant mp dp =
 exception No_graph_found
 exception Found_type of int
 
-let make_scheme evd (fas : (pconstant*glob_sort) list) : Entries.definition_entry list =
+let make_scheme evd (fas : (pconstant*glob_sort) list) : definition_entry list =
   let env = Global.env () in
   let funs = List.map fst fas in
   let first_fun = List.hd funs in
@@ -541,7 +541,7 @@ let make_scheme evd (fas : (pconstant*glob_sort) list) : Entries.definition_entr
       let sorts = Array.of_list sorts in
       List.map (compute_new_princ_type_from_rel funs sorts) other_princ_types
     in
-    let first_princ_body,first_princ_type = const.Entries.const_entry_body, const.Entries.const_entry_type in
+    let first_princ_body,first_princ_type = const.const_entry_body, const.const_entry_type in
     let ctxt,fix = decompose_lam_assum (fst(fst(Future.force first_princ_body))) in (* the principle has for forall ...., fix .*)
     let (idxs,_),(_,ta,_ as decl) = destFix fix in
     let other_result =
@@ -585,9 +585,9 @@ let make_scheme evd (fas : (pconstant*glob_sort) list) : Entries.definition_entr
 	     Termops.it_mkLambda_or_LetIn (mkFix((idxs,i),decl)) ctxt
 	   in
 	   {const with
-	      Entries.const_entry_body = 
-                (Future.from_val (Term_typing.mk_pure_proof princ_body));
-	      Entries.const_entry_type = Some scheme_type
+	      const_entry_body = 
+                (Future.from_val (Safe_typing.mk_pure_proof princ_body));
+	      const_entry_type = Some scheme_type
 	   }
       )
       other_fun_princ_types
@@ -622,7 +622,7 @@ let build_scheme fas =
        ignore
 	 (Declare.declare_constant
 	    princ_id
-	    (Entries.DefinitionEntry def_entry,Decl_kinds.IsProof Decl_kinds.Theorem));
+	    (DefinitionEntry def_entry,Decl_kinds.IsProof Decl_kinds.Theorem));
        Declare.definition_message princ_id
     )
     fas

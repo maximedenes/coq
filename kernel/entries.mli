@@ -9,6 +9,8 @@
 open Names
 open Term
 
+module type E = sig
+
 (** This module defines the entry types for global declarations. This
    information is entered in the environments. This includes global
    constants/axioms, mutual inductive definitions, modules and module
@@ -54,7 +56,8 @@ type mutual_inductive_entry = {
   mind_entry_private : bool option }
 
 (** {6 Constants (Definition/Axiom) } *)
-type proof_output = constr Univ.in_universe_context_set * Declareops.side_effects
+type effects
+type proof_output = constr Univ.in_universe_context_set * effects
 type const_entry_body = proof_output Future.computation
 
 type definition_entry = {
@@ -96,3 +99,20 @@ type module_entry =
   | MType of module_params_entry * module_struct_entry
   | MExpr of
       module_params_entry * module_struct_entry * module_struct_entry option
+
+end
+
+type seff_env = [ `Nothing | `Opaque of Constr.t * Univ.universe_context_set ]
+
+type side_eff =
+  | SEsubproof of constant * Declarations.constant_body * seff_env
+  | SEscheme of (inductive * constant * Declarations.constant_body * seff_env) list * string
+
+type side_effect = {
+  from_env : Declarations.structure_body Ephemeron.key;
+  eff      : side_eff;
+}
+
+type side_effects = side_effect list
+
+include E with type effects = side_effects

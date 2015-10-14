@@ -11,7 +11,7 @@ open Errors
 open Util
 open Names
 open Declarations
-open Entries
+open Safe_typing.Entries
 open Libnames
 open Libobject
 open Mod_subst

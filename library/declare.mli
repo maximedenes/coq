@@ -9,7 +9,7 @@
 open Names
 open Libnames
 open Term
-open Entries
+open Safe_typing.Entries
 open Decl_kinds
 
 (** This module provides the official functions to declare new variables,
@@ -49,8 +49,8 @@ type internal_flag =
 
 (* Defaut definition entries, transparent with no secctx or proj information *)
 val definition_entry : ?opaque:bool -> ?inline:bool -> ?types:types -> 
-  ?poly:polymorphic -> ?univs:Univ.universe_context -> ?eff:Declareops.side_effects ->
-  constr -> definition_entry
+  ?poly:polymorphic -> ?univs:Univ.universe_context ->
+  ?eff:Safe_typing.private_constants -> constr -> definition_entry
 
 val declare_constant :
  ?internal:internal_flag -> ?local:bool -> Id.t -> ?export_seff:bool -> constant_declaration -> constant
@@ -60,7 +60,7 @@ val declare_definition :
   ?local:bool -> ?poly:polymorphic -> Id.t -> ?types:constr -> 
   constr Univ.in_universe_context_set -> constant
 
-(** Since transparent constant's side effects are globally declared, we
+(** Since transparent constants' side effects are globally declared, we
  *  need that *)
 val set_declare_scheme :
   (string -> (inductive * constant) array -> unit) -> unit

@@ -4446,16 +4446,16 @@ let abstract_subproof id gk tac =
     let (_, info) = Errors.push src in
     iraise (e, info)
   in
-  let cd = Entries.DefinitionEntry const in
+  let cd = Safe_typing.Entries.DefinitionEntry const in
   let decl = (cd, IsProof Lemma) in
   (** ppedrot: seems legit to have abstracted subproofs as local*)
   let cst = Declare.declare_constant ~internal:Declare.InternalTacticRequest ~local:true id decl in
   (* let evd, lem = Evd.fresh_global (Global.env ()) evd (ConstRef cst) in *)
   let lem, ctx = Universes.unsafe_constr_of_global (ConstRef cst) in
   let evd = Evd.set_universe_context evd ectx in
-  let open Declareops in
-  let eff = Safe_typing.sideff_of_con (Global.safe_env ()) cst in
-  let effs = cons_side_effects eff
+  let open Safe_typing in
+  let eff = private_con_of_con (Global.safe_env ()) cst in
+  let effs = add_private eff
     Entries.(snd (Future.force const.const_entry_body)) in
   let args = List.rev (instance_from_named_context sign) in
   let solve =

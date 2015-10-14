@@ -17,7 +17,7 @@ open Globnames
 open Nameops
 open Term
 open Declarations
-open Entries
+open Safe_typing.Entries
 open Libobject
 open Lib
 open Impargs
@@ -186,7 +186,7 @@ let declare_constant_common id cst =
   c
 
 let definition_entry ?(opaque=false) ?(inline=false) ?types 
-    ?(poly=false) ?(univs=Univ.UContext.empty) ?(eff=Declareops.no_seff) body =
+    ?(poly=false) ?(univs=Univ.UContext.empty) ?(eff=Safe_typing.empty_private_constants) body =
   { const_entry_body = Future.from_val ((body,Univ.ContextSet.empty), eff);
     const_entry_secctx = None;
     const_entry_type = types;
@@ -198,7 +198,7 @@ let definition_entry ?(opaque=false) ?(inline=false) ?types
 
 let declare_scheme = ref (fun _ _ -> assert false)
 let set_declare_scheme f = declare_scheme := f
-let declare_sideff env fix_exn se =
+let declare_sideff env fix_exn { eff = se } =
   let cbl, scheme = match se with
     | SEsubproof (c, cb, pt) -> [c, cb, pt], None
     | SEscheme (cbl, k) ->
@@ -225,7 +225,7 @@ let declare_sideff env fix_exn se =
     let pt = (subst (fst pt), snd pt) in
     let ty = Option.map subst (ty_of cb) in
     { cst_decl = ConstantEntry (DefinitionEntry {
-        const_entry_body = Future.from_here ~fix_exn (pt, Declareops.no_seff);
+        const_entry_body = Future.from_here ~fix_exn (pt, Safe_typing.empty_private_constants);
         const_entry_secctx = Some cb.Declarations.const_hyps;
         const_entry_type = ty;
         const_entry_opaque = opaque;
@@ -257,20 +257,23 @@ let declare_sideff env fix_exn se =
 let declare_constant ?(internal = UserIndividualRequest) ?(local = false) id ?(export_seff=false) (cd, kind) =
   let cd = (* We deal with side effects *)
     match cd with
-    | Entries.DefinitionEntry de ->
+    | DefinitionEntry de ->
         if export_seff ||
            not de.const_entry_opaque ||
            de.const_entry_polymorphic then
           let bo = de.const_entry_body in
           let _, seff = Future.force bo in
-          if Declareops.side_effects_is_empty seff then cd
+          if Safe_typing.empty_private_constants = seff then cd
           else begin
-            let seff = Declareops.uniquize_side_effects seff in
-            Declareops.iter_side_effects
-              (declare_sideff (Global.env ()) (Future.fix_exn_of bo)) seff;
-            Entries.DefinitionEntry { de with
+            (* TODO: we could trust the private_constants also when
+             * we export them, and not only when we inline them *)
+            let seff = Safe_typing.side_effects_of_private_constants seff in
+            List.iter
+              (declare_sideff (Global.env ()) (Future.fix_exn_of bo))
+              seff;
+            DefinitionEntry { de with
               const_entry_body = Future.chain ~pure:true bo (fun (pt, _) ->
-                pt, Declareops.no_seff) }
+                pt, Safe_typing.empty_private_constants) }
         end
         else cd
     | _ -> cd

@@ -43,10 +43,25 @@ let map_option_typ = function None -> `None | Some x -> `Some x
 
 (* Insertion of constants and parameters in environment. *)
 
-let mk_pure_proof c = (c, Univ.ContextSet.empty), Declareops.no_seff
+let mk_pure_proof c = (c, Univ.ContextSet.empty), []
+
+let equal_eff e1 e2 =
+  let open Entries in
+  match e1, e2 with
+  | { eff = SEsubproof (c1,_,_) }, { eff = SEsubproof (c2,_,_) } ->
+        Names.Constant.equal c1 c2
+  | { eff = SEscheme (cl1,_) }, { eff = SEscheme (cl2,_) } ->
+        CList.for_all2eq
+          (fun (_,c1,_,_) (_,c2,_,_) -> Names.Constant.equal c1 c2)
+          cl1 cl2
+  | _ -> false
+
+let rec uniq_seff = function
+  | [] -> []
+  | x :: xs -> x :: uniq_seff (List.filter (fun y -> not (equal_eff x y)) xs)
 
 let handle_side_effects env body ctx side_eff =
-  let handle_sideff (t,ctx) se =
+  let handle_sideff (t,ctx,sl) { eff = se; from_env = mb } =
     let cbl = match se with
       | SEsubproof (c,cb,b) -> [c,cb,b]
       | SEscheme (cl,_) -> List.map (fun (_,c,cb,b) -> c,cb,b) cl in
@@ -65,7 +80,7 @@ let handle_side_effects env body ctx side_eff =
     let rec sub_body c u b i x = match kind_of_term x with
       | Const (c',u') when eq_constant c c' -> 
 	Vars.subst_instance_constr u' b
-      | _ -> map_constr_with_binders ((+) 1) (fun i x -> sub_body c u b i x) i x in
+      | _ -> map_constr_with_binders ((+) 1) (sub_body c u b) i x in
     let fix_body (c,cb,b) (t,ctx) =
       match cb.const_body, b with
       | Def b, _ ->
@@ -87,17 +102,60 @@ let handle_side_effects env body ctx side_eff =
               let t = sub c 1 (Vars.lift 1 t) in
 	        mkApp (mkLambda (cname c, b_ty, t), [|b|]),
 		Univ.ContextSet.union ctx
-		  (Univ.ContextSet.of_context cb.const_universes)		
+		  (Univ.ContextSet.of_context cb.const_universes)
 	    else
 	      let univs = cb.const_universes in
 		sub_body c (Univ.UContext.instance univs) b 1 (Vars.lift 1 t), ctx
       | _ -> assert false
     in
-      List.fold_right fix_body cbl (t,ctx)
+    let t, ctx = List.fold_right fix_body cbl (t,ctx) in
+    t, ctx, (mb,List.length cbl) :: sl
   in
   (* CAVEAT: we assure a proper order *)
-  Declareops.fold_side_effects handle_sideff (body,ctx)
-    (Declareops.uniquize_side_effects side_eff)
+  List.fold_left handle_sideff (body,ctx,[]) (uniq_seff side_eff)
+
+let check_signatures curmb sl =
+  let is_direct_ancestor (sl, curmb) (mb, how_many) =
+    match curmb with
+    | None -> None, None
+    | Some curmb ->
+        try
+          let mb = Ephemeron.get mb in
+          match sl with
+          | None -> sl, None
+          | Some n ->
+              if List.length mb >= how_many && CList.skipn how_many mb == curmb
+              then Some (n + how_many), Some mb
+              else None, None
+        with Ephemeron.InvalidKey -> None, None in
+  let sl, _ = List.fold_left is_direct_ancestor (Some 0,Some curmb) sl in
+  sl
+
+let trust_seff sl b e =
+  let rec aux sl b e acc =
+    match sl, kind_of_term b with
+    | (None|Some 0), _ -> b, e, acc
+    | Some sl, LetIn (n,c,ty,bo) ->
+       aux (Some (sl-1)) bo
+         (Environ.push_rel (n,Some c,ty) e) (`Let(n,c,ty)::acc)
+    | Some sl, App(hd,arg) ->
+       begin match kind_of_term hd with
+       | Lambda (n,ty,bo) ->
+           aux (Some (sl-1)) bo
+             (Environ.push_rel (n,None,ty) e) (`Cut(n,ty,arg)::acc)
+       | _ -> assert false
+       end
+    | _ -> assert false
+    in
+  aux sl b e []
+
+let rec unzip ctx j =
+  match ctx with
+  | [] -> j
+  | `Let (n,c,ty) :: ctx ->
+      unzip ctx { j with uj_val = mkLetIn (n,c,ty,j.uj_val) }
+  | `Cut (n,ty,arg) :: ctx ->
+      unzip ctx { j with uj_val = mkApp (mkLambda (n,ty,j.uj_val),arg) }
 
 let hcons_j j =
   { uj_val = hcons_constr j.uj_val; uj_type = hcons_constr j.uj_type} 
@@ -105,7 +163,7 @@ let hcons_j j =
 let feedback_completion_typecheck =
   Option.iter (fun state_id -> Pp.feedback ~state_id Feedback.Complete)
 	      
-let infer_declaration env kn dcl =
+let infer_declaration ~trust env kn dcl =
   match dcl with
   | ParameterEntry (ctx,poly,(t,uctx),nl) ->
       let env = push_context ~strict:(not poly) uctx env in
@@ -124,9 +182,14 @@ let infer_declaration env kn dcl =
       let tyj = infer_type env typ in
       let proofterm =
         Future.chain ~greedy:true ~pure:true body (fun ((body, ctx),side_eff) ->
-          let body,ctx = handle_side_effects env body ctx side_eff in
+          let body, ctx, signatures =
+            handle_side_effects env body ctx side_eff in
+          let trusted_signatures = check_signatures trust signatures in
 	  let env' = push_context_set ctx env in
-          let j = infer env' body in
+          let j =
+            let body, env', zip_ctx = trust_seff trusted_signatures body env' in
+            let j = infer env' body in
+            unzip zip_ctx j in
           let j = hcons_j j in
 	  let subst = Univ.LMap.empty in
           let _typ = constrain_type env' j c.const_entry_polymorphic subst
@@ -143,7 +206,7 @@ let infer_declaration env kn dcl =
       let { const_entry_body = body; const_entry_feedback = feedback_id } = c in
       let (body, ctx), side_eff = Future.join body in
       let univsctx = Univ.ContextSet.of_context c.const_entry_universes in
-      let body, ctx = handle_side_effects env body
+      let body, ctx, _ = handle_side_effects env body
         (Univ.ContextSet.union univsctx ctx) side_eff in
       let env = push_context_set ~strict:(not c.const_entry_polymorphic) ctx env in
       let abstract = c.const_entry_polymorphic && not (Option.is_empty kn) in
@@ -297,8 +360,9 @@ let build_constant_declaration kn env (def,typ,proj,poly,univs,inline_code,ctx) 
 
 (*s Global and local constant declaration. *)
 
-let translate_constant env kn ce =
-  build_constant_declaration kn env (infer_declaration env (Some kn) ce)
+let translate_constant mb env kn ce =
+  build_constant_declaration kn env
+    (infer_declaration ~trust:mb env (Some kn) ce)
 
 let translate_local_assum env t =
   let j = infer env t in
@@ -308,9 +372,9 @@ let translate_local_assum env t =
 let translate_recipe env kn r =
   build_constant_declaration kn env (Cooking.cook_constant env r)
 
-let translate_local_def env id centry =
+let translate_local_def mb env id centry =
   let def,typ,proj,poly,univs,inline_code,ctx =
-    infer_declaration env None (DefinitionEntry centry) in
+    infer_declaration ~trust:mb env None (DefinitionEntry centry) in
   let typ = type_of_constant_type env typ in
   if ctx = None && !Flags.compilation_mode = Flags.BuildVo then begin
     match def with
@@ -335,9 +399,9 @@ let translate_mind env kn mie = Indtypes.check_inductive env kn mie
 let handle_entry_side_effects env ce = { ce with
   const_entry_body = Future.chain ~greedy:true ~pure:true
     ce.const_entry_body (fun ((body, ctx), side_eff) ->
-			 let body, ctx' = handle_side_effects env body ctx side_eff in
-			 (body, ctx'), Declareops.no_seff);
+      let body, ctx',_ = handle_side_effects env body ctx side_eff in
+      (body, ctx'), []);
 }
 
 let handle_side_effects env body side_eff =
-  fst (handle_side_effects env body Univ.ContextSet.empty side_eff)
+  pi1 (handle_side_effects env body Univ.ContextSet.empty side_eff)

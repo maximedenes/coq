@@ -17,7 +17,7 @@ open Names
 open Term
 open Declarations
 open Declareops
-open Entries
+open Safe_typing.Entries
 open Environ
 open Nameops
 open Globnames
@@ -70,11 +70,13 @@ let adjust_guardness_conditions const = function
                   try ignore(Environ.lookup_constant c e); true
                   with Not_found -> false in 
                 if exists c e then e else Environ.add_constant c cb e in
-              let env = Declareops.fold_side_effects (fun env -> function
+              let env = List.fold_left (fun env { eff } ->
+                (* FIXME: trust? *)
+                match eff with
                 | SEsubproof (c, cb,_) -> add c cb env
                 | SEscheme (l,_) ->
                     List.fold_left (fun e (_,c,cb,_) -> add c cb e) env l)
-                env (Declareops.uniquize_side_effects eff) in
+                env (Safe_typing.side_effects_of_private_constants eff) in
               let indexes =
 	        search_guard Loc.ghost env
                   possible_indexes fixdecls in
@@ -186,7 +188,7 @@ let look_for_possibly_mutual_statements = function
 (* Saving a goal *)
 
 let save ?export_seff id const cstrs do_guard (locality,poly,kind) hook =
-  let fix_exn = Future.fix_exn_of const.Entries.const_entry_body in
+  let fix_exn = Future.fix_exn_of const.Safe_typing.Entries.const_entry_body in
   try
     let const = adjust_guardness_conditions const do_guard in
     let k = Kindops.logical_kind_of_goal_kind kind in

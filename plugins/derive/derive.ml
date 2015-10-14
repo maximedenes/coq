@@ -6,6 +6,8 @@
 (*         *       GNU Lesser General Public License Version 2.1        *)
 (************************************************************************)
 
+module Entries = Safe_typing.Entries
+
 let map_const_entry_body (f:Term.constr->Term.constr) (x:Entries.const_entry_body)
     : Entries.const_entry_body =
   Future.chain ~pure:true x begin fun ((b,ctx),fx) ->
@@ -81,7 +83,7 @@ let start_deriving f suchthat lemma =
       let lemma_body =
         map_const_entry_body substf Entries.(lemma_def.const_entry_body)
       in
-      let lemma_def = let open Entries in { lemma_def with
+      let lemma_def = let open Safe_typing.Entries in { lemma_def with
         const_entry_body = lemma_body ;
         const_entry_type = Some lemma_type ;
         const_entry_opaque = opaque ; }

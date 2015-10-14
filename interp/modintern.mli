@@ -7,7 +7,7 @@
 (************************************************************************)
 
 open Environ
-open Entries
+open Safe_typing.Entries
 open Constrexpr
 open Misctypes
 

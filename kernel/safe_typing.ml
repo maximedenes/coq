@@ -207,15 +207,149 @@ let get_opaque_body env cbo =
         (Opaqueproof.force_proof (Environ.opaque_tables env) opaque,
          Opaqueproof.force_constraints (Environ.opaque_tables env) opaque)
 
-let sideff_of_con env c =
+type private_con = Entries.side_effect
+
+type private_constants = private_con list
+
+module type SafeEntries = sig
+  include Entries.E with type effects = private_constants
+
+  type seff_env =
+    [ `Nothing | `Opaque of Constr.t * Univ.universe_context_set ]
+
+  type side_eff =
+    | SEsubproof of constant * Declarations.constant_body * seff_env
+    | SEscheme of (inductive * constant * Declarations.constant_body * seff_env) list * string
+
+  type side_effect = {
+    from_env : Declarations.structure_body Ephemeron.key;
+    eff      : side_eff;
+  }
+
+  type side_effects = side_effect list
+end
+
+module Entries : SafeEntries
+  with type effects = private_constants
+  with type local_entry = Entries.local_entry
+  with type one_inductive_entry = Entries.one_inductive_entry
+  with type mutual_inductive_entry = Entries.mutual_inductive_entry
+  with type proof_output = Entries.proof_output
+  with type const_entry_body = Entries.const_entry_body
+  with type definition_entry = Entries.definition_entry
+  with type inline = Entries.inline
+  with type parameter_entry = Entries.parameter_entry 
+  with type projection_entry = Entries.projection_entry
+  with type constant_entry = Entries.constant_entry
+  with type module_struct_entry = Entries.module_struct_entry
+  with type module_params_entry = Entries.module_params_entry
+  with type module_type_entry = Entries.module_type_entry
+  with type module_entry = Entries.module_entry
+  with type side_eff = Entries.side_eff
+  with type side_effect = Entries.side_effect
+=
+struct
+  open Names
+  open Term
+  type local_entry = Entries.local_entry =
+    | LocalDef of constr
+    | LocalAssum of constr
+  type one_inductive_entry = Entries.one_inductive_entry = {
+    mind_entry_typename : Id.t;
+    mind_entry_arity : constr;
+    mind_entry_template : bool;
+    mind_entry_consnames : Id.t list;
+    mind_entry_lc : constr list }
+  type mutual_inductive_entry = Entries.mutual_inductive_entry = {
+    mind_entry_record : (Id.t option) option; 
+    mind_entry_finite : Decl_kinds.recursivity_kind;
+    mind_entry_params : (Id.t * local_entry) list;
+    mind_entry_inds : one_inductive_entry list;
+    mind_entry_polymorphic : bool; 
+    mind_entry_universes : Univ.universe_context;
+    mind_entry_private : bool option }
+  type effects = private_constants
+  type proof_output = constr Univ.in_universe_context_set * effects
+  type const_entry_body = proof_output Future.computation
+  type definition_entry = Entries.definition_entry = {
+    const_entry_body   : const_entry_body;
+    const_entry_secctx : Context.section_context option;
+    const_entry_feedback : Stateid.t option;
+    const_entry_type        : types option;
+    const_entry_polymorphic : bool;
+    const_entry_universes   : Univ.universe_context;
+    const_entry_opaque      : bool;
+    const_entry_inline_code : bool }
+  type inline = int option
+  type parameter_entry = 
+    Context.section_context option * bool *
+    types Univ.in_universe_context * inline 
+  type projection_entry = Entries.projection_entry = {
+    proj_entry_ind : mutual_inductive;
+    proj_entry_arg : int }
+  type constant_entry = Entries.constant_entry =
+    | DefinitionEntry of definition_entry
+    | ParameterEntry of parameter_entry
+    | ProjectionEntry of projection_entry
+  type module_struct_entry = Declarations.module_alg_expr
+  type module_params_entry =
+    (MBId.t * module_struct_entry) list
+  type module_type_entry = module_params_entry * module_struct_entry
+  type module_entry = Entries.module_entry =
+    | MType of module_params_entry * module_struct_entry
+    | MExpr of
+        module_params_entry * module_struct_entry * module_struct_entry option
+  type seff_env =
+     [ `Nothing | `Opaque of Constr.t * Univ.universe_context_set ]
+
+  type side_eff = Entries.side_eff =
+    | SEsubproof of constant * Declarations.constant_body * seff_env
+    | SEscheme of (inductive * constant * Declarations.constant_body * seff_env) list * string
+
+  type side_effect = Entries.side_effect = {
+    from_env : Declarations.structure_body Ephemeron.key;
+    eff      : side_eff;
+  }
+  
+  type side_effects = side_effect list
+
+end
+
+let empty_private_constants = []
+let add_private x xs = x :: xs
+let concat_private xs ys = xs @ ys
+let mk_pure_proof = Term_typing.mk_pure_proof
+let inline_private_constants_in_constr = Term_typing.handle_side_effects
+let inline_private_constants_in_definition_entry = Term_typing.handle_entry_side_effects
+let side_effects_of_private_constants x = Term_typing.uniq_seff (List.rev x)
+
+let private_con_of_con env c =
   let cbo = Environ.lookup_constant c env.env in
-  SEsubproof (c, cbo, get_opaque_body env.env cbo)
-let sideff_of_scheme kind env cl =
-  SEscheme(
-    List.map (fun (i,c) ->
-      let cbo = Environ.lookup_constant c env.env in
-      i, c, cbo, get_opaque_body env.env cbo) cl,
-    kind)
+  { Entries.from_env = Ephemeron.create env.revstruct;
+    Entries.eff      = Entries.SEsubproof (c,cbo,get_opaque_body env.env cbo) }
+
+let private_con_of_scheme ~kind env cl =
+  { Entries.from_env = Ephemeron.create env.revstruct;
+    Entries.eff      = Entries.SEscheme(
+      List.map (fun (i,c) ->
+        let cbo = Environ.lookup_constant c env.env in
+        i, c, cbo, get_opaque_body env.env cbo) cl,
+      kind) }
+
+let universes_of_private eff =
+  let open Declarations in
+  List.fold_left (fun acc { Entries.eff } ->
+     match eff with
+     | Entries.SEscheme (l,s) ->
+        List.fold_left (fun acc (_,_,cb,c) ->
+          let acc = match c with
+            | `Nothing -> acc
+            | `Opaque (_, ctx) -> ctx :: acc in
+          if cb.const_polymorphic then acc
+          else (Univ.ContextSet.of_context cb.const_universes) :: acc)
+        acc l
+     | Entries.SEsubproof _ -> acc)
+   [] eff
 
 let env_of_safe_env senv = senv.env
 let env_of_senv = env_of_safe_env
@@ -337,7 +471,7 @@ let safe_push_named (id,_,_ as d) env =
 
 
 let push_named_def (id,de) senv =
-  let c,typ,univs = Term_typing.translate_local_def senv.env id de in
+  let c,typ,univs = Term_typing.translate_local_def senv.revstruct senv.env id de in
   let poly = de.Entries.const_entry_polymorphic in
   let univs = Univ.ContextSet.of_context univs in
   let c, univs = match c with
@@ -448,7 +582,7 @@ type global_declaration =
 let add_constant dir l decl senv =
   let kn = make_con senv.modpath dir l in
   let cb = match decl with
-    | ConstantEntry ce -> Term_typing.translate_constant senv.env kn ce
+    | ConstantEntry ce -> Term_typing.translate_constant senv.revstruct senv.env kn ce
     | GlobalRecipe r ->
       let cb = Term_typing.translate_recipe senv.env kn r in
       if DirPath.is_empty dir then Declareops.hcons_const_body cb else cb

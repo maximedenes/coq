@@ -39,10 +39,46 @@ type 'a safe_transformer = safe_environment -> 'a * safe_environment
 
 (** {6 Stm machinery } *)
 
-val sideff_of_con : safe_environment -> constant -> Declarations.side_effect
-val sideff_of_scheme :
-  string -> safe_environment -> (inductive * constant) list ->
-    Declarations.side_effect
+type private_con
+type private_constants
+
+module type SafeEntries = sig
+  include Entries.E with type effects = private_constants
+
+  type seff_env = [ `Nothing | `Opaque of Constr.t * Univ.universe_context_set ]
+
+  type side_eff =
+    | SEsubproof of constant * Declarations.constant_body * seff_env
+    | SEscheme of (inductive * constant * Declarations.constant_body * seff_env) list * string
+
+  type side_effect = {
+    from_env : Declarations.structure_body Ephemeron.key;
+    eff      : side_eff;
+  }
+
+  type side_effects = side_effect list
+
+end
+
+module Entries : SafeEntries
+
+val side_effects_of_private_constants :
+  private_constants -> Entries.side_effects
+
+val empty_private_constants : private_constants
+val add_private : private_con -> private_constants -> private_constants
+val concat_private : private_constants -> private_constants -> private_constants
+
+val private_con_of_con : safe_environment -> constant -> private_con
+val private_con_of_scheme : kind:string -> safe_environment -> (inductive * constant) list -> private_con
+
+val mk_pure_proof : Constr.constr -> Entries.proof_output
+val inline_private_constants_in_constr :
+  Environ.env -> Constr.constr -> private_constants -> Constr.constr
+val inline_private_constants_in_definition_entry :
+  Environ.env -> Entries.definition_entry -> Entries.definition_entry
+
+val universes_of_private : private_constants -> Univ.universe_context_set list
 
 val is_curmod_library : safe_environment -> bool
 

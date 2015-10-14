@@ -1811,7 +1811,7 @@ let declare_projection n instance_id r =
       ~univs:(Evd.universe_context sigma) term
   in
     ignore(Declare.declare_constant n 
-	   (Entries.DefinitionEntry cst, Decl_kinds.IsDefinition Decl_kinds.Definition))
+	   (Safe_typing.Entries.DefinitionEntry cst, Decl_kinds.IsDefinition Decl_kinds.Definition))
 
 let build_morphism_signature m =
   let env = Global.env () in
@@ -1882,7 +1882,7 @@ let add_morphism_infer glob m n =
   let evd = Evd.from_env (Global.env ()) in
     if Lib.is_modtype () then
       let cst = Declare.declare_constant ~internal:Declare.InternalTacticRequest instance_id
-				(Entries.ParameterEntry 
+				(Safe_typing.Entries.ParameterEntry 
 				 (None,poly,(instance,Univ.UContext.empty),None), 
 				 Decl_kinds.IsAssumption Decl_kinds.Logical)
       in

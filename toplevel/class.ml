@@ -13,7 +13,7 @@ open Names
 open Term
 open Vars
 open Termops
-open Entries
+open Safe_typing.Entries
 open Environ
 open Classops
 open Declare

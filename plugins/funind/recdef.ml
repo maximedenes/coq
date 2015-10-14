@@ -10,7 +10,7 @@ open Term
 open Vars
 open Namegen
 open Environ
-open Entries
+open Safe_typing.Entries
 open Pp
 open Names
 open Libnames

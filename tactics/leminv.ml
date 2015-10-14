@@ -18,7 +18,7 @@ open Context
 open Evd
 open Printer
 open Reductionops
-open Entries
+open Safe_typing.Entries
 open Inductiveops
 open Environ
 open Tacmach.New

@@ -67,14 +67,14 @@ type proof_universes = Evd.evar_universe_context
 
 type proof_object = {
   id : Names.Id.t;
-  entries : Entries.definition_entry list;
+  entries : Safe_typing.Entries.definition_entry list;
   persistence : Decl_kinds.goal_kind;
   universes: proof_universes;
   (* constraints : Univ.constraints; *)
 }
 
 type proof_ending =
-  | Admitted of Names.Id.t * Decl_kinds.goal_kind * Entries.parameter_entry * proof_universes
+  | Admitted of Names.Id.t * Decl_kinds.goal_kind * Safe_typing.Entries.parameter_entry * proof_universes
   | Proved of Vernacexpr.opacity_flag *
              (Vernacexpr.lident * Decl_kinds.theorem_kind option) option *
               proof_object
@@ -316,7 +316,8 @@ let close_proof ~keep_body_ucst_separate ?feedback_id ~now fpl =
         let body = c and typ = nf t in
         let used_univs_body = Universes.universes_of_constr body in
         let used_univs_typ = Universes.universes_of_constr typ in
-        if keep_body_ucst_separate || not (Declareops.side_effects_is_empty eff) then
+        if keep_body_ucst_separate ||
+           not (Safe_typing.empty_private_constants = eff) then
           let initunivs = Evd.evar_context_universe_context initial_euctx in
           let ctx = Evd.evar_universe_context_set initunivs universes in
           (* For vi2vo compilation proofs are computed now but we need to
@@ -347,7 +348,7 @@ let close_proof ~keep_body_ucst_separate ?feedback_id ~now fpl =
     Future.map2 (fun p (_, t) ->
       let univstyp, body = make_body t p in
       let univs, typ = Future.force univstyp in
-	{ Entries.
+	{ Safe_typing.Entries.
 	  const_entry_body = body;
 	  const_entry_secctx = section_vars;
 	  const_entry_feedback = feedback_id;
@@ -360,7 +361,7 @@ let close_proof ~keep_body_ucst_separate ?feedback_id ~now fpl =
   { id = pid; entries = entries; persistence = strength; universes = universes },
   fun pr_ending -> Ephemeron.get terminator pr_ending
 
-type closed_proof_output = (Term.constr * Declareops.side_effects) list * Evd.evar_universe_context
+type closed_proof_output = (Term.constr * Safe_typing.private_constants) list * Evd.evar_universe_context
 
 let return_proof ?(allow_partial=false) () =
  let { pid; proof; strength = (_,poly,_) } = cur_pstate () in
