@@ -1840,7 +1840,7 @@ let known_state ?(redefine_qed=false) ~cache id =
             if ctac then Hooks.(call tactic_being_run true); 
             vernac_interp id x;
             if ctac then Hooks.(call tactic_being_run false); 
-	    if eff then update_global_env ()), cache, true
+	    if eff then update_global_env ()), (if eff then `Yes else cache), true
       | `Fork ((x,_,_,_), None) -> (fun () ->
             reach view.next; vernac_interp id x;
             wall_clock_last_fork := Unix.gettimeofday ()
@@ -2250,11 +2250,11 @@ let process_transaction ?(newtip=Stateid.fresh ()) ~tty verbose c (loc, expr) =
       | VtSideff l, w ->
           let id = VCS.new_node ~id:newtip () in
           VCS.checkout VCS.Branch.master;
-          VCS.commit id (Cmd {ctac=false;ceff=true;cast=x;cids=l;cqueue=`MainQueue});
-	  let replay = match x.expr with
-	    | VernacDefinition(_, _, DefineBody _) -> None
-	    | _ -> Some x
+	  let ceff, replay = match x.expr with
+	    | VernacDefinition(_, _, DefineBody _) -> true, None
+	    | _ -> false, Some x
 	  in
+          VCS.commit id (Cmd {ctac=false;ceff;cast=x;cids=l;cqueue=`MainQueue});
 	  VCS.propagate_sideff replay;
           VCS.checkout_shallowest_proof_branch ();
           Backtrack.record (); if w == VtNow then finish (); `Ok
