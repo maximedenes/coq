@@ -1,0 +1,93 @@
+%\RequirePackage{ifpdf}
+%\ifpdf
+%  \documentclass[11pt,a4paper,pdftex]{book}
+%\else
+  \documentclass[11pt,a4paper]{book}
+%\fi
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{textcomp}
+\usepackage{times}
+\usepackage{url}
+\usepackage{verbatim}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{alltt}
+\usepackage{hevea}
+\usepackage{ifpdf}
+\usepackage[headings]{fullpage}
+\usepackage{headers} % in this directory
+\usepackage{multicol}
+\usepackage{xspace}
+\usepackage{pmboxdraw}
+\usepackage{float}
+
+\floatstyle{boxed} 
+\restylefloat{figure}
+
+% for coqide
+\ifpdf   % si on est pas en pdflatex
+  \usepackage[pdftex]{graphicx}
+\else
+  \usepackage[dvips]{graphicx}
+\fi
+
+
+%\includeonly{Setoid}
+
+\input{../common/version.tex}
+\input{../common/macros.tex}% extension .tex pour htmlgen
+\input{title.tex}% extension .tex pour htmlgen
+%\input{headers}
+
+\usepackage[linktocpage,colorlinks,bookmarks=true,bookmarksnumbered=true]{hyperref}
+% The manual advises to load hyperref package last to be able to redefine
+% necessary commands.
+% The above should work for both latex and pdflatex. Even if PDF is produced
+% through DVI and PS using dvips and ps2pdf, hyperlinks should still work.
+% linktocpage option makes page numbers, not section names, to be links in
+% the table of contents.
+% colorlinks option colors the links instead of using boxes.
+
+% The command \tocnumber was added to HEVEA in version 1.06-6.
+% It instructs HEVEA to put chapter numbers into the table of
+% content entries. The table of content is produced by HACHA using
+% the options -tocbis -o toc.html. HEVEA produces a warning when
+% a command is not recognized, so versions earlier than 1.06-6 can
+% still be used.
+%HEVEA\tocnumber
+
+\begin{document}
+%BEGIN LATEX
+\sloppy\hbadness=5000
+%END LATEX
+
+%BEGIN LATEX
+\coverpage{Developer Manual}
+{The Coq Development Team}
+{This material may be distributed only subject to the terms and
+conditions set forth in the Open Publication License, v1.0 or later
+(the latest version is presently available at
+\url{http://www.opencontent.org/openpub}).
+Options A and B of the licence are {\em not} elected.}
+%END LATEX
+
+\include{introduction}
+\include{resources}
+\include{release}
+\include{feature}
+\include{bugfix}
+\include{testing}
+\include{overview}
+
+%BEGIN LATEX
+\cleardoublepage
+\phantomsection
+\addcontentsline{toc}{chapter}{\listfigurename}
+\listoffigures
+%END LATEX
+
+\end{document}
+
+
