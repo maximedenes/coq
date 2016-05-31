@@ -165,7 +165,7 @@ BYTERUN:=$(addprefix kernel/byterun/, \
 # respecting this order is useful for developers that want to load or link
 # the libraries directly
 
-CORECMA:=lib/clib.cma lib/lib.cma kernel/kernel.cma library/library.cma \
+CORECMA:=lib/clib.cma kernel/kernel.cma library/library.cma \
         pretyping/pretyping.cma interp/interp.cma proofs/proofs.cma \
         parsing/parsing.cma printing/printing.cma tactics/tactics.cma \
 	stm/stm.cma toplevel/toplevel.cma parsing/highparsing.cma tactics/hightactics.cma
@@ -231,7 +231,7 @@ endif
 LINKCMO:=$(CORECMA) $(STATICPLUGINS)
 LINKCMX:=$(CORECMA:.cma=.cmxa) $(STATICPLUGINS:.cma=.cmxa)
 
-IDEDEPS:=lib/clib.cma lib/xml_lexer.cmo lib/xml_parser.cmo lib/xml_printer.cmo lib/errors.cmo lib/spawn.cmo
+IDEDEPS:=lib/clib.cma
 IDECMA:=ide/ide.cma
 IDETOPLOOPCMA=ide/coqidetop.cma
 
@@ -246,7 +246,7 @@ IDEMOD:=$(shell cat ide/ide.mllib)
 
 # coqmktop, coqc
 
-COQENVCMO:=lib/clib.cma lib/errors.cmo
+COQENVCMO:=lib/clib.cma
 
 COQMKTOPCMO:=$(COQENVCMO) tools/tolink.cmo tools/coqmktop.cmo
 
