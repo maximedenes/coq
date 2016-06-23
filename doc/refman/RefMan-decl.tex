@@ -143,7 +143,8 @@ command: they get erased after the next command. They can however be safely in t
 
 \subsection{Starting and Ending a mathematical proof}
 
-The standard way to use the \DPL{} is to first state a \texttt{Lemma} /
+First, the \DPL{} should be loaded via {\tt Require DeclarativeMode}.
+Then, the standard way to use the \DPL{} is to first state a \texttt{Lemma} /
 \texttt{Theorem} / \texttt{Definition} and then use the \texttt{proof}
 command to switch the current subgoal to mathematical mode.  After the
 proof is completed, the \texttt{end proof} command will close the
@@ -151,6 +152,7 @@ mathematical proof. If any subgoal remains to be proved, they will be
 displayed using the usual Coq display.
 
 \begin{coq_example}
+Require DeclarativeMode.
 Theorem this_is_trivial: True.
 proof.
   thus thesis.

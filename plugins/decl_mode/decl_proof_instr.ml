@@ -283,6 +283,26 @@ let register_automation_tac tac = my_automation_tac:= tac
 
 let automation_tac = Proofview.tclBIND (Proofview.tclUNIT ()) (fun () -> !my_automation_tac)
 
+(** Code registering the default automation tactic.
+    (used to be in the firstorder plugin). *)
+
+let default_declarative_automation =
+  let open Proofview.Notations in
+  let open Cc_plugin in
+  let open Ground_plugin in
+  Proofview.tclUNIT () >>= fun () -> (* delay for [congruence_depth] *)
+  Tacticals.New.tclORELSE
+    (Tacticals.New.tclORELSE (Auto.h_trivial [] None)
+    (Cctac.congruence_tac !G_ground.congruence_depth []))
+    (Proofview.V82.tactic (G_ground.gen_ground_tac true
+       (Some (Tacticals.New.tclTHEN
+		(snd (G_ground.default_solver ()))
+		(Cctac.congruence_tac !G_ground.congruence_depth [])))
+       [] []))
+
+let () =
+  register_automation_tac default_declarative_automation
+
 let justification tac gls=
     tclORELSE
       (tclSOLVE [tclTHEN tac (Proofview.V82.of_tactic assumption)])

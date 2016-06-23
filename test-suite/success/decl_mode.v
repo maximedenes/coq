@@ -1,5 +1,7 @@
 (* \sqrt 2 is irrationnal, (c) 2006 Pierre Corbineau *)
 
+Require DeclarativeMode.
+
 Set Firstorder Depth 1.
 Require Import ArithRing Wf_nat Peano_dec Div2 Even Lt.
 

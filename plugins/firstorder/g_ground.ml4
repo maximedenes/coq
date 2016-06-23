@@ -151,24 +151,3 @@ TACTIC EXTEND gintuition
   [ "gintuition" tactic_opt(t) ] ->
      [ Proofview.V82.tactic (gen_ground_tac false (Option.map (tactic_of_value ist) t) [] []) ]
 END
-
-open Proofview.Notations
-open Cc_plugin
-open Decl_mode_plugin
-
-let default_declarative_automation =
-  Proofview.tclUNIT () >>= fun () -> (* delay for [congruence_depth] *)
-  Tacticals.New.tclORELSE
-    (Tacticals.New.tclORELSE (Auto.h_trivial [] None)
-    (Cctac.congruence_tac !congruence_depth []))
-    (Proofview.V82.tactic (gen_ground_tac true
-       (Some (Tacticals.New.tclTHEN
-		(snd (default_solver ()))
-		(Cctac.congruence_tac !congruence_depth [])))
-       [] []))
-
-
-
-let () =
-  Decl_proof_instr.register_automation_tac default_declarative_automation
-

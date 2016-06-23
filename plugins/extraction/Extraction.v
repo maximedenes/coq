@@ -6,16 +6,4 @@
 (*         *       GNU Lesser General Public License Version 2.1        *)
 (************************************************************************)
 
-(** Compatibility file for making Coq act similar to Coq v8.5 *)
-
-(* In 8.5, "intros [|]", taken e.g. on a goal "A\/B->C", does not
-   behave as "intros [H|H]" but leave instead hypotheses quantified in
-   the goal, here producing subgoals A->C and B->C. *)
-
-Global Unset Bracketing Last Introduction Pattern.
-Global Unset Regular Subst Tactic.
-Global Unset Structural Injection.
-
-Require Export Coq.extraction.Extraction.
-Require Export Coq.funind.FunInd.
-Require Export Coq.decl_mode.DeclarativeMode.
+Declare ML Module "extraction_plugin".
