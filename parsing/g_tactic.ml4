@@ -211,6 +211,12 @@ let merge_occurrences loc cl = function
     in
     (Some p, ans)
 
+let funind_err loc =
+  if not (Mltop.module_is_known "recdef_plugin") then
+    Errors.user_err_loc (loc,"_",str "Please do first a Require Import FunInd.")
+  else
+    raise (Stream.Error "unexpected end of tactic")
+
 (* Auxiliary grammar rules *)
 
 GEXTEND Gram
@@ -660,6 +666,12 @@ GEXTEND Gram
       | IDENT "change"; (oc,c) = conversion; cl = clause_dft_concl ->
 	  let p,cl = merge_occurrences (!@loc) cl oc in
 	  TacAtom (!@loc, TacChange (p,c,cl))
+
+      (* Fake entries to get nice error messages when the funind plugin
+         isn't loaded yet. See more details in g_vernac. *)
+      | IDENT "functional"; IDENT "induction" -> funind_err (!@loc)
+      | IDENT "functional"; IDENT "inversion" -> funind_err (!@loc)
+
     ] ]
   ;
 END;;
