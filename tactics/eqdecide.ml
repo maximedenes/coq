@@ -196,7 +196,7 @@ let decideGralEquality =
       Proofview.Goal.enter { enter = begin fun gl ->
         let concl = pf_nf_concl gl in
         match_eqdec concl >>= fun (eqonleft,_,c1,c2,typ) ->
-        let headtyp = hd_app (pf_compute gl typ) in
+        let headtyp = hd_app (pf_compute gl typ) in (* FIXME strong reduction doesn't seem needed here *)
         begin match kind_of_term headtyp with
         | Ind (mi,_) -> Proofview.tclUNIT mi
         | _ -> tclZEROMSG (Pp.str"This decision procedure only works for inductive objects.")

@@ -666,7 +666,7 @@ let bind_red_expr_occurrences occs nbcl redexp =
           error_illegal_clause ()
         else
           CbvNative (Some (occs,c))
-    | Red _ | Hnf | Cbv _ | Lazy _ | Cbn _
+    | Red _ | Hnf | Cbv _ | WeakCbv _ | Lazy _ | Cbn _
     | ExtraRedExpr _ | Fold _ | Simpl (_,None) | CbvVm None | CbvNative None ->
 	error_occurrences_not_unsupported ()
     | Unfold [] | Pattern [] ->
@@ -851,9 +851,9 @@ let hnf_option          = reduct_option   (hnf_constr,REVERTcast)
 let simpl_in_concl      = reduct_in_concl (simpl,REVERTcast)
 let simpl_in_hyp        = reduct_in_hyp    simpl
 let simpl_option        = reduct_option   (simpl,REVERTcast)
-let normalise_in_concl  = reduct_in_concl (compute,REVERTcast)
-let normalise_in_hyp    = reduct_in_hyp    compute
-let normalise_option    = reduct_option   (compute,REVERTcast)
+let normalise_in_concl  = reduct_in_concl (compute ~strong:true,REVERTcast)
+let normalise_in_hyp    = reduct_in_hyp   (compute ~strong:true)
+let normalise_option    = reduct_option   (compute ~strong:true,REVERTcast)
 let normalise_vm_in_concl = reduct_in_concl (Redexpr.cbv_vm,VMcast)
 let unfold_in_concl loccname = reduct_in_concl (unfoldn loccname,REVERTcast)
 let unfold_in_hyp   loccname = reduct_in_hyp   (unfoldn loccname)

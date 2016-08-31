@@ -320,63 +320,65 @@ and cbv_stack_value info env = function
     (* definitely a value *)
     | (head,stk) -> mkSTACK(head, stk)
 
-
 (* When we are sure t will never produce a redex with its stack, we
  * normalize (even under binders) the applied terms and we build the
  * final term
  *)
-let rec apply_stack info t = function
+let rec apply_stack ~strong info t = function
   | TOP -> t
   | APP (args,st) ->
-      apply_stack info (mkApp(t,Array.map (cbv_norm_value info) args)) st
+      apply_stack ~strong info (mkApp(t,Array.map (cbv_norm_value ~strong info) args)) st
   | CASE (ty,br,ci,env,st) ->
-      apply_stack info
-        (mkCase (ci, cbv_norm_term info env ty, t,
-		    Array.map (cbv_norm_term info env) br))
-        st
+      apply_stack ~strong info
+        (mkCase (ci, cbv_norm_term ~strong info env ty, t,
+                 Array.map (cbv_norm_term ~strong info env) br))
+                      st
   | PROJ (p, pinfo, st) ->
-       apply_stack info (mkProj (p, t)) st
+       apply_stack ~strong info (mkProj (p, t)) st
 
 (* performs the reduction on a constr, and returns a constr *)
-and cbv_norm_term info env t =
+and cbv_norm_term ~strong info env t =
   (* reduction under binders *)
-  cbv_norm_value info (cbv_stack_term info TOP env t)
+  cbv_norm_value ~strong info (cbv_stack_term info TOP env t)
 
 (* reduction of a cbv_value to a constr *)
-and cbv_norm_value info = function (* reduction under binders *)
+and cbv_norm_value ~strong info = function (* reduction under binders *)
   | VAL (n,t) -> lift n t
   | STACK (0,v,stk) ->
-      apply_stack info (cbv_norm_value info v) stk
+      apply_stack ~strong info (cbv_norm_value ~strong info v) stk
   | STACK (n,v,stk) ->
-      lift n (apply_stack info (cbv_norm_value info v) stk)
+      lift n (apply_stack ~strong info (cbv_norm_value ~strong info v) stk)
   | CBN(t,env) ->
-      map_constr_with_binders subs_lift (cbv_norm_term info) env t
+      map_constr_with_binders subs_lift (cbv_norm_term ~strong info) env t
   | LAM (n,ctxt,b,env) ->
       let nctxt =
         List.map_i (fun i (x,ty) ->
-          (x,cbv_norm_term info (subs_liftn i env) ty)) 0 ctxt in
-      compose_lam (List.rev nctxt) (cbv_norm_term info (subs_liftn n env) b)
+          (x, cbv_norm_term ~strong info (subs_liftn i env) ty)) 0 ctxt in
+      let subst = subs_liftn n env in
+      let info = if strong then info else {info with i_flags = CClosure.nored} in
+      compose_lam (List.rev nctxt)
+                  (cbv_norm_term ~strong info subst b)
   | FIXP ((lij,(names,lty,bds)),env,args) ->
       mkApp
         (mkFix (lij,
 		(names,
-                 Array.map (cbv_norm_term info env) lty,
-		 Array.map (cbv_norm_term info
+                 Array.map (cbv_norm_term ~strong info env) lty,
+		 Array.map (cbv_norm_term ~strong info
 			      (subs_liftn (Array.length lty) env)) bds)),
-         Array.map (cbv_norm_value info) args)
+         Array.map (cbv_norm_value ~strong info) args)
   | COFIXP ((j,(names,lty,bds)),env,args) ->
       mkApp
         (mkCoFix (j,
-		  (names,Array.map (cbv_norm_term info env) lty,
-		   Array.map (cbv_norm_term info
+		  (names,Array.map (cbv_norm_term ~strong info env) lty,
+		   Array.map (cbv_norm_term ~strong info
 				(subs_liftn (Array.length lty) env)) bds)),
-         Array.map (cbv_norm_value info) args)
+         Array.map (cbv_norm_value ~strong info) args)
   | CONSTR (c,args) ->
-      mkApp(mkConstructU c, Array.map (cbv_norm_value info) args)
+      mkApp(mkConstructU c, Array.map (cbv_norm_value ~strong info) args)
 
 (* with profiling *)
-let cbv_norm infos constr =
-  with_stats (lazy (cbv_norm_term infos (subs_id 0) constr))
+let cbv_norm ~strong infos constr =
+  with_stats (lazy (cbv_norm_term ~strong infos (subs_id 0) constr))
 
 type cbv_infos = cbv_value infos
 

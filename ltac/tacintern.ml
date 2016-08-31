@@ -379,7 +379,7 @@ let dump_glob_red_expr = function
       Dumpglob.add_glob (loc_of_or_by_notation Libnames.loc_of_reference r)
 	(Smartlocate.smart_global r)
     with e when CErrors.noncritical e -> ()) occs
-  | Cbv grf | Lazy grf ->
+  | Cbv grf | WeakCbv grf | Lazy grf ->
     List.iter (fun r ->
       try
         Dumpglob.add_glob (loc_of_or_by_notation Libnames.loc_of_reference r)
@@ -391,6 +391,7 @@ let intern_red_expr ist = function
   | Unfold l -> Unfold (List.map (intern_unfold ist) l)
   | Fold l -> Fold (List.map (intern_constr ist) l)
   | Cbv f -> Cbv (intern_flag ist f)
+  | WeakCbv f -> WeakCbv (intern_flag ist f)
   | Cbn f -> Cbn (intern_flag ist f)
   | Lazy f -> Lazy (intern_flag ist f)
   | Pattern l -> Pattern (List.map (intern_constr_with_occurrences ist) l)

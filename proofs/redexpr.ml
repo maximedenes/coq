@@ -235,7 +235,8 @@ let reduction_of_red_expr env =
        if not (!simplIsCbn || List.is_empty f.rConst) then
 	 warn_simpl_unfolding_modifiers () in
      (contextualize (if head_style then whd_am else am) am o,DEFAULTcast)
-  | Cbv f -> (e_red (cbv_norm_flags (make_flag f)),DEFAULTcast)
+  | Cbv f -> (e_red (cbv_norm_flags ~strong:true (make_flag f)),DEFAULTcast)
+  | WeakCbv f -> (e_red (cbv_norm_flags ~strong:false (make_flag f)),DEFAULTcast)
   | Cbn f ->
      (e_red (strong_cbn (make_flag f)), DEFAULTcast)
   | Lazy f -> (e_red (clos_norm_flags (make_flag f)),DEFAULTcast)

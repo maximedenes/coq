@@ -848,7 +848,8 @@ let rec whd_state_gen ?csts tactic_mode flags env sigma =
 			 (* CAUTION : the constant is NEVER refold
                             (even when it hides a (co)fix) *)
 		    whrec cst_l (body, stack)
-		  |curr::remains -> match Stack.strip_n_app curr stack with
+		  |curr::remains ->
+                    match Stack.strip_n_app curr stack with
 		    | None -> fold ()
 		    | Some (bef,arg,s') ->
 		      whrec Cst_stack.empty 

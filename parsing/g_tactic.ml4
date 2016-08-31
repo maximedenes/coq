@@ -374,6 +374,7 @@ GEXTEND Gram
       | IDENT "hnf" -> Hnf
       | IDENT "simpl"; d = delta_flag; po = OPT ref_or_pattern_occ -> Simpl (all_with d,po)
       | IDENT "cbv"; s = strategy_flag -> Cbv s
+      | IDENT "weak_cbv"; s = strategy_flag -> WeakCbv s
       | IDENT "cbn"; s = strategy_flag -> Cbn s
       | IDENT "lazy"; s = strategy_flag -> Lazy s
       | IDENT "compute"; delta = delta_flag -> Cbv (all_with delta)
@@ -637,6 +638,8 @@ GEXTEND Gram
           TacAtom (!@loc, TacReduce (Simpl (all_with d, po), cl))
       | IDENT "cbv"; s = strategy_flag; cl = clause_dft_concl ->
           TacAtom (!@loc, TacReduce (Cbv s, cl))
+      | IDENT "weak_cbv"; s = strategy_flag; cl = clause_dft_concl ->
+          TacAtom (!@loc, TacReduce (WeakCbv s, cl))
       | IDENT "cbn"; s = strategy_flag; cl = clause_dft_concl ->
           TacAtom (!@loc, TacReduce (Cbn s, cl))
       | IDENT "lazy"; s = strategy_flag; cl = clause_dft_concl ->

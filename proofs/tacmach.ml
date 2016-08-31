@@ -90,7 +90,7 @@ let pf_whd_all         = pf_reduce whd_all
 let pf_hnf_constr                = pf_reduce hnf_constr
 let pf_nf                        = pf_reduce simpl
 let pf_nf_betaiota               = pf_reduce (fun _ -> nf_betaiota)
-let pf_compute                   = pf_reduce compute
+let pf_compute                   = pf_reduce (compute ~strong:true)
 let pf_unfoldn ubinds            = pf_reduce (unfoldn ubinds)
 let pf_unsafe_type_of            = pf_reduce unsafe_type_of
 let pf_type_of                   = pf_reduce type_of
@@ -235,7 +235,7 @@ module New = struct
   let pf_matches gl pat t = pf_apply Constr_matching.matches_conv gl pat t
 
   let pf_whd_all gl t = pf_apply whd_all gl t
-  let pf_compute gl t = pf_apply compute gl t
+  let pf_compute gl t = pf_apply (compute ~strong:true) gl t
 
   let pf_nf_evar gl t = nf_evar (project gl) t
 

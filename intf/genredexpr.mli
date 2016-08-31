@@ -38,6 +38,7 @@ type ('a,'b,'c) red_expr_gen =
   | Hnf
   | Simpl of 'b glob_red_flag*('b,'c) Util.union Locus.with_occurrences option
   | Cbv of 'b glob_red_flag
+  | WeakCbv of 'b glob_red_flag
   | Cbn of 'b glob_red_flag
   | Lazy of 'b glob_red_flag
   | Unfold of 'b Locus.with_occurrences list
