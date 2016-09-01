@@ -320,6 +320,9 @@ and cbv_stack_value info env = function
     (* definitely a value *)
     | (head,stk) -> mkSTACK(head, stk)
 
+let stop_if_weak ~strong info =
+  if strong then info else {info with i_flags = CClosure.nored}
+
 (* When we are sure t will never produce a redex with its stack, we
  * normalize (even under binders) the applied terms and we build the
  * final term
@@ -331,8 +334,8 @@ let rec apply_stack ~strong info t = function
   | CASE (ty,br,ci,env,st) ->
       apply_stack ~strong info
         (mkCase (ci, cbv_norm_term ~strong info env ty, t,
-                 Array.map (cbv_norm_term ~strong info env) br))
-                      st
+          Array.map (cbv_norm_term ~strong (stop_if_weak ~strong info) env) br))
+        st
   | PROJ (p, pinfo, st) ->
        apply_stack ~strong info (mkProj (p, t)) st
 
@@ -355,22 +358,21 @@ and cbv_norm_value ~strong info = function (* reduction under binders *)
         List.map_i (fun i (x,ty) ->
           (x, cbv_norm_term ~strong info (subs_liftn i env) ty)) 0 ctxt in
       let subst = subs_liftn n env in
-      let info = if strong then info else {info with i_flags = CClosure.nored} in
       compose_lam (List.rev nctxt)
-                  (cbv_norm_term ~strong info subst b)
+                  (cbv_norm_term ~strong (stop_if_weak ~strong info) subst b)
   | FIXP ((lij,(names,lty,bds)),env,args) ->
       mkApp
         (mkFix (lij,
 		(names,
                  Array.map (cbv_norm_term ~strong info env) lty,
-		 Array.map (cbv_norm_term ~strong info
+		 Array.map (cbv_norm_term ~strong (stop_if_weak ~strong info)
 			      (subs_liftn (Array.length lty) env)) bds)),
          Array.map (cbv_norm_value ~strong info) args)
   | COFIXP ((j,(names,lty,bds)),env,args) ->
       mkApp
         (mkCoFix (j,
 		  (names,Array.map (cbv_norm_term ~strong info env) lty,
-		   Array.map (cbv_norm_term ~strong info
+		   Array.map (cbv_norm_term ~strong (stop_if_weak ~strong info)
 				(subs_liftn (Array.length lty) env)) bds)),
          Array.map (cbv_norm_value ~strong info) args)
   | CONSTR (c,args) ->
