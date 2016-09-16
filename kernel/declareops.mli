@@ -54,15 +54,11 @@ val string_of_side_effect : side_effect -> string
 
 val eq_recarg : recarg -> recarg -> bool
 
-val subst_recarg : substitution -> recarg -> recarg
-
 val mk_norec : wf_paths
 val mk_paths : recarg -> wf_paths list array -> wf_paths
 val dest_recarg : wf_paths -> recarg
 val dest_subterms : wf_paths -> wf_paths list array
 val recarg_length : wf_paths -> int -> int
-
-val subst_wf_paths : substitution -> wf_paths -> wf_paths
 
 val subst_mind_body : substitution -> mutual_inductive_body -> mutual_inductive_body
 

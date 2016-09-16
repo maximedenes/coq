@@ -751,10 +751,6 @@ type 'a tableKey =
   | VarKey of Id.t
   | RelKey of Int.t
 
-type inv_rel_key = int (* index in the [rel_context] part of environment
-			  starting by the end, {\em inverse}
-			  of de Bruijn indice *)
-
 let eq_table_key f ik1 ik2 =
   if ik1 == ik2 then true
   else match ik1,ik2 with

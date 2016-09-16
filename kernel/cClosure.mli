@@ -152,15 +152,8 @@ type stack_member =
 
 and stack = stack_member list
 
-val empty_stack : stack
 val append_stack : fconstr array -> stack -> stack
 
-val decomp_stack : stack -> (fconstr * stack) option
-val array_of_stack : stack -> fconstr array
-val stack_assign : stack -> int -> fconstr -> stack
-val stack_args_size : stack -> int
-val stack_tail : int -> stack -> stack
-val stack_nth : stack -> int -> fconstr
 val zip_term : (fconstr -> constr) -> constr -> stack -> constr
 val eta_expand_stack : stack -> stack
 
@@ -221,24 +214,4 @@ val eta_expand_ind_stack : env -> inductive -> fconstr -> stack ->
 (** [unfold_reference] unfolds references in a [fconstr] *)
 val unfold_reference : clos_infos -> table_key -> fconstr option
 
-val eq_table_key : table_key -> table_key -> bool
-
-(***********************************************************************
-  i This is for lazy debug *)
-
-val lift_fconstr      : int -> fconstr -> fconstr
-val lift_fconstr_vect : int -> fconstr array -> fconstr array
-
 val mk_clos      : fconstr subs -> constr -> fconstr
-val mk_clos_vect : fconstr subs -> constr array -> fconstr array
-val mk_clos_deep :
-  (fconstr subs -> constr -> fconstr) ->
-   fconstr subs -> constr -> fconstr
-
-val kni: clos_infos -> fconstr -> stack -> fconstr * stack
-val knr: clos_infos -> fconstr -> stack -> fconstr * stack
-val kl : clos_infos -> fconstr -> constr
-
-val to_constr : (lift -> fconstr -> constr) -> lift -> fconstr -> constr
-
-(** End of cbn debug section i*)

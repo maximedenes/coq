@@ -165,12 +165,6 @@ val subst_mps : substitution -> constr -> constr
 
 val occur_mbid : MBId.t -> substitution -> bool
 
-(** [repr_substituted r] dumps the representation of a substituted:
-    - [None, a] when r is a value
-    - [Some s, a] when r is a delayed substitution [s] applied to [a] *)
-
-val repr_substituted : 'a substituted -> substitution list option * 'a
-
 val force_constr : Term.constr substituted -> Term.constr
 val subst_constr :
   substitution -> Term.constr substituted -> Term.constr substituted

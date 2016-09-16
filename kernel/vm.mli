@@ -2,10 +2,6 @@ open Names
 open Term
 open Cbytecodes
 
-(** Debug printing *)
-
-val set_drawinstr : unit -> unit
-
 (** Machine code *)
 
 type tcode
@@ -57,7 +53,7 @@ val pr_stack : stack -> Pp.std_ppcmds
 (** Constructors *)
 
 val val_of_str_const : structured_constant -> values
-val val_of_rel : int -> values
+val val_of_rel : int (* This is a DeBruijn level, not an index *) -> values
 val val_of_named : Id.t -> values
 val val_of_constant : constant -> values
 

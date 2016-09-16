@@ -252,8 +252,6 @@ end
 
 module KeyTable = Hashtbl.Make(IdKeyHash)
 
-let eq_table_key = IdKeyHash.equal
-
 type 'a infos_cache = {
   i_repr : 'a infos -> constr -> 'a;
   i_env : env;
@@ -410,7 +408,6 @@ type stack_member =
 
 and stack = stack_member list
 
-let empty_stack = []
 let append_stack v s =
   if Int.equal (Array.length v) 0 then s else
   match s with
@@ -423,52 +420,6 @@ let zshift n s =
       (0,_) -> s
     | (_,Zshift(k)::s) -> Zshift(n+k)::s
     | _ -> Zshift(n)::s
-
-let rec stack_args_size = function
-  | Zapp v :: s -> Array.length v + stack_args_size s
-  | Zshift(_)::s -> stack_args_size s
-  | Zupdate(_)::s -> stack_args_size s
-  | _ -> 0
-
-(* When used as an argument stack (only Zapp can appear) *)
-let rec decomp_stack = function
-  | Zapp v :: s ->
-      (match Array.length v with
-          0 -> decomp_stack s
-        | 1 -> Some (v.(0), s)
-        | _ ->
-            Some (v.(0), (Zapp (Array.sub v 1 (Array.length v - 1)) :: s)))
-  | _ -> None
-let array_of_stack s =
-  let rec stackrec = function
-  | [] -> []
-  | Zapp args :: s -> args :: (stackrec s)
-  | _ -> assert false
-  in Array.concat (stackrec s)
-let rec stack_assign s p c = match s with
-  | Zapp args :: s ->
-      let q = Array.length args in
-      if p >= q then
-	Zapp args :: stack_assign s (p-q) c
-      else
-        (let nargs = Array.copy args in
-         nargs.(p) <- c;
-         Zapp nargs :: s)
-  | _ -> s
-let rec stack_tail p s =
-  if Int.equal p 0 then s else
-    match s with
-      | Zapp args :: s ->
-	  let q = Array.length args in
-	  if p >= q then stack_tail (p-q) s
-	  else Zapp (Array.sub args p (q-p)) :: s
-      | _ -> failwith "stack_tail"
-let rec stack_nth s p = match s with
-  | Zapp args :: s ->
-      let q = Array.length args in
-      if p >= q then stack_nth s (p-q)
-      else args.(p)
-  | _ -> raise Not_found
 
 (* Lifting. Preserves sharing (useful only for cell with norm=Red).
    lft_fconstr always create a new cell, while lift_fconstr avoids it

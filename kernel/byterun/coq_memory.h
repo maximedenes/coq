@@ -38,7 +38,6 @@ extern value coq_global_data;
 extern int coq_all_transp;
 extern value coq_atom_tbl;
 
-extern int drawinstr;
 /* interp state */
 
 extern value * coq_sp;
@@ -60,6 +59,3 @@ value realloc_coq_atom_tbl(value size); /* ML */
 value coq_set_transp_value(value transp); /* ML */
 value get_coq_transp_value(value unit); /* ML */
 #endif /* _COQ_MEMORY_ */
-
-
-value coq_set_drawinstr(value unit);

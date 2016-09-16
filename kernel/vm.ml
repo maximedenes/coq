@@ -10,8 +10,6 @@ open Names
 open Term
 open Cbytecodes
 
-external set_drawinstr : unit -> unit = "coq_set_drawinstr"
-
 (******************************************)
 (* Utility Functions about Obj ************)
 (******************************************)

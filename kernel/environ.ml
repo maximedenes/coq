@@ -71,9 +71,6 @@ let empty_context env =
 let lookup_rel n env =
   Context.Rel.lookup n env.env_rel_context
 
-let evaluable_rel n env =
-  is_local_def (lookup_rel n env)
-
 let nb_rel env = env.env_nb_rel
 
 let push_rel = push_rel
@@ -182,9 +179,6 @@ let add_constraints c env =
 
 let check_constraints c env =
   UGraph.check_constraints c env.env_stratification.env_universes
-
-let push_constraints_to_env (_,univs) env =
-  add_constraints univs env
 
 let add_universes strict ctx g =
   let g = Array.fold_left

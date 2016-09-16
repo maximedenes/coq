@@ -28,7 +28,6 @@ asize_t coq_max_stack_size = Coq_max_stack_size;
 value coq_global_data;
 value coq_atom_tbl;
 
-int drawinstr;
 /* interp state */
 
 long coq_saved_sp_offset;
@@ -106,7 +105,6 @@ value init_coq_vm(value unit) /* ML */
   if (coq_vm_initialized == 1) {
     fprintf(stderr,"already open \n");fflush(stderr);}
   else {
-    drawinstr=0;
 #ifdef THREADED_CODE   
     init_arity();
 #endif /* THREADED_CODE */
@@ -200,12 +198,6 @@ value realloc_coq_atom_tbl(value size)            /* ML */
       Field (new_atom_tbl, i) = Val_long (0);
     coq_atom_tbl = new_atom_tbl;
   }
-  return Val_unit;
-}
-
-value coq_set_drawinstr(value unit)
-{
-  drawinstr = 1;
   return Val_unit;
 }
 

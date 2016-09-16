@@ -355,15 +355,6 @@ let subst_to_patch_subst s = function
 | PBCalias cu -> PBCalias (subst_substituted s cu)
 | PBCconstant -> PBCconstant
 
-let repr_body_code = function
-| PBCdefined tp ->
-  let (s, tp) = repr_substituted tp in
-  (s, BCdefined tp)
-| PBCalias cu ->
-  let (s, cu) = repr_substituted cu in
-  (s, BCalias cu)
-| PBCconstant -> (None, BCconstant)
-
 let to_memory (init_code, fun_code, fv) =
   init();
   emit init_code;

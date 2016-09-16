@@ -518,10 +518,6 @@ val full_transparent_state : transparent_state
 val var_full_transparent_state : transparent_state
 val cst_full_transparent_state : transparent_state
 
-type inv_rel_key = int (** index in the [rel_context] part of environment
-			  starting by the end, {e inverse}
-			  of de Bruijn indice *)
-
 val eq_table_key : ('a -> 'a -> bool) -> 'a tableKey -> 'a tableKey -> bool
 val eq_constant_key : Constant.t -> Constant.t -> bool
 

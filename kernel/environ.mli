@@ -68,7 +68,6 @@ val push_rec_types   : rec_declaration -> env -> env
 (** Looks up in the context of local vars referred by indice ([rel_context]) 
    raises [Not_found] if the index points out of the context *)
 val lookup_rel    : int -> env -> Context.Rel.Declaration.t
-val evaluable_rel : int -> env -> bool
 
 (** {6 Recurrence on [rel_context] } *)
 
@@ -213,7 +212,6 @@ val add_constraints : Univ.constraints -> env -> env
 val check_constraints : Univ.constraints -> env -> bool
 val push_context : ?strict:bool -> Univ.universe_context -> env -> env
 val push_context_set : ?strict:bool -> Univ.universe_context_set -> env -> env
-val push_constraints_to_env : 'a Univ.constrained -> env -> env
 
 val set_engagement : engagement -> env -> env
 val set_typing_flags : typing_flags -> env -> env
