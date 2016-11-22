@@ -84,7 +84,7 @@ let use_injection_in_context () =
 let _ =
   declare_bool_option
     { optsync  = true;
-      optdepr  = false;
+      optdepr  = true; (* remove in 8.8 *)
       optname  = "injection in context";
       optkey   = ["Structural";"Injection"];
       optread  = (fun () -> !injection_in_context) ;
