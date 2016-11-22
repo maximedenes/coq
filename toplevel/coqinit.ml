@@ -134,8 +134,7 @@ let get_compat_version = function
   | "8.6" -> Flags.V8_6
   | "8.5" -> Flags.V8_5
   | "8.4" -> Flags.V8_4
-  | "8.3" -> Flags.V8_3
-  | ("8.2" | "8.1" | "8.0") as s ->
+  | ("8.3" | "8.2" | "8.1" | "8.0") as s ->
     CErrors.user_err ~hdr:"get_compat_version"
       (str "Compatibility with version " ++ str s ++ str " not supported.")
   | s -> CErrors.user_err ~hdr:"get_compat_version"
