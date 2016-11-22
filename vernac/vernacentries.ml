@@ -1306,7 +1306,7 @@ let _ =
 let _ =
   declare_bool_option
     { optsync  = true;
-      optdepr  = false;
+      optdepr  = true; (* remove in 8.8 *)
       optname  = "automatic introduction of variables";
       optkey   = ["Automatic";"Introduction"];
       optread  = Flags.is_auto_intros;

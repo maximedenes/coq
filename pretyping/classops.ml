@@ -428,7 +428,7 @@ open Goptions
 let _ =
   declare_bool_option
     { optsync  = true;
-      optdepr  = false;
+      optdepr  = true; (* remove in 8.8 *)
       optname  = "automatic import of coercions";
       optkey   = ["Automatic";"Coercions";"Import"];
       optread  = (fun () -> !automatically_import_coercions);

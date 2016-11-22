@@ -79,7 +79,7 @@ let _ =
 let _ =
   declare_bool_option
     { optsync  = true;
-      optdepr  = false;
+      optdepr  = true; (* remove in 8.8 *)
       optname  = "unfolding of iff in intuition";
       optkey   = ["Intuition";"Iff";"Unfolding"];
       optread  = (fun () -> !iff_unfolding);
