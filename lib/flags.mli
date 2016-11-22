@@ -62,7 +62,7 @@ val raw_print : bool ref
 val record_print : bool ref
 val univ_print : bool ref
 
-type compat_version = V8_2 | V8_3 | V8_4 | V8_5 | V8_6 | Current
+type compat_version = V8_3 | V8_4 | V8_5 | V8_6 | Current
 val compat_version : compat_version ref
 val version_compare : compat_version -> compat_version -> int
 val version_strictly_greater : compat_version -> bool
