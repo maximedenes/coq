@@ -67,6 +67,8 @@ Tactics
   utility. The command "Set NativeCompute Profiling" enables
   profiling, and "Set NativeCompute Profile Filename" customizes
   the profile filename.
+- Tactic "decide equality" now able to manage constructors which
+  contain proofs.
 
 Gallina
 
