@@ -62,7 +62,7 @@ PLUGINDIRS:=\
   setoid_ring 	extraction 	fourier \
   cc 		funind 		firstorder 	derive \
   rtauto 	nsatz           syntax          decl_mode	btauto \
-  ssrmatching
+  ssrmatching   quill
 
 SRCDIRS:=\
   $(CORESRCDIRS)  \
@@ -121,13 +121,14 @@ OTHERSYNTAXCMO:=$(addprefix plugins/syntax/, \
 DECLMODECMO:=plugins/decl_mode/decl_mode_plugin.cmo
 DERIVECMO:=plugins/derive/derive_plugin.cmo
 SSRMATCHINGCMO:=plugins/ssrmatching/ssrmatching_plugin.cmo
+QUILLCMO:=plugins/quill/quill_plugin.cmo
 
 PLUGINSCMO:=$(OMEGACMO) $(ROMEGACMO) $(MICROMEGACMO) $(DECLMODECMO) \
         $(QUOTECMO) $(RINGCMO) \
         $(FOURIERCMO) $(EXTRACTIONCMO) \
         $(CCCMO)  $(FOCMO) $(RTAUTOCMO) $(BTAUTOCMO) \
         $(FUNINDCMO) $(NSATZCMO) $(NATSYNTAXCMO) $(OTHERSYNTAXCMO) \
-	$(DERIVECMO) $(SSRMATCHINGCMO)
+	$(DERIVECMO) $(SSRMATCHINGCMO) $(QUILLCMO)
 
 ifeq ($(HASNATDYNLINK)-$(BEST),false-opt)
  STATICPLUGINS:=$(PLUGINSCMO)
