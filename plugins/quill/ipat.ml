@@ -16,6 +16,9 @@ type direction = LeftToRight | RightToLeft
 
 type selector = int
 
+type state = { to_clear: Id.t list;
+               name_seed: Id.t option }
+
 type ipat =
   | IPatNoop
   | IPatName of Id.t
@@ -37,14 +40,14 @@ let interp_ipat ist gl ipat = Evd.empty, (ist, ipat)
 
 let glob_ipat _ ipat = ()
 
-let rec ipat_tac1 ipat : unit tactic =
+let rec ipat_tac1 ipat : state tactic =
   match ipat with
   | IPatTactic(t,sel,args) -> Tacinterp.interp t
   | IPatDispatch(ipats) ->
      tclDISPATCH (List.map ipat_tac ipats)
   | _ -> assert false
 
-and ipat_tac pl : unit tactic =
+and ipat_tac pl states : unit tactic =
   match pl with
   | [] -> tclUNIT ()
   | pat :: pl -> tclTHEN (ipat_tac1 pat) (ipat_tac pl)
