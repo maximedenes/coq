@@ -18,8 +18,9 @@ env:
   - COMPILER="4.02.3"
   # Main test suites
   matrix:
-  - TEST_TARGET="validate"      TW="travis_wait"
-  - TEST_TARGET="contrib-hott"  TW=""
+  - TEST_TARGET="validate"           TW="travis_wait"
+  - TEST_TARGET="contrib-hott"
+  - TEST_TARGET="contrib-math-comp"
 
 matrix:
   # Extra is Full COQ build and test-suite with two compilers
