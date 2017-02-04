@@ -8,3 +8,6 @@ contrib-hott:
 
 contrib-math-comp:
 	./tools/ci/contrib-math-comp.sh
+
+contrib-compcert:
+	./tools/ci/contrib-compcert.sh
