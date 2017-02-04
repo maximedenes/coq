@@ -1,0 +1,6 @@
+.PHONY: contrib-all contrib-hott
+
+contrib-all: contrib-hott
+
+contrib-hott:
+	./tools/ci/contrib-hott.sh

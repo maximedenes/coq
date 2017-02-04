@@ -28,10 +28,17 @@ env:
   global:
   - NJOBS=1
   matrix:
-  - TEST_TARGET="validate"    TW="travis_wait"
-  - TEST_TARGET="test-suite"  TW=""
+  - COMPILER="4.02.3" TEST_TARGET="validate"      TW="travis_wait"
+  - COMPILER="4.03.0" TEST_TARGET="validate"      TW="travis_wait"
+  - COMPILER="4.04.0" TEST_TARGET="validate"      TW="travis_wait"
+  - COMPILER="4.02.3" TEST_TARGET="test-suite"    TW=""
+  - COMPILER="4.03.0" TEST_TARGET="test-suite"    TW=""
+  - COMPILER="4.04.0" TEST_TARGET="test-suite"    TW=""
+  - COMPILER="4.02.3" TEST_TARGET="contrib-hott"  TW=""
+  - COMPILER="4.03.0" TEST_TARGET="contrib-hott"  TW=""
+  - COMPILER="4.04.0" TEST_TARGET="contrib-hott"  TW=""
 install:
-- "[ -e .opam ] || opam init -j ${NJOBS} --compiler=4.02.3 -n -y"
+- "[ -e .opam ] || opam init -j ${NJOBS} --compiler=${COMPILER} -n -y"
 - eval $(opam config env)
 - opam config var root
 - opam install -j ${NJOBS} -y camlp5 ocamlfind lablgtk-extras hevea
