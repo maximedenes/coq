@@ -15,7 +15,8 @@ addons:
 env:
   global:
   - NJOBS=1
-  - COMPILER="4.02.3"
+  # system is 4.02.3
+  - COMPILER="system"
   # Main test suites
   matrix:
   - TEST_TARGET="validate"           TW="travis_wait"
