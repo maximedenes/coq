@@ -27,6 +27,7 @@ env:
   - TEST_TARGET="ci-sf"
   - TEST_TARGET="ci-cpdt"
   - TEST_TARGET="ci-math-classes"
+  # - TEST_TARGET="ci-tlc"
 
 matrix:
   # Extra is Full COQ build and test-suite with two compilers
