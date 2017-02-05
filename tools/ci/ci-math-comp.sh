@@ -1,17 +1,11 @@
 #!/bin/bash
 
-# Proof of concept contrib build script.
-
-set -xe
-
-export PATH=`pwd`/bin:$PATH
+# $0 is not the safest way, but...
+ci_dir="$(dirname "$0")"
+source ${ci_dir}/ci-common.sh
 
 git clone --depth 3 https://github.com/math-comp/math-comp.git
 
-pushd math-comp/mathcomp
-
 # odd_order takes too much time for travis.
-sed -i.bak '/odd_order/d' Make
-make -j ${NJOBS}
+( cd math-comp/mathcomp && sed -i.bak '/odd_order/d' Make && make -j ${NJOBS} )
 
-popd

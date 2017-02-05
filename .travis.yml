@@ -23,6 +23,10 @@ env:
   - TEST_TARGET="ci-hott"
   - TEST_TARGET="ci-math-comp"
   - TEST_TARGET="ci-compcert"
+  - TEST_TARGET="ci-color"
+  - TEST_TARGET="ci-sf"
+  - TEST_TARGET="ci-cpdt"
+  - TEST_TARGET="ci-math-classes"
 
 matrix:
   # Extra is Full COQ build and test-suite with two compilers
