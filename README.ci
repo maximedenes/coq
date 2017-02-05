@@ -1,0 +1,29 @@
+How to submit your development for Coq Travis CI
+================================================
+
+Travis CI provides a convenient way to perform testing of Coq changes
+versus a set of curated libraries.
+
+Are you an author of a Coq library who would be interesting in having
+the latest Coq changes validated against your development?
+
+If so, keep reading! Getting Coq changes tested against your library
+is easy, all that you need to do is:
+
+1.- Put you development in a public repository tracking coq trunk.
+
+    By partipating in this program, you assume a reasonable compromise
+    to discuss and eventually integrate reasonable changes.
+
+2.- Make sure that your development can build in less than 35 minutes
+    in a "normal" machine.
+
+3.- Add a script for building your library to `tools/ci/`, update
+    `.travis.yml` and `Makefile.ci`.
+
+4.- Submit a Pull Request. Your library is now part of Coq's continous
+    integration!
+
+Get in touch to discuss any special need your development may have,
+such as Travis special options, etc...
+
