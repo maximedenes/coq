@@ -417,14 +417,14 @@ module Unsafe : sig
   (** [tclNEWGOALS gls] adds the goals [gls] to the ones currently
       being proved, appending them to the list of focused goals. If a
       goal is already solved, it is not added. *)
-  val tclNEWGOALS : Goal.goal list -> unit tactic
+  val tclNEWGOALS : Proofview_monad.goal_with_state list -> unit tactic
 
   (** [tclSETGOALS gls] sets goals [gls] as the goals being under focus. If a
       goal is already solved, it is not set. *)
-  val tclSETGOALS : Goal.goal list -> unit tactic
+  val tclSETGOALS : Proofview_monad.goal_with_state list -> unit tactic
 
   (** [tclGETGOALS] returns the list of goals under focus. *)
-  val tclGETGOALS : Goal.goal list tactic
+  val tclGETGOALS : Proofview_monad.goal_with_state list tactic
 
   (** Sets the evar universe context. *)
   val tclEVARUNIVCONTEXT : Evd.evar_universe_context -> unit tactic
@@ -490,6 +490,7 @@ module Goal : sig
   val env : ('a, 'r) t -> Environ.env
   val sigma : ('a, 'r) t -> 'r Sigma.t
   val extra : ('a, 'r) t -> Evd.Store.t
+  val state : ('a, 'r) t -> Proofview_monad.StateStore.t
 
   type ('a, 'b) enter =
     { enter : 'r. ('a, 'r) t -> 'b }

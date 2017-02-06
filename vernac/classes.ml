@@ -346,7 +346,7 @@ let new_instance ?(abstract=false) ?(global=false) ?(refine= !refine_instance) p
                   let init_refine =
                     Tacticals.New.tclTHENLIST [
                       Refine.refine { run = fun evm -> Sigma (EConstr.of_constr (Option.get term), evm, Sigma.refl) };
-                      Proofview.Unsafe.tclNEWGOALS gls;
+                      Proofview.Unsafe.tclNEWGOALS (CList.map Proofview_monad.with_empty_state gls);
                       Tactics.New.reduce_after_refine;
                     ]
                   in

@@ -1,7 +1,11 @@
 open Ipat
 open Pltac
+open Stdarg
 open Genarg
+open Extraargs
 open Pcoq
+open Pcoq.Prim
+open Pcoq.Constr
 
 DECLARE PLUGIN "quill_plugin"
 
@@ -35,6 +39,7 @@ ARGUMENT EXTEND ipat
 (*  INTERPRETED BY interp_ipat
   GLOBALIZED BY glob_ipat *)
   | [ "/" tactic_expr(t) ] -> [ IPatTactic(t,None,[]) ]
+  | [ ident(id) ] -> [ IPatName(id) ]
 END
 
 ARGUMENT EXTEND iorpat TYPED AS ipat list list PRINTED BY pr_iorpat
@@ -48,5 +53,8 @@ END
 
 GEXTEND Gram
   GLOBAL: ipat;
-  ipat: [[ "/"; "["; il = iorpat; "]" -> IPatDispatch(il) ]];
+  ipat: [ [ "/"; "["; il = iorpat; "]" -> IPatDispatch(il) 
+            | "["; il = iorpat; "]" -> IPatCase(il)
+            | "^"; i = ident -> IPatConcat(Prefix,i)
+        ] ];
 END
