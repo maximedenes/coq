@@ -1,4 +1,4 @@
-CI_TARGETS=ci-all ci-hott ci-math-comp ci-compcert ci-sf ci-cpdt ci-color ci-math-classes ci-tlc
+CI_TARGETS=ci-all ci-hott ci-math-comp ci-compcert ci-sf ci-cpdt ci-color ci-math-classes ci-tlc ci-fiat-crypto
 .PHONY: $(CI_TARGETS)
 
 # Generic rule, we use make to easy travis integraton with mixed rules
