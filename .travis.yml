@@ -32,6 +32,8 @@ env:
   - TEST_TARGET="ci-math-classes"
   - TEST_TARGET="ci-math-comp"
   - TEST_TARGET="ci-sf"
+  # Not ready yet for 8.7
+  # - TEST_TARGET="ci-metacoq"
   # - TEST_TARGET="ci-tlc"
 
 matrix:
