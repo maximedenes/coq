@@ -77,6 +77,7 @@ let make_refine_enter ?(unsafe = true) f =
   let sigma = Sigma.to_evar_map sigma in
   let env = Proofview.Goal.env gl in
   let concl = Proofview.Goal.concl gl in
+  let state = Proofview.Goal.state gl in
   (** Save the [future_goals] state to restore them after the
       refinement. *)
   let prev_future_goals = Evd.future_goals sigma in
@@ -115,6 +116,7 @@ let make_refine_enter ?(unsafe = true) f =
   (** Select the goals *)
   let comb = CList.map_filter (Proofview.Unsafe.advance sigma) (CList.rev evs) in
   let sigma = CList.fold_left Proofview.Unsafe.mark_as_goal sigma comb in
+  let comb = CList.map (fun x -> Proofview_monad.goal_with_state x state) comb in
   let trace () = Pp.(hov 2 (str"simple refine"++spc()++ Hook.get pr_constrv env sigma c)) in
   Proofview.Trace.name_tactic trace (Proofview.tclUNIT v) >>= fun v ->
   Proofview.Unsafe.tclSETENV (Environ.reset_context env) <*>
