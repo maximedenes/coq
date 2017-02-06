@@ -37,7 +37,7 @@ let state_field : state Proofview_monad.StateStore.field =
 let fresh_state = { to_clear = [];
                     name_seed = None }
 
-(* FIXME: should not inject fresh_sate, but initialize it at the beginning *)
+(* FIXME: should not inject fresh_state, but initialize it at the beginning *)
 let upd_state upd s =
   let old_state = Option.default fresh_state (Proofview_monad.StateStore.get s state_field) in
   let new_state = upd old_state in
@@ -169,9 +169,7 @@ let rec ipat_tac1 ipat : unit tactic =
   | IPatName id ->
      intro_id_slow id
   | IPatCase(ipatss) ->
-     (* FIXMEEEE! *)
-     tclTHEN (tclWITHTOP tac_case)
-     (tclDISPATCH (List.map ipat_tac ipatss))
+     Tacticals.New.tclTHENS (tclWITHTOP tac_case) (List.map ipat_tac ipatss)
   | IPatConcat(_kind,prefix) ->
      tac_intro_seed ipat_tac prefix
   | _ -> assert false
