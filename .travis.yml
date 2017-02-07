@@ -94,7 +94,7 @@ matrix:
 
 install:
 
-- "[ -e .opam ] || opam init -j ${NJOBS} --compiler=${COMPILER} -n -y"
+- opam init -j ${NJOBS} --compiler=${COMPILER} -n -y
 - eval $(opam config env)
 - opam config var root
 - opam install -j ${NJOBS} -y camlp5 ocamlfind ${EXTRA_OPAM}
