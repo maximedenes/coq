@@ -39,7 +39,6 @@ ARGUMENT EXTEND ipat
 (*  INTERPRETED BY interp_ipat
   GLOBALIZED BY glob_ipat *)
   | [ "/" tactic_expr(t) ] -> [ IPatTactic(t,None,[]) ]
-  | [ ident(id) ] -> [ IPatName(id) ]
 END
 
 ARGUMENT EXTEND iorpat TYPED AS ipat list list PRINTED BY pr_iorpat
@@ -47,16 +46,38 @@ ARGUMENT EXTEND iorpat TYPED AS ipat list list PRINTED BY pr_iorpat
   | [ ipat_list(ipats) ] -> [ [ipats] ]
 END
 
-TACTIC EXTEND pipeau
-  | [ "quill" ipat_list(pl) ] -> [ ipat_tac pl ]
+ARGUMENT EXTEND ipats_mod PRINTED BY pr_ipats_mod
+  | [ "=" ] -> [ Equal ]
+  | [ "&" ] -> [ Ampersand ]
+END
+
+ARGUMENT EXTEND name_mod PRINTED BY pr_name_mod
+  | [ "^" ] -> [ Hat ]
+  | [ "^~" ] -> [ HatTilde ]
+  | [ "#" ] -> [ Sharp ]
 END
 
 GEXTEND Gram
   GLOBAL: ipat;
-  ipat: [ [ "/"; "["; il = iorpat; "]" -> IPatDispatch(il) 
-            | "["; il = iorpat; "]" -> IPatCase(il)
-            | "^"; i = ident -> IPatConcat(Prefix,i)
+  ipat: [ [   "("; m = OPT ipats_mod; il = iorpat; ")" -> IPatDispatch(m,il) 
+            | "["; m = OPT ipats_mod; il = iorpat; "]" -> IPatCase(m,il)
+            |      m = OPT name_mod;  id = ident       -> IPatName(m,id)
         ] ];
+END
+
+(* Low level API exported to ltac to let the user hijack it *)
+
+(* FIXME: patch metasyntax.... *)
+(*
+TACTIC EXTEND intro_id
+| [ "intro_id" ident(id) ] -> [ intro_id_slow id ]
+END
+*)
+
+(* High level grammar *)
+
+TACTIC EXTEND pipeau
+  | [ "quill" ipat_list(pl) ] -> [ ipat_tac pl ]
 END
 
 (* vim: set ft=ocaml: *)

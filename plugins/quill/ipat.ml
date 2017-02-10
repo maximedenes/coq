@@ -12,6 +12,7 @@ open Proofview
 open Proofview.Notations
 open Evarutil
 
+open Printf
 open CoqAPI
 
 (* Only [One] forces an introduction, possibly reducing the goal. *)
@@ -52,21 +53,37 @@ let set_intro_mode mode state =
 
 type simpl = Simpl of int | Cut of int | SimplCut of int * int
 
+type ipats_mod = Equal | Ampersand
+type name_mod = Hat | HatTilde | Sharp
+
+let pr_ipats_mod _ _ _ = function
+  | Equal -> Pp.str"="
+  | Ampersand -> Pp.str"&"
+
+let pr_name_mod _ _ _ = function
+  | Hat -> Pp.str"^"
+  | HatTilde -> Pp.str"^~"
+  | Sharp -> Pp.str"#"
+
+let suffix_of_name_mod = function
+  | None -> ""
+  | Some Hat -> "_append"
+  | Some HatTilde -> "_prepend"
+  | Some Sharp -> "_sharp"
+
 type ipat =
   | IPatNoop
-  | IPatName of Id.t
+  | IPatName of name_mod option * Id.t
   | IPatAnon of anon_iter (* inaccessible name *)
   | IPatDrop (* => _ *)
   | IPatClearMark
-  | IPatConcat of concat_kind * Id.t (* => prefix_[] *)
-  | IPatDispatch of ipat list list (* /[..|..] *)
-  | IPatCase of ipat list list (* this is not equivalent to /case /[..|..] if there are already multiple goals *)
+  | IPatDispatch of ipats_mod option * ipat list list (* /[..|..] *)
+  | IPatCase of ipats_mod option * ipat list list (* this is not equivalent to /case /[..|..] if there are already multiple goals *)
   | IPatTactic of (raw_tactic_expr * selector option * unit list) (* /tac *)
 (*  | IPatRewrite of occurrence option * rewrite_pattern * direction *)
   | IPatView of constr_expr list (* /view *)
   | IPatClear of Id.t list(* {H1 H2} *)
   | IPatSimpl of simpl
-  | IPatInj of ipat list
 (* | IPatView of term list *)
 (* | IPatVarsForAbstract of Id.t list *)
 
@@ -139,7 +156,7 @@ let tac_case t =
     Tactics.simplest_case t <*> set_state (fun s -> incr i; Printf.printf "i=%i\n" !i; upd_state (fun st -> { st with name_seed = Some seeds.(!i) }) s)
   }
 
-let tac_intro_seed interp_ipats prefix =
+let tac_intro_seed interp_ipats where fix =
   Goal.enter { enter = fun gl ->
     let env = Goal.env gl in
     let state = Goal.state gl in
@@ -148,7 +165,13 @@ let tac_intro_seed interp_ipats prefix =
     let ctx,_ = decompose_prod_assum ty in
     Printf.printf "tac_intro_seed with l(ctx)=%i,ty=%s\n" (List.length ctx) (Pp.string_of_ppcmds (Printer.pr_constr ty));
     let seeds = CList.rev_map Context.Rel.Declaration.get_name ctx in
-    let ipats = List.map (function Anonymous -> IPatAnon One | Name id -> IPatName (Id.of_string (Id.to_string prefix ^ Id.to_string id)) ) seeds in
+    let ipats = List.map (function
+       | Anonymous -> IPatAnon One
+       | Name id ->
+           let s = match where with
+           | `Prepend ->  Id.to_string fix ^ Id.to_string id 
+           | `Append -> Id.to_string id ^ Id.to_string fix in
+           IPatName (None,Id.of_string s)) seeds in
     interp_ipats ipats
   }
 
@@ -162,18 +185,66 @@ let tclWITHTOP tac =
 cycle which are not aware of our state type should thread it correctly, so it
 should really be attached to goals *)
 
+(* The .v file that loads the plugin *)
+let bios_dirpath = DirPath.make [Id.of_string "quill"]
+let bios_ml = "quill_plugin"
+
+let locate_tac name =
+  let mk_qtid name = Libnames.make_qualid bios_dirpath name in
+  let mk_tid name = Libnames.qualid_of_ident name in
+  let keep f x = ignore(f x);Libnames.Qualid (Loc.ghost,x) in
+  try keep Nametab.locate_tactic (mk_tid name)
+  with Not_found -> try keep Nametab.locate_tactic (mk_qtid name)
+  with Not_found -> CErrors.error ("Quill not loaded, missing " ^ Id.to_string name)
+
+
+(* BEGIN FIXME this is mostly tacextend.mlp *)
+let export_to_ltac ~name ~nargs code =
+  let args =
+    List.init nargs (fun i -> Id.of_string (sprintf "%s_arg_%d" name i)) in
+  let mltac _ ist =
+    let args =
+      List.map (fun arg ->
+        try Id.Map.find arg ist.Tacinterp.lfun 
+        with Not_found ->
+          CErrors.anomaly Pp.(str "calling convention mismatch: " ++
+            str name ++ str " arg " ++ Ppconstr.pr_id arg)
+      ) args
+    in
+      code ist args in
+  let tname = { mltac_plugin = bios_ml; mltac_tactic = name; } in
+  let () = Tacenv.register_ml_tactic tname [|mltac|] in
+  let tac =
+    Tacexpr.TacFun (List.map (fun x -> Some x) args,
+      Tacexpr.TacML (Loc.ghost, {mltac_name = tname; mltac_index = 0}, [])) in
+  let obj () = Tacenv.register_ltac true false (Id.of_string name) tac in
+  Mltop.declare_cache_obj obj bios_ml
+(* /END *)
+
+
+let lookup_tac name args : raw_tactic_expr =
+  TacArg(Loc.ghost, TacCall(Loc.ghost, locate_tac (Id.of_string name), args))
+
+let in_ident id =
+  TacGeneric (Genarg.in_gen (Genarg.rawwit Stdarg.wit_ident) id)
+
 let rec ipat_tac1 ipat : unit tactic =
   match ipat with
   | IPatTactic(t,sel,args) ->
      Tacinterp.hide_interp true t None
-  | IPatDispatch(ipats) ->
+  | IPatDispatch(m,ipats) ->
      tclDISPATCH (List.map ipat_tac ipats)
-  | IPatName id ->
-     intro_id_slow id
-  | IPatCase(ipatss) ->
+  | IPatName (m,id) ->
+     ipat_tac1 (IPatTactic(
+        lookup_tac ("intro_id" ^ suffix_of_name_mod m) [in_ident id],
+        None,[]))
+       
+  | IPatCase(m,ipatss) ->
      Tacticals.New.tclTHENS (tclWITHTOP tac_case) (List.map ipat_tac ipatss)
+(*
   | IPatConcat(_kind,prefix) ->
      tac_intro_seed ipat_tac prefix
+*)
   | IPatNoop -> tclNIY "IPatNoop"
   | IPatAnon iter -> tclNIY "IPatAnon"
   | IPatDrop -> tclNIY "IPatDrop"
@@ -181,12 +252,37 @@ let rec ipat_tac1 ipat : unit tactic =
   | IPatView views -> tclNIY "IPatView"
   | IPatClear ids -> tclNIY "IPatClear"
   | IPatSimpl simp -> tclNIY "IPatSimpl"
-  | IPatInj ipats -> tclNIY "IPatInj"
 
 and ipat_tac pl : unit tactic =
   match pl with
   | [] -> tclUNIT ()
   | pat :: pl -> tclTHEN (ipat_tac1 pat) (ipat_tac pl)
+
+(* FIXME LL EXPORTS, angain should be done by tacextend.mlp magin in g_quill.ml4*)
+let exported_intro_id ist = function
+  | [ id ] ->
+      let id = Tacinterp.Value.cast (Genarg.topwit Stdarg.wit_ident) id in
+      intro_id_slow id
+  | _ -> assert false (* give API error *)
+
+let () = export_to_ltac "intro_id" 1 exported_intro_id
+
+let exported_intro_id_prepend ist = function
+  | [ id ] ->
+      let id = Tacinterp.Value.cast (Genarg.topwit Stdarg.wit_ident) id in
+      tac_intro_seed ipat_tac `Prepend id
+  | _ -> assert false (* give API error *)
+
+let () = export_to_ltac "intro_id_prepend" 1 exported_intro_id_prepend
+
+let exported_intro_id_append ist = function
+  | [ id ] ->
+      let id = Tacinterp.Value.cast (Genarg.topwit Stdarg.wit_ident) id in
+      tac_intro_seed ipat_tac `Append id
+  | _ -> assert false (* give API error *)
+
+let () = export_to_ltac "intro_id_append" 1 exported_intro_id_append
+
 
 (*
 let ipat_tac pl =
