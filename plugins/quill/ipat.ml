@@ -12,6 +12,8 @@ open Proofview
 open Proofview.Notations
 open Evarutil
 
+open CoqAPI
+
 (* Only [One] forces an introduction, possibly reducing the goal. *)
 type anon_iter =
   | One
@@ -62,7 +64,7 @@ type ipat =
   | IPatTactic of (raw_tactic_expr * selector option * unit list) (* /tac *)
 (*  | IPatRewrite of occurrence option * rewrite_pattern * direction *)
   | IPatView of constr_expr list (* /view *)
-  | IPatClear of Id.t (* {H} *)
+  | IPatClear of Id.t list(* {H1 H2} *)
   | IPatSimpl of simpl
   | IPatInj of ipat list
 (* | IPatView of term list *)
@@ -172,7 +174,14 @@ let rec ipat_tac1 ipat : unit tactic =
      Tacticals.New.tclTHENS (tclWITHTOP tac_case) (List.map ipat_tac ipatss)
   | IPatConcat(_kind,prefix) ->
      tac_intro_seed ipat_tac prefix
-  | _ -> assert false
+  | IPatNoop -> tclNIY "IPatNoop"
+  | IPatAnon iter -> tclNIY "IPatAnon"
+  | IPatDrop -> tclNIY "IPatDrop"
+  | IPatClearMark -> tclNIY "IPatClearMark"
+  | IPatView views -> tclNIY "IPatView"
+  | IPatClear ids -> tclNIY "IPatClear"
+  | IPatSimpl simp -> tclNIY "IPatSimpl"
+  | IPatInj ipats -> tclNIY "IPatInj"
 
 and ipat_tac pl : unit tactic =
   match pl with
