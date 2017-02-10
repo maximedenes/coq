@@ -37,6 +37,9 @@ B toplevel
 S vernac
 B vernac
 
+S plugins/quill 
+B plugins/quill 
+
 S tools
 B tools
 S tools/coqdoc
