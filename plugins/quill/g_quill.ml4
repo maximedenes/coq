@@ -58,3 +58,5 @@ GEXTEND Gram
             | "^"; i = ident -> IPatConcat(Prefix,i)
         ] ];
 END
+
+(* vim: set ft=ocaml: *)
