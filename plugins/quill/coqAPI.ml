@@ -26,3 +26,5 @@ let decompose_assum env sigma t =
   | Prod(name,ty,t) -> Rel.Declaration.LocalAssum(name,ty), t
   | LetIn(name,ty,t1,t2) -> Rel.Declaration.LocalDef(name, ty, t1), t2
   | _ -> user_err (Pp.str "No assumption")
+
+let tclNIY what = anomaly Pp.(str "NIY: " ++ str what)
