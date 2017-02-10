@@ -166,6 +166,7 @@ Welcome to a tiny subset of Coq's documentation!
 .. toctree::
    :maxdepth: 10
 
+   quill/index
    tactics
    cic
    extended-pattern-matching
