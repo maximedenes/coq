@@ -145,7 +145,11 @@ let analyze env evd ty =
   let mind,indb = Inductive.lookup_mind_specif env (kn,i) in
   (mind.Declarations.mind_nparams,indb.Declarations.mind_nf_lc)
 
-let tac_case t =
+let tac_case mode t =
+  match mode with
+  | Some Equal ->
+      V82.tactic (Ssreflect_plugin.Ssreflect.perform_injection t)
+  | None ->
   Goal.enter { enter = fun gl ->
     let env = Goal.env gl in
     let sigma = Goal.sigma gl in
@@ -153,7 +157,9 @@ let tac_case t =
     let evd, ty = Typing.type_of ~refresh:false env evd t in
     let (nparams,seeds) = analyze env evd ty in 
     let i = ref (-1) in
-    Tactics.simplest_case t <*> set_state (fun s -> incr i; Printf.printf "i=%i\n" !i; upd_state (fun st -> { st with name_seed = Some seeds.(!i) }) s)
+    let case_tac = Hook.get Ssreflect_plugin.Ssrcommon.simplest_newcase_tac in
+    V82.tactic (case_tac t)
+    <*> set_state (fun s -> incr i; Printf.printf "i=%i\n" !i; upd_state (fun st -> { st with name_seed = Some seeds.(!i) }) s)
   }
 
 let tac_intro_seed interp_ipats where fix =
@@ -194,8 +200,10 @@ let locate_tac name =
   let mk_tid name = Libnames.qualid_of_ident name in
   let keep f x = ignore(f x);Libnames.Qualid (Loc.ghost,x) in
   try keep Nametab.locate_tactic (mk_tid name)
-  with Not_found -> try keep Nametab.locate_tactic (mk_qtid name)
-  with Not_found -> CErrors.error ("Quill not loaded, missing " ^ Id.to_string name)
+  with Not_found ->
+    try keep Nametab.locate_tactic (mk_qtid name)
+    with Not_found ->
+      CErrors.error ("Quill not loaded, missing " ^ Id.to_string name)
 
 
 (* BEGIN FIXME this is mostly tacextend.mlp *)
@@ -240,7 +248,7 @@ let rec ipat_tac1 ipat : unit tactic =
         None,[]))
        
   | IPatCase(m,ipatss) ->
-     Tacticals.New.tclTHENS (tclWITHTOP tac_case) (List.map ipat_tac ipatss)
+     Tacticals.New.tclTHENS (tclWITHTOP (tac_case m)) (List.map ipat_tac ipatss)
 (*
   | IPatConcat(_kind,prefix) ->
      tac_intro_seed ipat_tac prefix
