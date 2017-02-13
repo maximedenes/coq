@@ -67,12 +67,9 @@ END
 
 (* Low level API exported to ltac to let the user hijack it *)
 
-(* FIXME: patch metasyntax.... *)
-(*
-TACTIC EXTEND intro_id
-| [ "intro_id" ident(id) ] -> [ intro_id_slow id ]
-END
-*)
+EXPORT TACTIC [ "intro_id" ident(id) ] -> [ intro_id_slow id ]
+EXPORT TACTIC [ "intro_id_prepend" ident(id) ] -> [ tac_intro_seed ipat_tac `Prepend id ]
+EXPORT TACTIC [ "intro_id_append" ident(id) ] -> [ tac_intro_seed ipat_tac `Append id ]
 
 (* High level grammar *)
 

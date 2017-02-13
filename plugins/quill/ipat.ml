@@ -206,30 +206,6 @@ let locate_tac name =
       CErrors.error ("Quill not loaded, missing " ^ Id.to_string name)
 
 
-(* BEGIN FIXME this is mostly tacextend.mlp *)
-let export_to_ltac ~name ~nargs code =
-  let args =
-    List.init nargs (fun i -> Id.of_string (sprintf "%s_arg_%d" name i)) in
-  let mltac _ ist =
-    let args =
-      List.map (fun arg ->
-        try Id.Map.find arg ist.Tacinterp.lfun 
-        with Not_found ->
-          CErrors.anomaly Pp.(str "calling convention mismatch: " ++
-            str name ++ str " arg " ++ Ppconstr.pr_id arg)
-      ) args
-    in
-      code ist args in
-  let tname = { mltac_plugin = bios_ml; mltac_tactic = name; } in
-  let () = Tacenv.register_ml_tactic tname [|mltac|] in
-  let tac =
-    Tacexpr.TacFun (List.map (fun x -> Some x) args,
-      Tacexpr.TacML (Loc.ghost, {mltac_name = tname; mltac_index = 0}, [])) in
-  let obj () = Tacenv.register_ltac true false (Id.of_string name) tac in
-  Mltop.declare_cache_obj obj bios_ml
-(* /END *)
-
-
 let lookup_tac name args : raw_tactic_expr =
   TacArg(Loc.ghost, TacCall(Loc.ghost, locate_tac (Id.of_string name), args))
 
@@ -265,32 +241,6 @@ and ipat_tac pl : unit tactic =
   match pl with
   | [] -> tclUNIT ()
   | pat :: pl -> tclTHEN (ipat_tac1 pat) (ipat_tac pl)
-
-(* FIXME LL EXPORTS, angain should be done by tacextend.mlp magin in g_quill.ml4*)
-let exported_intro_id ist = function
-  | [ id ] ->
-      let id = Tacinterp.Value.cast (Genarg.topwit Stdarg.wit_ident) id in
-      intro_id_slow id
-  | _ -> assert false (* give API error *)
-
-let () = export_to_ltac "intro_id" 1 exported_intro_id
-
-let exported_intro_id_prepend ist = function
-  | [ id ] ->
-      let id = Tacinterp.Value.cast (Genarg.topwit Stdarg.wit_ident) id in
-      tac_intro_seed ipat_tac `Prepend id
-  | _ -> assert false (* give API error *)
-
-let () = export_to_ltac "intro_id_prepend" 1 exported_intro_id_prepend
-
-let exported_intro_id_append ist = function
-  | [ id ] ->
-      let id = Tacinterp.Value.cast (Genarg.topwit Stdarg.wit_ident) id in
-      tac_intro_seed ipat_tac `Append id
-  | _ -> assert false (* give API error *)
-
-let () = export_to_ltac "intro_id_append" 1 exported_intro_id_append
-
 
 (*
 let ipat_tac pl =

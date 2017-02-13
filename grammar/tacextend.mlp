@@ -136,6 +136,38 @@ let declare_tactic loc tacname ~level classification clause = match clause with
         Mltop.declare_cache_obj $obj$ $plugin_name$; } >>
     ]
 
+
+let export_ml_tactic loc = function
+  | ExtTerminal name :: args, _, tac ->
+     let args_names =
+       List.map (function
+         | ExtNonTerminal(_,id) ->
+            (id, mlexpr_of_string (Printf.sprintf "%s_arg_%s" name id))
+         | _ -> assert false) args in
+     let name = mlexpr_of_string name in
+     let rec grab_args e = function
+       | (p,name) :: na ->
+             <:expr< let $lid:p$ = Names.Id.Map.find (Names.Id.of_string $name$) ist.Tacinterp.lfun in
+                     $grab_args e na$ >>
+       | [] -> e in
+     let mltac = grab_args (make_let false <:expr< $tac$ >> args) args_names in
+     let tname = <:expr< 
+       { Tacexpr.mltac_plugin = $plugin_name$; Tacexpr.mltac_tactic = $name$ }
+       >> in
+     let args_names = mlexpr_of_list (fun (_,x) -> x) args_names in
+     let tac = <:expr<
+       Tacexpr.TacFun (List.map (fun x -> Some (Names.Id.of_string x)) $args_names$,
+         Tacexpr.TacML (Loc.ghost, {mltac_name = $tname$; mltac_index = 0}, []))
+       >> in
+     let obj = <:expr< fun () ->
+       Tacenv.register_ltac True False (Names.Id.of_string $name$) $tac$ >> in
+     declare_str_items loc [ <:str_item< do { 
+        Tacenv.register_ml_tactic $tname$ [|fun _ ist -> $mltac$ ist|];
+        Mltop.declare_cache_obj $obj$ $plugin_name$;
+     } >> ]
+  | _ -> assert false (* FIXME Error message *)
+
+
 open Pcaml
 
 EXTEND
@@ -147,7 +179,8 @@ EXTEND
         OPT "|"; l = LIST1 tacrule SEP "|";
         "END" ->
         let level = match level with Some i -> int_of_string i | None -> 0 in
-         declare_tactic loc s ~level c l ] ]
+         declare_tactic loc s ~level c l
+      | "EXPORT"; "TACTIC"; t = tacrule ->  export_ml_tactic loc t]]
   ;
   tacrule:
     [ [ "["; l = LIST1 tacargs; "]";
