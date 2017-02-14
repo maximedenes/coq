@@ -62,14 +62,20 @@ GEXTEND Gram
   ipat: [ [   "("; m = OPT ipats_mod; il = iorpat; ")" -> IPatDispatch(m,il) 
             | "["; m = OPT ipats_mod; il = iorpat; "]" -> IPatCase(m,il)
             |      m = OPT name_mod;  id = ident       -> IPatName(m,id)
+            | ">" -> IPatAnon(Dependent)
+            | "*" -> IPatAnon(All)
+            | "?" -> IPatAnon(One)
         ] ];
 END
 
 (* Low level API exported to ltac to let the user hijack it *)
 
-EXPORT TACTIC [ "intro_id" ident(id) ] -> [ intro_id_slow id ]
+EXPORT TACTIC [ "intro_id" ident(id) ] -> [ intro_id id ]
 EXPORT TACTIC [ "intro_id_prepend" ident(id) ] -> [ tac_intro_seed ipat_tac `Prepend id ]
 EXPORT TACTIC [ "intro_id_append" ident(id) ] -> [ tac_intro_seed ipat_tac `Append id ]
+EXPORT TACTIC [ "intro_anon" ] -> [ intro_anon ]
+EXPORT TACTIC [ "intro_anon_all" ] -> [ intro_anon_all ]
+EXPORT TACTIC [ "intro_anon_deps" ] -> [ intro_anon_deps ]
 
 (* High level grammar *)
 

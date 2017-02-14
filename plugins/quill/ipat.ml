@@ -14,6 +14,7 @@ open Evarutil
 
 open Printf
 open CoqAPI
+open Quill_common
 
 (* Only [One] forces an introduction, possibly reducing the goal. *)
 type anon_iter =
@@ -71,6 +72,13 @@ let suffix_of_name_mod = function
   | Some HatTilde -> "_prepend"
   | Some Sharp -> "_sharp"
 
+let suffix_of_anon_iter = function
+  | One -> ""
+  | Dependent -> "_deps"
+  | UntilMark -> "_mark"
+  | Temporary -> "_temp"
+  | All -> "_all"
+
 type ipat =
   | IPatNoop
   | IPatName of name_mod option * Id.t
@@ -111,13 +119,44 @@ let set_decl_id id = function
   | Rel.Declaration.LocalAssum(name,ty) -> Named.Declaration.LocalAssum(id,ty)
   | Rel.Declaration.LocalDef(name,ty,t) -> Named.Declaration.LocalDef(id,ty,t)
 
-let intro_id_slow id = Goal.enter { enter = fun gl ->
+(** [intro id] introduces the first premise (product or let-in) of the goal
+    under the name [id], reducing the head of the goal (using beta, iota, delta
+    but not zeta) if necessary. If [id] is None, a name is generated, that will
+    not be user accesible. If the goal does not start with a product or a let-in
+    even after reduction, it fails. *)
+let intro ~id = Goal.enter { enter = fun gl ->
   let env = Goal.env gl in
   let sigma = Goal.sigma gl in
   let store = Goal.extra gl in
   let g = Goal.raw_concl gl in
   let decl,t = CoqAPI.decompose_assum env (Sigma.to_evar_map sigma) g in
+  let id = match id, Rel.Declaration.get_name decl with
+    | Some id, _ -> id
+    | _, Name id ->
+       if Ssreflect_plugin.Ssrcommon.is_discharged_id id then id
+       else mk_anon_id (string_of_id id) gl
+    | _, _ -> mk_anon_id Ssreflect_plugin.Ssrcommon.ssr_anon_hyp gl
+  in
   unsafe_intro env store (set_decl_id id decl) t
+ }
+
+let intro_id id = intro ~id:(Some id)
+let intro_anon = intro ~id:None
+
+let intro_anon_all = Goal.enter { enter = fun gl ->
+  let env = Goal.env gl in
+  let sigma = Goal.sigma gl in
+  let g = Goal.raw_concl gl in
+  let n = Quill_common.nb_assums env (Sigma.to_evar_map sigma) g in
+  Tacticals.New.tclDO n intro_anon
+ }
+
+let intro_anon_deps = Goal.enter { enter = fun gl ->
+  let env = Goal.env gl in
+  let sigma = Goal.sigma gl in
+  let g = Goal.raw_concl gl in
+  let n = Quill_common.nb_deps_assums env (Sigma.to_evar_map sigma) g in
+  Tacticals.New.tclDO n intro_anon
  }
 
 (*
@@ -184,12 +223,8 @@ let tac_intro_seed interp_ipats where fix =
 (* FIXME: use unreachable name *)
 let tclWITHTOP tac =
   let top = Id.of_string "top_assumption" in
-  intro_id_slow top <*> tac (mkVar top) <*> Tactics.clear [top]
+  intro_id top <*> tac (mkVar top) <*> Tactics.clear [top]
 
-
-(* The problem is: how to enrich multi goals tactic with state?  Tactics like
-cycle which are not aware of our state type should thread it correctly, so it
-should really be attached to goals *)
 
 (* The .v file that loads the plugin *)
 let bios_dirpath = DirPath.make [Id.of_string "quill"]
@@ -225,12 +260,17 @@ let rec ipat_tac1 ipat : unit tactic =
        
   | IPatCase(m,ipatss) ->
      Tacticals.New.tclTHENS (tclWITHTOP (tac_case m)) (List.map ipat_tac ipatss)
+
+  | IPatAnon(iter) ->
+     ipat_tac1 (IPatTactic(
+        lookup_tac ("intro_anon" ^ suffix_of_anon_iter iter) [],
+        None,[]))
+
 (*
   | IPatConcat(_kind,prefix) ->
      tac_intro_seed ipat_tac prefix
 *)
   | IPatNoop -> tclNIY "IPatNoop"
-  | IPatAnon iter -> tclNIY "IPatAnon"
   | IPatDrop -> tclNIY "IPatDrop"
   | IPatClearMark -> tclNIY "IPatClearMark"
   | IPatView views -> tclNIY "IPatView"
@@ -241,8 +281,3 @@ and ipat_tac pl : unit tactic =
   match pl with
   | [] -> tclUNIT ()
   | pat :: pl -> tclTHEN (ipat_tac1 pat) (ipat_tac pl)
-
-(*
-let ipat_tac pl =
-  
- *)

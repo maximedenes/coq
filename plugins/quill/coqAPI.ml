@@ -4,6 +4,8 @@ open Evarutil
 open Reductionops
 open Constr
 open Context
+open Vars
+open Evarsolve
 
 let clos_whd_flags flgs env sigma t =
   try
