@@ -80,7 +80,7 @@ EXPORT TACTIC [ "intro_anon_deps" ] -> [ intro_anon_deps ]
 (* High level grammar *)
 
 TACTIC EXTEND pipeau
-  | [ "quill" ipat_list(pl) ] -> [ ipat_tac pl ]
+  | [ "=>" ipat_list(pl) ] -> [ ipat_tac pl ]
 END
 
 (* vim: set ft=ocaml: *)
