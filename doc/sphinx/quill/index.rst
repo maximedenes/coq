@@ -5,9 +5,6 @@
 .. contents::
    :local:
 
-Introduction
-============
-
 .. toctree::
    :maxdepth: 10
 
