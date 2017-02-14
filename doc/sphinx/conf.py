@@ -110,7 +110,7 @@ highlight_language = 'text'
 #keep_warnings = False
 
 # If true, `todo` and `todoList` produce output, else they produce nothing.
-todo_include_todos = False
+todo_include_todos = True
 
 # Extra warnings, including undefined references
 nitpicky = False
