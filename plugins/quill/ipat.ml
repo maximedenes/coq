@@ -177,6 +177,34 @@ let set_state upd =
     Proofview.Unsafe.tclSETGOALS l
   }
 
+(** [intro_drop] behaves like [intro_anon] but registers the id of the
+introduced assumption for a delayed clear. *)
+(* TODO: see if we could avoid duplicating code by using [Goal.enter_one]. *)
+let intro_drop = Goal.enter { enter = fun gl ->
+  let env = Goal.env gl in
+  let sigma = Goal.sigma gl in
+  let store = Goal.extra gl in
+  let g = Goal.raw_concl gl in
+  let decl,t = CoqAPI.decompose_assum env (Sigma.to_evar_map sigma) g in
+  let id = match Rel.Declaration.get_name decl with
+    | Name id ->
+       if Ssreflect_plugin.Ssrcommon.is_discharged_id id then id
+       else mk_anon_id (string_of_id id) gl
+    | _ -> mk_anon_id Ssreflect_plugin.Ssrcommon.ssr_anon_hyp gl
+  in
+  unsafe_intro env store (set_decl_id id decl) t
+  <*>
+  set_state (upd_state (fun st -> { st with to_clear = id :: st.to_clear }))
+ }
+
+(** [intro_finalize] performs the actions that have been delayed. *)
+let intro_finalize = Goal.enter { enter = fun gl ->
+  let state = Goal.state gl in
+  match Proofview_monad.StateStore.get state state_field with
+  | None -> tclUNIT ()
+  | Some state -> Tactics.clear state.to_clear
+ }
+
 let analyze env evd ty =
   let ((kn, i), _ as indu), unfolded_c_ty =
     Tacred.reduce_to_quantified_ind env evd ty
@@ -271,7 +299,10 @@ let rec ipat_tac1 ipat : unit tactic =
      tac_intro_seed ipat_tac prefix
 *)
   | IPatNoop -> tclNIY "IPatNoop"
-  | IPatDrop -> tclNIY "IPatDrop"
+
+  | IPatDrop ->
+     ipat_tac1 (IPatTactic(lookup_tac ("intro_drop") [],None,[]))
+
   | IPatClearMark -> tclNIY "IPatClearMark"
   | IPatView views -> tclNIY "IPatView"
   | IPatClear ids -> tclNIY "IPatClear"
@@ -279,5 +310,5 @@ let rec ipat_tac1 ipat : unit tactic =
 
 and ipat_tac pl : unit tactic =
   match pl with
-  | [] -> tclUNIT ()
+  | [] -> ipat_tac1 (IPatTactic(lookup_tac ("intro_finalize") [],None,[]))
   | pat :: pl -> tclTHEN (ipat_tac1 pat) (ipat_tac pl)
