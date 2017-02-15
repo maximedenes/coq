@@ -82,7 +82,10 @@ let init_load_path () =
   let coqpath = Envars.coqpath in
   let coq_root = Names.DirPath.make [Nameops.coq_root] in
     (* NOTE: These directories are searched from last to first *)
-    (* first, developer specific directory to open *)
+    (* current directory (not recursively!) *)
+    Mltop.add_ml_dir ".";
+    Loadpath.add_load_path "." Nameops.default_root_prefix ~implicit:false;
+    (* developer specific directory to open *)
     if Coq_config.local then
       Mltop.add_ml_dir (coqlib/"dev");
     (* main loops *)
@@ -103,9 +106,6 @@ let init_load_path () =
     List.iter (fun s -> add_userlib_path ~unix_path:s) xdg_dirs;
     (* then directories in COQPATH *)
     List.iter (fun s -> add_userlib_path ~unix_path:s) coqpath;
-    (* then current directory (not recursively!) *)
-    Mltop.add_ml_dir ".";
-    Loadpath.add_load_path "." Nameops.default_root_prefix ~implicit:false;
     (* additional loadpath, given with options -Q and -R *)
     List.iter
       (fun (unix_path, coq_root, implicit) ->
