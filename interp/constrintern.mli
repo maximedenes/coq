@@ -20,6 +20,9 @@ open Pretyping
 open Misctypes
 open Decl_kinds
 
+type internalization_error
+exception InternalizationError of Loc.t * internalization_error
+
 (** Translation from front abstract syntax of term to untyped terms (glob_constr) *)
 
 (** The translation performs:
