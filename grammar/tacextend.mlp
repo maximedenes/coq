@@ -157,7 +157,7 @@ let export_ml_tactic loc = function
      let args_names = mlexpr_of_list (fun (_,x) -> x) args_names in
      let tac = <:expr<
        Tacexpr.TacFun (List.map (fun x -> Some (Names.Id.of_string x)) $args_names$,
-         Tacexpr.TacML (Loc.ghost, {mltac_name = $tname$; mltac_index = 0}, []))
+         Tacexpr.TacML (Loc.ghost, {Tacexpr.mltac_name = $tname$; Tacexpr.mltac_index = 0}, []))
        >> in
      let obj = <:expr< fun () ->
        Tacenv.register_ltac True False (Names.Id.of_string $name$) $tac$ >> in
