@@ -63,6 +63,12 @@ let is_ident x = function
 | _ -> false
 
 let make_extend loc s cl wit = match cl with
+| [] -> 
+  let se = mlexpr_of_string s in
+  <:str_item< 
+    value $lid:s$ =
+      let $lid:s$ = Pcoq.create_generic_entry Pcoq.utactic $se$ (Genarg.rawwit $wit$) in
+      $lid:s$ >>
 | [[ExtNonTerminal (Uentry e, id)], act] when is_ident id act ->
   (** Special handling of identity arguments by not redeclaring an entry *)
   <:str_item<
@@ -199,7 +205,7 @@ EXTEND
   str_item:
     [ [ "ARGUMENT"; "EXTEND"; s = entry_name;
         header = argextend_header;
-        OPT "|"; l = LIST1 argrule SEP "|";
+        OPT "|"; l = LIST0 argrule SEP "|";
         "END" ->
          declare_tactic_argument loc s header l
       | "VERNAC"; "ARGUMENT"; "EXTEND"; s = entry_name;
