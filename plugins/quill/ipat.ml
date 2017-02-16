@@ -119,12 +119,40 @@ let suffix_of_name_mod = function
   | Some HatTilde -> "_prepend"
   | Some Sharp -> "_sharp"
 
+
 let suffix_of_anon_iter = function
   | One -> ""
   | Dependent -> "_deps"
   | UntilMark -> "_mark"
   | Temporary -> "_temp"
   | All -> "_all"
+
+(* These terms are raw but closed with the intenalization/interpretation context.
+ * It is up to the tactic receiving it to decide if such contexts are useful or not,
+ * and eventually manipulate the term before turning it into a constr *)
+type term = {
+  body : Constrexpr.constr_expr;
+  glob_env : Genintern.glob_sign option; (* for Tacintern.intern_constr *)
+  interp_env :  Geninterp.interp_sign option; (* for Tacinterp.interp_open_constr_with_bindings *)
+  annotation : [ `None | `Parens | `DoubleParens | `At ];
+} 
+let glob_term (ist : Genintern.glob_sign) t =
+  { t with glob_env = Some ist }
+let subst_term (_s : Mod_subst.substitution) t =
+  (* _s makes sense only for glob constr *)
+  t
+let interp_term (ist : Geninterp.interp_sign) (gl : 'goal Evd.sigma) t = 
+  (* gl is only useful if we want to interp *now*, later we have
+   * a potentially different gl.sigma *)
+  Tacmach.project gl, { t with interp_env = Some ist }
+
+let mk_term a t = {
+  annotation = a;
+  body = t;
+  interp_env = None;
+  glob_env = None;
+}
+let pr_term _ _ _ { body } = Ppconstr.pr_constr_expr body
 
 type ipat =
   | IPatNoop
@@ -134,20 +162,34 @@ type ipat =
   | IPatClearMark
   | IPatDispatch of ipats_mod option * ipat list list (* /[..|..] *)
   | IPatCase of ipats_mod option * ipat list list (* this is not equivalent to /case /[..|..] if there are already multiple goals *)
-  | IPatTactic of (raw_tactic_expr * selector option * unit list) (* /tac *)
 (*  | IPatRewrite of occurrence option * rewrite_pattern * direction *)
-  | IPatView of constr_expr list (* /view *)
+  | IPatView of term list (* /view *)
   | IPatClear of Id.t list(* {H1 H2} *)
   | IPatSimpl of simpl
-(* | IPatView of term list *)
 (* | IPatVarsForAbstract of Id.t list *)
 
 let pr_iorpat _ _ _ ipat = Pp.mt ()
 let pr_ipat _ _ _ ipat = Pp.mt ()
+let subst_ipat _ x = x
 
-let interp_ipat ist gl ipat = Evd.empty, (ist, ipat)
+let rec map_ipat map_term = function
+  | (IPatNoop 
+    | IPatName _  (* XXX fix ltac, not a term but potentially affected by ltac *)
+    | IPatClear _ (* XXX fix ltac, the same as above *)
+    | IPatAnon _
+    | IPatDrop 
+    | IPatClearMark
+    | IPatSimpl _
+    ) as x -> x
+  | IPatDispatch(m,ll) ->
+      IPatDispatch(m,List.map (List.map (map_ipat map_term)) ll)
+  | IPatCase(m,ll) ->
+      IPatCase(m,List.map (List.map (map_ipat map_term)) ll)
+  | IPatView tl -> IPatView(List.map map_term tl)
 
-let glob_ipat _ ipat = ()
+let interp_ipat ist gl x =
+  Tacmach.project gl, map_ipat (fun x -> snd (interp_term ist gl x)) x
+let glob_ipat ist = map_ipat (glob_term ist)
 
 (** This tactic creates a partial proof realizing the introduction rule, but
     does not check anything. *)
@@ -322,40 +364,78 @@ let lookup_tac name args : raw_tactic_expr =
 let in_ident id =
   TacGeneric (Genarg.in_gen (Genarg.rawwit Stdarg.wit_ident) id)
 
+let interp_raw_tac t = Tacinterp.hide_interp true t None
+let interp_glob_tac t = Tacinterp.eval_tactic t
+
+(* Disambiguation of /t
+    - t is ltac:(tactic args)   
+    - t is a term
+   To allow for t being a notation, like "Notation foo x := ltac:(foo x)", we
+   need to internalize t.
+*)
+let is_tac_in_term { body; glob_env } = 
+  Proofview.Goal.(enter_one { enter = fun goal ->
+    let genv = env goal in
+    let ist = CoqAPI.Option.assert_get glob_env (Pp.str"not a term") in
+    (* We use the env of the goal, not the global one *)
+    let ist = { ist with genv } in
+    (* We unravel notations *)
+    match CoqAPI.intern_constr_expr ist body with
+    | Glob_term.GHole (_,_,_, Some x)
+      when Genarg.has_type x (Genarg.glbwit Tacarg.wit_tactic) 
+        -> tclUNIT (Some (Genarg.out_gen (Genarg.glbwit Tacarg.wit_tactic) x))
+    | _ -> tclUNIT None (* XXX Maybe we should have `Term|`Tac|`Err to avoid re-interning the view term *)
+    | exception (Constrintern.InternalizationError _ | Nametab.GlobalizationError _)
+        -> tclUNIT None (* I guess we get better error messages later on *)
+ })
+
+let pile_up_view v = (* we store in the state (v top), then (v1 (v2 top))... *)
+  tclUNIT ()
+
+let end_view_application = (* we turn (v1..vn top) into (fun ev => v1..vn top) *)
+  tclUNIT ()
+
+let rec tac_views = function
+  | [] -> end_view_application
+  | v :: vs ->
+      tclINDEPENDENTL (is_tac_in_term v) >>= fun tacs ->
+      if not((List.for_all Option.is_empty tacs ||
+             not(List.exists Option.is_empty tacs))) then
+        CErrors.error ("/view is too ambiguous: tactic or term? use ltac: or term:");
+      let actions =
+        List.map (function
+          | Some tac -> end_view_application <*> interp_glob_tac tac
+          | None -> pile_up_view v) tacs in
+      (* CAVEAT: we are committing to mono-goal tactics, what about
+       * ltacM:(tactic), a new ltac quotation, identical to "ltac:" that
+       * tells us to be multi goal? *)
+      tclDISPATCH actions <*> tac_views vs
+
 let rec ipat_tac1 ipat : unit tactic =
   match ipat with
-  | IPatTactic(t,sel,args) ->
-     Tacinterp.hide_interp true t None
+  | IPatView l -> tac_views l
+
   | IPatDispatch(m,ipats) ->
      tclDISPATCH (List.map ipat_tac ipats)
   | IPatName (m,id) ->
-     ipat_tac1 (IPatTactic(
-        lookup_tac ("intro_id" ^ suffix_of_name_mod m) [in_ident id],
-        None,[]))
+     interp_raw_tac (lookup_tac ("intro_id" ^ suffix_of_name_mod m) [in_ident id])
        
   | IPatCase(m,ipatss) ->
      Tacticals.New.tclTHENS (tclWITHTOP (tac_case m)) (List.map ipat_tac ipatss)
 
   | IPatAnon(iter) ->
-     ipat_tac1 (IPatTactic(
-        lookup_tac ("intro_anon" ^ suffix_of_anon_iter iter) [],
-        None,[]))
+      interp_raw_tac (lookup_tac ("intro_anon" ^ suffix_of_anon_iter iter) [])
 
-(*
-  | IPatConcat(_kind,prefix) ->
-     tac_intro_seed ipat_tac prefix
-*)
   | IPatNoop -> tclNIY "IPatNoop"
 
   | IPatDrop ->
-     ipat_tac1 (IPatTactic(lookup_tac ("intro_drop") [],None,[]))
+     interp_raw_tac (lookup_tac ("intro_drop") [])
 
   | IPatClearMark -> tclNIY "IPatClearMark"
-  | IPatView views -> tclNIY "IPatView"
   | IPatClear ids -> tclNIY "IPatClear"
   | IPatSimpl simp -> tclNIY "IPatSimpl"
 
 and ipat_tac pl : unit tactic =
   match pl with
-  | [] -> ipat_tac1 (IPatTactic(lookup_tac ("intro_finalize") [],None,[]))
+  | [] -> interp_raw_tac (lookup_tac ("intro_finalize") [])
   | pat :: pl -> tclTHEN (ipat_tac1 pat) (ipat_tac pl)

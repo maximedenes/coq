@@ -15,30 +15,45 @@ let () = Mltop.add_known_plugin (fun () ->
   )
   "quill_plugin"
 
-(** Shouldn't this move to Coq?
-(** Adding a new uninterpreted generic argument type *)
-let add_genarg tag pr =
-  let wit = Genarg.make0 tag in
-  let tag = Geninterp.Val.create tag in
-  let glob ist x = (ist, x) in
-  let subst _ x = x in
-  let interp ist x = Ftactic.return (Geninterp.Val.Dyn (tag, x)) in
-  let gen_pr _ _ _ = pr in
-  let () = Genintern.register_intern0 wit glob in
-  let () = Genintern.register_subst0 wit subst in
-  let () = Geninterp.register_interp0 wit interp in
-  let () = Geninterp.register_val0 wit (Some (Geninterp.Val.Base tag)) in
-  Pptactic.declare_extra_genarg_pprule wit gen_pr gen_pr gen_pr;
-  wit
+let input_term_annotation strm =
+  match List.map Compat.get_tok (Stream.npeek 2 strm) with
+  | Tok.KEYWORD "(" :: Tok.KEYWORD "(" :: _ -> `DoubleParens
+  | Tok.KEYWORD "(" :: _ -> `Parens
+  | Tok.KEYWORD "@" :: _ -> `At
+  | _ -> `None
+let term_annotation =
+  Gram.Entry.of_parser "term_annotation" input_term_annotation
 
-let wit_ipat = add_genarg "ipat" pr_ipat
- *)
+ARGUMENT EXTEND term
+     PRINTED BY pr_term
+     INTERPRETED BY interp_term
+     GLOBALIZED BY glob_term
+     SUBSTITUTED BY subst_term
+     RAW_PRINTED BY pr_term
+     GLOB_PRINTED BY pr_term
+END
+
+GEXTEND Gram
+  GLOBAL: term;
+  term: [[ a = term_annotation; c = Pcoq.Constr.constr -> mk_term a c ]];
+END
+
+let pr_ipat_view a b c = Pp.prlist_with_sep (fun _ -> Pp.str"/") (pr_term a b c)
+
+ARGUMENT EXTEND ipat_view
+  TYPED AS term list
+  PRINTED BY pr_ipat_view
+  | [ ne_term_list_sep(ts,"/") ] -> [ ts ]
+END
 
 ARGUMENT EXTEND ipat
+  TYPED AS ipat
   PRINTED BY pr_ipat
-(*  INTERPRETED BY interp_ipat
-  GLOBALIZED BY glob_ipat *)
-  | [ "/" tactic_expr(t) ] -> [ IPatTactic(t,None,[]) ]
+  INTERPRETED BY interp_ipat
+  GLOBALIZED BY glob_ipat
+  SUBSTITUTED BY subst_ipat
+  RAW_PRINTED BY pr_ipat
+  GLOB_PRINTED BY pr_ipat
 END
 
 ARGUMENT EXTEND iorpat TYPED AS ipat list list PRINTED BY pr_iorpat
@@ -61,6 +76,7 @@ GEXTEND Gram
   GLOBAL: ipat;
   ipat: [ [   "("; m = OPT ipats_mod; il = iorpat; ")" -> IPatDispatch(m,il) 
             | "["; m = OPT ipats_mod; il = iorpat; "]" -> IPatCase(m,il)
+            | "/"; v = ipat_view                       -> IPatView(v)
             |      m = OPT name_mod;  id = ident       -> IPatName(m,id)
             | ">" -> IPatAnon(Dependent)
             | "*" -> IPatAnon(All)
@@ -107,4 +123,5 @@ VERNAC COMMAND EXTEND ViewAdaptor CLASSIFIED AS SIDEFF
 |  [  "ViewAdaptor" "Forward"     gconstr(t) ] -> [ let t = intern_gconstr t in AdaptorDb.(declare Forward t) ]
 |  [  "ViewAdaptor" "Equivalence" gconstr(t) ] -> [ let t = intern_gconstr t in AdaptorDb.(declare Equivalence t) ]
 END
+
 (* vim: set ft=ocaml: *)
