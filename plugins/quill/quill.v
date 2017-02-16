@@ -9,5 +9,6 @@ Tactic Notation "intro_id_append" ident(i) := intro_id_append i.
 Tactic Notation "intro_anon" := intro_anon.
 Tactic Notation "intro_anon_all" := intro_anon_all.
 Tactic Notation "intro_anon_deps" := intro_anon_deps.
+Tactic Notation "intro_anon_temp" := intro_anon_temp.
 Tactic Notation "intro_drop" := intro_drop.
 Tactic Notation "intro_finalize" := intro_finalize.

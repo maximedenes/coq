@@ -7,6 +7,9 @@ open Constr
 open Context
 open Vars
 open Evarsolve
+open Proofview
+open Proofview.Notations
+open Ssrmatching_plugin.Ssrmatching
 open CoqAPI
 
 (** [nb_deps_assums] returns the number of dependent premises *)
@@ -82,3 +85,21 @@ let mk_anon_id t gl =
     if i < m then (set n '0'; set m '1'; s ^ "_") else
     (set i (Char.chr (Char.code s.[i] + 1)); s) in
   id_of_string (Bytes.to_string (loop (n - 1)))
+
+let convert_concl_no_check t = Tactics.convert_concl_no_check t Term.DEFAULTcast
+let convert_concl t = Tactics.convert_concl t Term.DEFAULTcast
+
+let rename_hd_prod name =
+  Goal.enter { enter = fun gl ->
+    let concl = Goal.raw_concl gl in
+    match Term.kind_of_term concl with
+    | Prod(_,src,tgt) ->
+        convert_concl_no_check (mkProd (name,src,tgt))
+    | _ -> CErrors.anomaly (Pp.str "rename_hd_prod: no head product")
+  }
+
+let gentac id new_name =
+ let gen = ((None,Some(false,[])),cpattern_of_id id) in
+ let ist = Geninterp.({ lfun = Id.Map.empty; extra = TacStore.empty }) in
+ Proofview.V82.tactic (Ssreflect_plugin.Ssreflect.gentac ist gen)
+ <*> rename_hd_prod new_name

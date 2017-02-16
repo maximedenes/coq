@@ -79,13 +79,18 @@ type direction = LeftToRight | RightToLeft
 
 type selector = int
 
+type delayed_gen = { from_id : Id.t;
+                     to_name : Name.t }
+
 type state = { to_clear: Id.t list;
+               to_generalize: delayed_gen list;
                name_seed: Constr.t option }
 
 let state_field : state Proofview_monad.StateStore.field =
   Proofview_monad.StateStore.field ()
 
 let fresh_state = { to_clear = [];
+                    to_generalize = [];
                     name_seed = None }
 
 (* FIXME: should not inject fresh_state, but initialize it at the beginning *)
@@ -208,18 +213,20 @@ let set_decl_id id = function
   | Rel.Declaration.LocalAssum(name,ty) -> Named.Declaration.LocalAssum(id,ty)
   | Rel.Declaration.LocalDef(name,ty,t) -> Named.Declaration.LocalDef(id,ty,t)
 
-(** [intro id] introduces the first premise (product or let-in) of the goal
+(** [intro id k] introduces the first premise (product or let-in) of the goal
     under the name [id], reducing the head of the goal (using beta, iota, delta
     but not zeta) if necessary. If [id] is None, a name is generated, that will
     not be user accesible. If the goal does not start with a product or a let-in
-    even after reduction, it fails. *)
-let intro ~id = Goal.enter { enter = fun gl ->
+    even after reduction, it fails. In case of success, the original name and
+    final id are passed to the continuation [k] which gets evaluated. *)
+let intro ~id k = Goal.enter { enter = fun gl ->
   let env = Goal.env gl in
   let sigma = Goal.sigma gl in
   let store = Goal.extra gl in
   let g = Goal.raw_concl gl in
   let decl,t = CoqAPI.decompose_assum env (Sigma.to_evar_map sigma) g in
-  let id = match id, Rel.Declaration.get_name decl with
+  let original_name = Rel.Declaration.get_name decl in
+  let id = match id, original_name with
     | Some id, _ -> id
     | _, Name id ->
        if Ssreflect_plugin.Ssrcommon.is_discharged_id id then id
@@ -227,10 +234,13 @@ let intro ~id = Goal.enter { enter = fun gl ->
     | _, _ -> mk_anon_id Ssreflect_plugin.Ssrcommon.ssr_anon_hyp gl
   in
   unsafe_intro env store (set_decl_id id decl) t
+  <*> k original_name id
  }
 
-let intro_id id = intro ~id:(Some id)
-let intro_anon = intro ~id:None
+let return _name _id = tclUNIT ()
+
+let intro_id id = intro ~id:(Some id) return
+let intro_anon = intro ~id:None return
 
 let intro_anon_all = Goal.enter { enter = fun gl ->
   let env = Goal.env gl in
@@ -268,30 +278,32 @@ let set_state upd =
 
 (** [intro_drop] behaves like [intro_anon] but registers the id of the
 introduced assumption for a delayed clear. *)
-(* TODO: see if we could avoid duplicating code by using [Goal.enter_one]. *)
-let intro_drop = Goal.enter { enter = fun gl ->
-  let env = Goal.env gl in
-  let sigma = Goal.sigma gl in
-  let store = Goal.extra gl in
-  let g = Goal.raw_concl gl in
-  let decl,t = CoqAPI.decompose_assum env (Sigma.to_evar_map sigma) g in
-  let id = match Rel.Declaration.get_name decl with
-    | Name id ->
-       if Ssreflect_plugin.Ssrcommon.is_discharged_id id then id
-       else mk_anon_id (string_of_id id) gl
-    | _ -> mk_anon_id Ssreflect_plugin.Ssrcommon.ssr_anon_hyp gl
+let intro_drop = 
+  let k _original_name new_id =
+    set_state (upd_state (fun st -> { st with to_clear = new_id :: st.to_clear }))
   in
-  unsafe_intro env store (set_decl_id id decl) t
-  <*>
-  set_state (upd_state (fun st -> { st with to_clear = id :: st.to_clear }))
- }
+  intro ~id:None k
+
+(** [intro_temp] behaves like [intro_anon] but registers the id of the
+introduced assumption for a regeneralization. *)
+let intro_anon_temp = 
+  let k original_name new_id =
+    let gen = { from_id = new_id; to_name = original_name } in
+    set_state (upd_state (fun st -> { st with to_generalize = gen :: st.to_generalize }))
+  in
+  intro ~id:None k
 
 (** [intro_finalize] performs the actions that have been delayed. *)
 let intro_finalize = Goal.enter { enter = fun gl ->
   let state = Goal.state gl in
   match Proofview_monad.StateStore.get state state_field with
   | None -> tclUNIT ()
-  | Some state -> Tactics.clear state.to_clear
+  | Some state ->
+     (* delayed clears *)
+     Tactics.clear state.to_clear
+     (* delayed generalizations *)
+     <*> Tacticals.New.tclTHENLIST (List.map (fun gen -> gentac gen.from_id gen.to_name) state.to_generalize)
+     <*> Tactics.clear (List.map (fun gen -> gen.from_id) state.to_generalize)
  }
 
 let analyze env evd ty =

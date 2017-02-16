@@ -81,6 +81,7 @@ GEXTEND Gram
             | ">" -> IPatAnon(Dependent)
             | "*" -> IPatAnon(All)
             | "?" -> IPatAnon(One)
+            | "+" -> IPatAnon(Temporary)
             | "_" -> IPatDrop
         ] ];
 END
@@ -93,6 +94,7 @@ EXPORT TACTIC [ "intro_id_append" ident(id) ] -> [ tac_intro_seed ipat_tac `Appe
 EXPORT TACTIC [ "intro_anon" ] -> [ intro_anon ]
 EXPORT TACTIC [ "intro_anon_all" ] -> [ intro_anon_all ]
 EXPORT TACTIC [ "intro_anon_deps" ] -> [ intro_anon_deps ]
+EXPORT TACTIC [ "intro_anon_temp" ] -> [ intro_anon_temp ]
 EXPORT TACTIC [ "intro_drop" ] -> [ intro_drop ]
 EXPORT TACTIC [ "intro_finalize" ] -> [ intro_finalize ]
 
