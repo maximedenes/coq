@@ -86,4 +86,25 @@ TACTIC EXTEND pipeau
   | [ "=>" ipat_list(pl) ] -> [ ipat_tac pl ]
 END
 
+let pr_constr_expr _ _ _ = Ppconstr.pr_constr_expr
+let pr_glob_constr _ _ _ (x,_) = Printer.pr_glob_constr x
+let intern_gconstr x = Constrintern.intern_constr (Global.env ()) x
+let pr_gconstr f _ _ = f
+
+open Stdarg
+
+ARGUMENT EXTEND gconstr
+  PRINTED BY pr_gconstr
+  RAW_TYPED AS constr
+  RAW_PRINTED BY pr_constr_expr
+  GLOB_TYPED AS constr
+  GLOB_PRINTED BY pr_glob_constr
+      | [ constr(c) ] -> [ c ]
+END
+
+VERNAC COMMAND EXTEND ViewAdaptor CLASSIFIED AS SIDEFF
+|  [  "ViewAdaptor" "Backward"    gconstr(t) ] -> [ let t = intern_gconstr t in AdaptorDb.(declare Backward t) ]
+|  [  "ViewAdaptor" "Forward"     gconstr(t) ] -> [ let t = intern_gconstr t in AdaptorDb.(declare Forward t) ]
+|  [  "ViewAdaptor" "Equivalence" gconstr(t) ] -> [ let t = intern_gconstr t in AdaptorDb.(declare Equivalence t) ]
+END
 (* vim: set ft=ocaml: *)

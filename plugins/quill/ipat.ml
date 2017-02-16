@@ -16,6 +16,53 @@ open Printf
 open CoqAPI
 open Quill_common
 
+module AdaptorDb : sig 
+
+  type kind = Forward | Backward | Equivalence
+  val get : kind -> Glob_term.glob_constr list
+  val declare : kind -> Glob_term.glob_constr -> unit
+
+end = struct
+  type kind = Forward | Backward | Equivalence
+
+  module AdaptorKind = struct
+    type t = kind
+    let compare = Pervasives.compare
+  end
+  module AdaptorMap = Map.Make(AdaptorKind)
+
+  let term_view_adaptor_db =
+    Summary.ref ~name:"view_adaptor_db" AdaptorMap.empty
+
+  let get k =
+    try AdaptorMap.find k !term_view_adaptor_db
+    with Not_found -> []
+
+  let cache_adaptor (_, (k, t)) =
+    let lk = get k in
+    if not (List.exists (Glob_ops.glob_constr_eq t) lk) then
+      term_view_adaptor_db := AdaptorMap.add k (t :: lk) !term_view_adaptor_db
+
+  let subst_adaptor ( subst, (k, t as a)) =
+    let t' = Detyping.subst_glob_constr subst t in
+    if t' == t then a else k, t'
+      
+  let classify_adaptor x = Libobject.Substitute x
+
+  let in_db =
+    Libobject.declare_object {
+       (Libobject.default_object "VIEW_ADAPTOR_DB")
+    with
+       Libobject.open_function = (fun i o -> if i = 1 then cache_adaptor o);
+       Libobject.cache_function = cache_adaptor;
+       Libobject.subst_function = subst_adaptor;
+       Libobject.classify_function = classify_adaptor }
+
+  let declare kind term = Lib.add_anonymous_leaf (in_db (kind,term))
+end
+
+
+
 (* Only [One] forces an introduction, possibly reducing the goal. *)
 type anon_iter =
   | One
