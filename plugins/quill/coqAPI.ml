@@ -30,3 +30,10 @@ let decompose_assum env sigma t =
   | _ -> user_err (Pp.str "No assumption")
 
 let tclNIY what = anomaly Pp.(str "NIY: " ++ str what)
+module Option = struct
+  include Option
+  let assert_get o msg =
+    match o with
+    | None -> CErrors.anomaly msg
+    | Some x -> x
+end
