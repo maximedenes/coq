@@ -39,6 +39,8 @@ B vernac
 
 S plugins/quill 
 B plugins/quill 
+S plugins/ssrmatching
+B plugins/ssrmatching
 S plugins/ssr
 B plugins/ssr
 
