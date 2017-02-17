@@ -3,9 +3,13 @@ open Pltac
 open Stdarg
 open Genarg
 open Extraargs
+open Tacarg
+open Tacexpr
 open Pcoq
 open Pcoq.Prim
 open Pcoq.Constr
+
+open Compat
 
 DECLARE PLUGIN "quill_plugin"
 
@@ -77,7 +81,7 @@ GEXTEND Gram
   ipat: [ [   "("; m = OPT ipats_mod; il = iorpat; ")" -> IPatDispatch(m,il) 
             | "["; m = OPT ipats_mod; il = iorpat; "]" -> IPatCase(m,il)
             | "/"; v = ipat_view                       -> IPatView(v)
-            |      m = OPT name_mod;  id = ident       -> IPatName(m,id)
+            |      m = OPT name_mod;  id = preident    -> IPatName(m,Names.Id.of_string id)
             | ">" -> IPatAnon(Dependent)
             | "*" -> IPatAnon(All)
             | "?" -> IPatAnon(One)
@@ -103,6 +107,66 @@ EXPORT TACTIC [ "intro_finalize" ] -> [ intro_finalize ]
 TACTIC EXTEND pipeau
   | [ "=>" ipat_list(pl) ] -> [ ipat_tac pl ]
 END
+
+(* The TACTIC EXTEND syntax requires a head symbol, so we have to hack around. *)
+
+let pr_tacarg _ _ prt _ = Pp.mt ()
+ARGUMENT EXTEND tacarg TYPED AS tactic PRINTED BY pr_tacarg
+| [ "YouShouldNotTypeThis" ] -> [ CErrors.anomaly (Pp.str "Grammar placeholder match") ]
+END
+GEXTEND Gram
+  GLOBAL: tacarg;
+  tacarg: [[ tac = tactic_expr LEVEL "5" -> tac ]];
+END
+
+ARGUMENT EXTEND ipats TYPED AS ipat list PRINTED BY pr_ipats
+  | [ ipat(i) ipats(tl) ] -> [ i :: tl ]
+  | [ ipat(i) ] -> [ [i] ]
+END
+
+ARGUMENT EXTEND intros TYPED AS ipats
+ PRINTED BY pr_ipats
+  | [ "=>" ipats(pats) ] -> [ pats ]
+END
+
+let pr_introsargs _ _ _ _ = Pp.mt ()
+
+ARGUMENT EXTEND introsarg TYPED AS tactic * intros
+   PRINTED BY pr_introsargs
+| [ "YouShouldNotTypeThis" tacarg(arg) intros(ipats) ] -> [ arg, ipats ]
+END
+
+let quilltac_name name = {
+  mltac_plugin = "quill_plugin";
+  mltac_tactic = "quill" ^ name;
+}
+
+let quilltac_entry name n = {
+  mltac_name = quilltac_name name;
+  mltac_index = n;
+}
+let quilltac_atom loc name args = TacML (loc, quilltac_entry name 0, args)
+let quilltac_expr = quilltac_atom
+
+let tclintros_expr loc tac ipats =
+  let args = [Tacexpr.TacGeneric (in_gen (rawwit wit_introsarg) (tac, ipats))] in
+  quilltac_expr loc "tclintros" args
+
+GEXTEND Gram
+  GLOBAL: tactic_expr;
+  tactic_expr: LEVEL "1" [ RIGHTA
+    [ tac = tactic_expr; intros = intros -> tclintros_expr !@loc tac intros
+    ] ];
+END
+
+(* => *)
+TACTIC EXTEND quilltclintros
+| [ "YouShouldNotTypeThis" introsarg(arg) ] ->
+  [ let tac, intros = arg in
+    let tac = Tacinterp.tactic_of_value ist tac in
+    Proofview.tclTHEN tac (ipat_tac intros) ]
+END
+
 
 let pr_constr_expr _ _ _ = Ppconstr.pr_constr_expr
 let pr_glob_constr _ _ _ (x,_) = Printer.pr_glob_constr x

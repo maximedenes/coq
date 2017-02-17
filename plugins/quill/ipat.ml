@@ -175,6 +175,7 @@ type ipat =
 
 let pr_iorpat _ _ _ ipat = Pp.mt ()
 let pr_ipat _ _ _ ipat = Pp.mt ()
+let pr_ipats _ _ _ ipats = Pp.mt ()
 let subst_ipat _ x = x
 
 let rec map_ipat map_term = function
