@@ -37,6 +37,8 @@ Qed.
 
 End TestSquareBrackets.
 
+(* ----------------------------------------------------- *)
+
 Module TestRoundParens.
 
 Lemma test1 : forall n m : nat, n = m -> True.
@@ -54,3 +56,45 @@ Qed.
 
 
 End TestRoundParens.
+
+(* ----------------------------------------------------- *)
+
+Goal (True -> False) -> True -> False.
+Proof. 
+=> v /v H; exact H.
+Qed.
+
+(* BUG 
+Notation swap := ltac:(
+  let n := fresh in
+  let m := fresh in
+  => n m; revert n; revert m).
+
+Goal True -> (True -> False) -> False.
+Proof.
+=> /swap v /v H; exact H.
+Qed.
+*)
+
+Notation swap := ltac:(
+  let n := fresh in
+  let m := fresh in
+  intro n; intro m; revert n; revert m).
+
+Goal True -> (True -> False) -> False.
+Proof.
+=> /swap v /v H; exact H.
+Qed.
+
+
+Record IFF A B := mkIFF { i : A -> B; o : B -> A }.
+
+ViewAdaptor Forward (i _ _).
+
+Goal IFF True False -> True -> False.
+Proof.
+=> H /H F; exact F.
+Qed.
+
+
+

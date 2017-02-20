@@ -82,16 +82,22 @@ type selector = int
 type delayed_gen = { from_id : Id.t;
                      to_name : Name.t }
 
-type state = { to_clear: Id.t list;
-               to_generalize: delayed_gen list;
-               name_seed: Constr.t option }
+type state = {
+  to_clear : Id.t list;
+  to_generalize : delayed_gen list;
+  name_seed : Constr.t option;
+  view_pile : (Id.t * Constr.t) option;  (* to incrementally build /v1/v2/v3.. *)
+}
 
 let state_field : state Proofview_monad.StateStore.field =
   Proofview_monad.StateStore.field ()
 
-let fresh_state = { to_clear = [];
-                    to_generalize = [];
-                    name_seed = None }
+let fresh_state = {
+  to_clear = [];
+  to_generalize = [];
+  name_seed = None;
+  view_pile = None;
+}
 
 (* FIXME: should not inject fresh_state, but initialize it at the beginning *)
 let upd_state upd s =
@@ -277,6 +283,12 @@ let set_state upd =
     Proofview.Unsafe.tclSETGOALS l
   }
 
+let on_state f = set_state (fun s -> upd_state f s) (* could return a value? *)
+
+let get_view_pile g =
+  (Option.default fresh_state (Proofview_monad.StateStore.get (Goal.state g) state_field)).view_pile
+let set_view_pile t = on_state (fun s -> { s with view_pile = Some t }) 
+
 (** [intro_drop] behaves like [intro_anon] but registers the id of the
 introduced assumption for a delayed clear. *)
 let intro_drop = 
@@ -351,9 +363,8 @@ let tac_intro_seed interp_ipats where fix =
   }
 
 (* FIXME: use unreachable name *)
-let tclWITHTOP tac =
-  let top = Id.of_string "top_assumption" in
-  intro_id top <*> tac (mkVar top) <*> Tactics.clear [top]
+let top = Id.of_string "top_assumption"
+let tclWITHTOP tac = intro_id top <*> tac (mkVar top) <*> Tactics.clear [top]
 
 
 (* The .v file that loads the plugin *)
@@ -370,7 +381,6 @@ let locate_tac name =
     with Not_found ->
       CErrors.error ("Quill not loaded, missing " ^ Id.to_string name)
 
-
 let lookup_tac name args : raw_tactic_expr =
   TacArg(Loc.ghost, TacCall(Loc.ghost, locate_tac (Id.of_string name), args))
 
@@ -386,43 +396,159 @@ let interp_glob_tac t = Tacinterp.eval_tactic t
    To allow for t being a notation, like "Notation foo x := ltac:(foo x)", we
    need to internalize t.
 *)
-let is_tac_in_term { body; glob_env } = 
+let is_tac_in_term { body; glob_env; interp_env } = 
   Proofview.Goal.(enter_one { enter = fun goal ->
     let genv = env goal in
     let ist = CoqAPI.Option.assert_get glob_env (Pp.str"not a term") in
     (* We use the env of the goal, not the global one *)
-    let ist = { ist with genv } in
+    let ist = { ist with Genintern.genv } in
     (* We unravel notations *)
     match CoqAPI.intern_constr_expr ist body with
     | Glob_term.GHole (_,_,_, Some x)
       when Genarg.has_type x (Genarg.glbwit Tacarg.wit_tactic) 
-        -> tclUNIT (Some (Genarg.out_gen (Genarg.glbwit Tacarg.wit_tactic) x))
-    | _ -> tclUNIT None (* XXX Maybe we should have `Term|`Tac|`Err to avoid re-interning the view term *)
-    | exception (Constrintern.InternalizationError _ | Nametab.GlobalizationError _)
-        -> tclUNIT None (* I guess we get better error messages later on *)
+        -> tclUNIT (`Tac (Genarg.out_gen (Genarg.glbwit Tacarg.wit_tactic) x))
+    | x -> tclUNIT (`Term (interp_env,x))
  })
 
-let pile_up_view v = (* we store in the state (v top), then (v1 (v2 top))... *)
-  tclUNIT ()
+let tclGET_VIEWPILE = Proofview.Goal.(enter_one { enter = fun goal ->
+  let name = Id.of_string "tmp" in (* make private *)
+  let t = mkVar name in
+  match get_view_pile goal with
+  | None ->  intro_id name <*> set_view_pile (name,t) <*> tclUNIT t
+  | Some (_,x) -> tclUNIT x
+})
 
-let end_view_application = (* we turn (v1..vn top) into (fun ev => v1..vn top) *)
-  tclUNIT ()
+let tclUPD_VIEWPILE x = Proofview.Goal.(enter_one { enter = fun goal ->
+  match get_view_pile goal with
+  | None -> CErrors.anomaly Pp.(str"empty view pile")
+  | Some (n,_) -> set_view_pile (n,x)
+})
+
+let tclRESET_VIEWPILE = Proofview.Goal.(enter_one { enter = fun goal ->
+  match get_view_pile goal with
+  | None -> tclUNIT ()
+  | Some (n,_) -> Tactics.clear [n] <*> on_state(fun s -> { s with view_pile = None })
+})
+
+(* given a bound n it finds the largest 0 <= i <= n for which tac i works *)
+let rec tclFIRSTi n tac (e,info) =
+  if n < 0 then tclZERO ~info e
+  else tclORELSE (tac n) (tclFIRSTi (n-1) tac)
+let tclFIRSTi tac n =
+  tclFIRSTi n tac (CErrors.UserError(None,Pp.str"tclFIRSTi"),Exninfo.null)
+
+(* To inject a constr into a glob_constr we use an Ltac variable *)
+let tclINJ_CONSTR_IST ist p = 
+  let fresh_id = Names.Id.of_string "xxx" in (* make private *)
+  let ist = { 
+    ist with Geninterp.lfun =
+      Id.Map.add fresh_id (Taccoerce.Value.of_constr p) ist.Geninterp.lfun} in
+  tclUNIT (ist,Glob_term.GVar(Loc.ghost,fresh_id))
+
+(* Coq API *)
+let isAppInd env sigma c =
+  try ignore(Tacred.reduce_to_atomic_ind env sigma c); true
+  with CErrors.UserError _ -> false
+
+let mkGHole =
+  Glob_term.GHole (Loc.ghost, Evar_kinds.InternalHole, Misctypes.IntroAnonymous, None)
+let rec mkGHoles n = if n > 0 then mkGHole :: mkGHoles (n - 1) else []
+let mkGApp f args = if args = [] then f else Glob_term.GApp (Loc.ghost, f, args)
+
+(* From glob_constr to open_constr === (env,sigma,constr) *)
+let interp_glob ist glob = Proofview.Goal.(enter_one { enter = fun goal ->
+    let env = env goal in
+    let sigma = Sigma.to_evar_map (sigma goal) in
+    Feedback.msg_info Pp.(str"interp-in: " ++ Printer.pr_glob_constr glob);
+    let sigma, term = Tacinterp.interp_open_constr ist env sigma (glob,None) in
+    Feedback.msg_info Pp.(str"interp-out: " ++ Printer.pr_constr term);
+    tclUNIT (env,sigma,term)
+  })
+
+(* Commits the term to the monad *)
+(* I think we should make the API safe by storing here the original evar map,
+ * so that one cannot commit it wrongly.
+ * We could also commit the term automatically, but this makes the code less
+ * modular, see the 2 functions below that would need to "uncommit" *)
+let tclKeepOpenConstr (_env, sigma, t) = Unsafe.tclEVARS sigma <*> tclUNIT t
+
+(* The ssr heuristic : *)
+(* Estimate a bound on the number of arguments of a raw constr. *)
+(* This is not perfect, because the unifier may fail to         *)
+(* typecheck the partial application, so we use a minimum of 5. *)
+(* Also, we don't handle delayed or iterated coercions to       *)
+(* FUNCLASS, which is probably just as well since these can     *)
+(* lead to infinite arities.                                    *)
+let guess_max_implicits ist glob =
+  tclORELSE
+    (interp_glob ist (mkGApp glob (mkGHoles 6)) >>= fun (env,sigma,term) ->
+     let term_ty = Retyping.get_type_of env sigma term in
+     let ctx, _ = Reductionops.splay_prod env sigma term_ty in
+     tclUNIT (List.length ctx))
+  (fun _ -> tclUNIT 5)
+
+let pad_to_inductive ist glob = Proofview.Goal.(enter_one { enter = fun goal ->
+  interp_glob ist glob >>= fun (env,sigma,term) ->
+    let term_ty = Retyping.get_type_of env sigma term in
+    let ctx, i = Reductionops.splay_prod env sigma term_ty in
+    if isAppInd env sigma i
+    then tclUNIT (mkGApp glob (mkGHoles (List.length ctx)))
+    else tclUNIT glob
+})
+
+(* CoqAPI, the one in Tacticals.New scares me ... *)
+let rec tclFIRST = function
+  | [] -> Tacticals.New.tclZEROMSG Pp.(str"tclFIRST")
+  | tac :: rest -> tclORELSE tac (fun _ -> tclFIRST rest)
+
+(* Builds v p *)
+let interp_view ist v p =
+  let adaptors = AdaptorDb.(get Forward) in
+  (* We cast the pile of views p into a term p_id *)
+  tclINJ_CONSTR_IST ist p >>= fun (ist, p_id) ->
+  (* We find out how to build (v p) eventually using an adaptor *)
+  tclORELSE
+    (pad_to_inductive ist v >>= fun vpad ->
+     tclFIRST (List.map (fun a -> interp_glob ist (mkGApp a [vpad; p_id])) adaptors))
+    (fun _ -> guess_max_implicits ist v >>=
+              tclFIRSTi (fun n -> interp_glob ist (mkGApp v (mkGHoles n @ [p_id]))))
+  >>= tclKeepOpenConstr
+
+(* we store in the state (v top), then (v1 (v2 top))... *)
+let pile_up_view (ist, v) =
+  let ist = CoqAPI.Option.assert_get ist (Pp.str"not a term") in
+  tclGET_VIEWPILE >>= fun p -> interp_view ist v p >>= tclUPD_VIEWPILE
+
+let end_view_application = 
+   tclGET_VIEWPILE >>= fun p -> 
+           (* TODO: we turn (v1..vn top) into (fun ev => v1..vn top) *)
+           (* TODO: we solve TC... *)
+           (* TODO: this combinator is also useful for have *)
+           Tactics.generalize [p]
+   <*> tclRESET_VIEWPILE
+
+let is_tac = function `Tac _ -> true | _ -> false
 
 let rec tac_views = function
   | [] -> end_view_application
   | v :: vs ->
       tclINDEPENDENTL (is_tac_in_term v) >>= fun tacs ->
-      if not((List.for_all Option.is_empty tacs ||
-             not(List.exists Option.is_empty tacs))) then
+      if not((List.for_all is_tac tacs ||
+             not(List.exists is_tac tacs))) then
         CErrors.error ("/view is too ambiguous: tactic or term? use ltac: or term:");
       let actions =
         List.map (function
-          | Some tac -> end_view_application <*> interp_glob_tac tac
-          | None -> pile_up_view v) tacs in
+          | `Tac tac -> end_view_application <*> interp_glob_tac tac
+          | `Term v -> pile_up_view v) tacs in
       (* CAVEAT: we are committing to mono-goal tactics, what about
        * ltacM:(tactic), a new ltac quotation, identical to "ltac:" that
        * tells us to be multi goal? *)
       tclDISPATCH actions <*> tac_views vs
+
+let tac_views vs =
+      on_state (fun ({ view_pile } as s) -> assert (view_pile = None); s)
+  <*> tac_views vs
+  <*> on_state (fun ({ view_pile } as s) -> assert (view_pile = None); s)
 
 let rec ipat_tac1 ipat : unit tactic =
   match ipat with
