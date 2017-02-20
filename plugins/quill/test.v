@@ -60,7 +60,7 @@ End TestRoundParens.
 (* ----------------------------------------------------- *)
 
 Goal (True -> False) -> True -> False.
-Proof. 
+Proof.
 => v /v H; exact H.
 Qed.
 
@@ -95,6 +95,15 @@ Goal IFF True False -> True -> False.
 Proof.
 => H /H F; exact F.
 Qed.
+
+Axiom P : nat -> nat -> Prop.
+Axiom leq_trans : forall a b c : nat, P a b -> P b c -> P a c.
+
+Goal P 1 2 -> P 2 3 -> P 1 3.
+Proof.
+=> /leq_trans H H2; apply H; apply H2.
+Qed.
+
 
 
 

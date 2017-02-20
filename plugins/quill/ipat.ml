@@ -431,11 +431,9 @@ let tclRESET_VIEWPILE = Proofview.Goal.(enter_one { enter = fun goal ->
 })
 
 (* given a bound n it finds the largest 0 <= i <= n for which tac i works *)
-let rec tclFIRSTi n tac (e,info) =
-  if n < 0 then tclZERO ~info e
-  else tclORELSE (tac n) (tclFIRSTi (n-1) tac)
-let tclFIRSTi tac n =
-  tclFIRSTi n tac (CErrors.UserError(None,Pp.str"tclFIRSTi"),Exninfo.null)
+let rec tclFIRSTi tac n =
+  if n < 0 then Tacticals.New.tclZEROMSG Pp.(str "tclFIRSTi")
+  else tclORELSE (tclFIRSTi tac (n-1)) (fun _ -> tac n)
 
 (* To inject a constr into a glob_constr we use an Ltac variable *)
 let tclINJ_CONSTR_IST ist p = 
@@ -519,18 +517,37 @@ let pile_up_view (ist, v) =
   let ist = CoqAPI.Option.assert_get ist (Pp.str"not a term") in
   tclGET_VIEWPILE >>= fun p -> interp_view ist v p >>= tclUPD_VIEWPILE
 
-let end_view_application = 
-   tclGET_VIEWPILE >>= fun p -> 
-           (* TODO: we turn (v1..vn top) into (fun ev => v1..vn top) *)
-           (* TODO: we solve TC... *)
-           (* TODO: this combinator is also useful for have *)
-           Tactics.generalize [p]
-   <*> tclRESET_VIEWPILE
+let pf_merge_uc uc sigma = Evd.merge_universe_context sigma uc
+let pf_merge_uc_of sigma gl =
+  let ucst = Evd.evar_universe_context sigma in
+  pf_merge_uc ucst gl
+
+let pf k f sigma = f (Tacmach.re_sig k sigma)
+
+let pose_proof s0 p = Proofview.Goal.(enter_one { enter = fun g ->
+  let env = Proofview.Goal.env g in
+  let sigma = Sigma.to_evar_map (sigma g) in
+  let sigma = Typeclasses.resolve_typeclasses ~fail:false env sigma in
+  let p = Reductionops.nf_evar sigma p in
+  let n, p, to_prune, _ucst = Ssreflect_plugin.Ssrcommon.pf_abs_evars s0 (sigma, p) in
+  let p = Ssreflect_plugin.Ssrcommon.pf_abs_cterm s0 n p in
+  (* TODO: We should ENSURE that these evars did not escape... *)
+  let sigma = List.fold_left Evd.remove sigma to_prune in
+  Unsafe.tclEVARS sigma <*> Tactics.generalize [p]
+})
+
+let tclSIGMA0 = Proofview.Goal.(enter_one { enter = fun g ->
+  let k = Proofview.Goal.goal (Proofview.Goal.assume g) in
+  let sigma = Sigma.to_evar_map (sigma g) in
+  tclUNIT (Tacmach.re_sig k sigma)
+})
+
+let end_view_application s0 = tclGET_VIEWPILE >>= pose_proof s0 <*> tclRESET_VIEWPILE
 
 let is_tac = function `Tac _ -> true | _ -> false
 
-let rec tac_views = function
-  | [] -> end_view_application
+let rec tac_views s0 = function
+  | [] -> end_view_application s0
   | v :: vs ->
       tclINDEPENDENTL (is_tac_in_term v) >>= fun tacs ->
       if not((List.for_all is_tac tacs ||
@@ -538,16 +555,16 @@ let rec tac_views = function
         CErrors.error ("/view is too ambiguous: tactic or term? use ltac: or term:");
       let actions =
         List.map (function
-          | `Tac tac -> end_view_application <*> interp_glob_tac tac
+          | `Tac tac -> end_view_application s0 <*> interp_glob_tac tac (*wrong s0 *)
           | `Term v -> pile_up_view v) tacs in
       (* CAVEAT: we are committing to mono-goal tactics, what about
        * ltacM:(tactic), a new ltac quotation, identical to "ltac:" that
        * tells us to be multi goal? *)
-      tclDISPATCH actions <*> tac_views vs
+      tclDISPATCH actions <*> tac_views s0 vs
 
 let tac_views vs =
       on_state (fun ({ view_pile } as s) -> assert (view_pile = None); s)
-  <*> tac_views vs
+  <*> tclSIGMA0 >>= fun sigma0 -> tac_views sigma0 vs
   <*> on_state (fun ({ view_pile } as s) -> assert (view_pile = None); s)
 
 let rec ipat_tac1 ipat : unit tactic =
