@@ -82,6 +82,11 @@ val interp_bindings : interp_sign -> Environ.env -> Evd.evar_map ->
 val interp_open_constr_with_bindings : interp_sign -> Environ.env -> Evd.evar_map ->
   glob_constr_and_expr with_bindings -> Evd.evar_map * EConstr.constr with_bindings
 
+
+(* No TC resolution *)
+val interp_open_constr : interp_sign -> Environ.env -> Evd.evar_map ->
+  glob_constr_and_expr -> Evd.evar_map * constr
+
 (** Initial call for interpretation *)
 
 val eval_tactic : glob_tactic_expr -> unit Proofview.tactic
