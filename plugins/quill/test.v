@@ -104,6 +104,12 @@ Proof.
 => /leq_trans H H2; apply H; apply H2.
 Qed.
 
+Module Evars.
+Axiom P : nat -> Prop.
+Axiom Q : nat -> nat -> Prop.
+
+Goal exists x, (forall x y, P (S x) -> Q x y) -> P x -> Q x x.
+eexists. => v /v. Abort.
 
 
-
+End Evars.

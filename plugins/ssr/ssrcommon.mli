@@ -105,6 +105,11 @@ val pf_abs_evars :
            Evd.evar_map * Term.constr ->
            int * Term.constr * Constr.existential_key list *
            Evd.evar_universe_context
+val pf_abs_evars2 : (* ssr2 *)
+           Proof_type.goal Evd.sigma -> Evar.t list ->
+           Evd.evar_map * Term.constr ->
+           int * Term.constr * Constr.existential_key list *
+           Evd.evar_universe_context
 val pf_abs_cterm :
            Proof_type.goal Evd.sigma -> int -> Term.constr -> Term.constr
 

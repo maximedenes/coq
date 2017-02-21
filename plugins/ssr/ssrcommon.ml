@@ -342,7 +342,7 @@ module NamedDecl = Context.Named.Declaration
 open Term
 let env_size env = List.length (Environ.named_context env)
 
-let pf_abs_evars gl (sigma, c0) =
+let pf_abs_evars2 gl rigid (sigma, c0) =
   let sigma0, ucst = project gl, Evd.evar_universe_context sigma in
   let nenv = env_size (pf_env gl) in
   let abs_evar n k =
@@ -355,7 +355,7 @@ let pf_abs_evars gl (sigma, c0) =
     Evarutil.nf_evar sigma t in
   let rec put evlist c = match kind_of_term c with
   | Evar (k, a) ->  
-    if List.mem_assoc k evlist || Evd.mem sigma0 k then evlist else
+    if List.mem_assoc k evlist || Evd.mem sigma0 k || List.mem k rigid then evlist else
     let n = max 0 (Array.length a - nenv) in
     let t = abs_evar n k in (k, (n, t)) :: put evlist t
   | _ -> fold_constr put evlist c in
@@ -376,6 +376,7 @@ let pf_abs_evars gl (sigma, c0) =
   | [] -> c in
   List.length evlist, loop (get 1 c0) 1 evlist, List.map fst evlist, ucst
 
+let pf_abs_evars gl t = pf_abs_evars2 gl [] t
 
 
 (* As before but if (?i : T(?j)) and (?j : P : Prop), then the lambda for i

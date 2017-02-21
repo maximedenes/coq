@@ -529,9 +529,26 @@ let pose_proof s0 p = Proofview.Goal.(enter_one { enter = fun g ->
   let sigma = Sigma.to_evar_map (sigma g) in
   let sigma = Typeclasses.resolve_typeclasses ~fail:false env sigma in
   let p = Reductionops.nf_evar sigma p in
-  let n, p, to_prune, _ucst = Ssreflect_plugin.Ssrcommon.pf_abs_evars s0 (sigma, p) in
+  let get_body = function Evd.Evar_defined x -> x | _ -> assert false in
+  let rigid_of s =
+    List.fold_left (fun l k ->
+      if Evd.is_defined sigma k then
+          k :: l @ 
+        (Evar.Set.elements
+          (Evd.evars_of_term
+            (Reductionops.nf_evar sigma (get_body (Evd.(evar_body (find sigma k)))))))
+      else l
+    ) [] s in
+  let und0 = (* Undefined in initial goal *)
+    let g0 =
+      Evd.evars_of_filtered_evar_info
+        (Evd.find (Tacmach.project s0) (Tacmach.sig_it s0)) in
+    List.filter (fun k -> Evar.Set.mem k g0)
+      (List.map fst (Evar.Map.bindings (Evd.undefined_map (Tacmach.project s0)))) in
+  let rigid = rigid_of und0 in
+  let n, p, to_prune, _ucst = Ssreflect_plugin.Ssrcommon.pf_abs_evars2 s0 rigid (sigma, p) in
   let p = Ssreflect_plugin.Ssrcommon.pf_abs_cterm s0 n p in
-  (* TODO: We should ENSURE that these evars did not escape... *)
+  Feedback.msg_info Pp.(str"view_result: " ++ Printer.pr_constr p);
   let sigma = List.fold_left Evd.remove sigma to_prune in
   Unsafe.tclEVARS sigma <*> Tactics.generalize [p]
 })
