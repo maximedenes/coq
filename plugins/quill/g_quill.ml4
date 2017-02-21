@@ -76,6 +76,13 @@ ARGUMENT EXTEND name_mod PRINTED BY pr_name_mod
   | [ "#" ] -> [ Sharp ]
 END
 
+let pr_idents _ _ _ _ = Pp.mt ()
+
+ARGUMENT EXTEND ne_idents TYPED AS ident list PRINTED BY pr_idents
+  | [ ident(i) ne_idents(tl) ] -> [ i :: tl ]
+  | [ ident(i) ] -> [ [i] ]
+END
+
 GEXTEND Gram
   GLOBAL: ipat;
   ipat: [ [   "("; m = OPT ipats_mod; il = iorpat; ")" -> IPatDispatch(m,il) 
@@ -87,6 +94,7 @@ GEXTEND Gram
             | "?" -> IPatAnon(One)
             | "+" -> IPatAnon(Temporary)
             | "_" -> IPatDrop
+            | "{"; il = ne_idents ; "}" -> IPatClear(il)
         ] ];
 END
 
@@ -101,6 +109,7 @@ EXPORT TACTIC [ "intro_anon_deps" ] -> [ intro_anon_deps ]
 EXPORT TACTIC [ "intro_anon_temp" ] -> [ intro_anon_temp ]
 EXPORT TACTIC [ "intro_drop" ] -> [ intro_drop ]
 EXPORT TACTIC [ "intro_finalize" ] -> [ intro_finalize ]
+EXPORT TACTIC [ "intro_clear" ident_list(ids) ] -> [ intro_clear ids ]
 
 (* High level grammar *)
 

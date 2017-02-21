@@ -65,7 +65,9 @@ let max_suffix m (t, j0 as tj0) id  =
     dt < ds && skip_digits s i = n in
   loop m
 
-let mk_anon_id t gl =
+(** [mk_anon_id t ids] generates an inaccessible name based on string [t] that
+    is fresh w.r.t. identifiers in [ids]. *)
+let mk_anon_id t ids =
   let m, si0, id0 =
     let s = ref (Printf.sprintf  "_%s_" t) in
     if Ssreflect_plugin.Ssrcommon.is_internal_name !s then s := "_" ^ !s;
@@ -74,9 +76,8 @@ let mk_anon_id t gl =
       let d = !s.[i] in if not (Util.is_digit d) then i + 1, j else
       loop (i - 1) (if d = '0' then j else i) in
     let m, j = loop (n - 1) n in m, (!s, j), id_of_string !s in
-  let gl_ids = Tacmach.New.pf_ids_of_hyps gl in
-  if not (List.mem id0 gl_ids) then id0 else
-  let s, i = List.fold_left (max_suffix m) si0 gl_ids in
+  if not (List.mem id0 ids) then id0 else
+  let s, i = List.fold_left (max_suffix m) si0 ids in
   let s = Bytes.of_string s in
   let n = Bytes.length s - 1 in
   let set = Bytes.set s in

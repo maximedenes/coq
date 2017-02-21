@@ -83,6 +83,7 @@ type delayed_gen = { from_id : Id.t;
                      to_name : Name.t }
 
 type state = {
+  to_drop : Id.t list;
   to_clear : Id.t list;
   to_generalize : delayed_gen list;
   name_seed : Constr.t option;
@@ -93,6 +94,7 @@ let state_field : state Proofview_monad.StateStore.field =
   Proofview_monad.StateStore.field ()
 
 let fresh_state = {
+  to_drop = [];
   to_clear = [];
   to_generalize = [];
   name_seed = None;
@@ -237,8 +239,10 @@ let intro ~id k = Goal.enter { enter = fun gl ->
     | Some id, _ -> id
     | _, Name id ->
        if Ssreflect_plugin.Ssrcommon.is_discharged_id id then id
-       else mk_anon_id (string_of_id id) gl
-    | _, _ -> mk_anon_id Ssreflect_plugin.Ssrcommon.ssr_anon_hyp gl
+       else mk_anon_id (string_of_id id) (Tacmach.New.pf_ids_of_hyps gl)
+    | _, _ ->
+       let ids = Tacmach.New.pf_ids_of_hyps gl in
+       mk_anon_id Ssreflect_plugin.Ssrcommon.ssr_anon_hyp ids
   in
   unsafe_intro env store (set_decl_id id decl) t
   <*> k original_name id
@@ -293,7 +297,7 @@ let set_view_pile t = on_state (fun s -> { s with view_pile = Some t })
 introduced assumption for a delayed clear. *)
 let intro_drop = 
   let k _original_name new_id =
-    set_state (upd_state (fun st -> { st with to_clear = new_id :: st.to_clear }))
+    set_state (upd_state (fun st -> { st with to_drop = new_id :: st.to_drop }))
   in
   intro ~id:None k
 
@@ -312,12 +316,32 @@ let intro_finalize = Goal.enter { enter = fun gl ->
   match Proofview_monad.StateStore.get state state_field with
   | None -> tclUNIT ()
   | Some state ->
-     (* delayed clears *)
-     Tactics.clear state.to_clear
+     (* Because of dependencies, delayed clears must be performed from the
+     innermost to the outermost assumption. We process delayed drops first,
+     because they may refer to hypotheses targetted by a delayed clear.
+     Consider for example:
+       Goal forall m n : nat, m = n -> True.
+       => m n.
+       => _ {m n}.
+     *)
+     Tactics.clear state.to_drop
+     <*> Tactics.clear state.to_clear
      (* delayed generalizations *)
      <*> Tacticals.New.tclTHENLIST (List.map (fun gen -> gentac gen.from_id gen.to_name) state.to_generalize)
      <*> Tactics.clear (List.map (fun gen -> gen.from_id) state.to_generalize)
  }
+
+let intro_clear ids =
+  Goal.enter { enter = fun gl ->
+    let (_, clear_ids, ren) =
+      List.fold_left (fun (used_ids, clear_ids, ren) id ->
+          let new_id = mk_anon_id (Id.to_string id) used_ids in
+          (new_id :: used_ids, new_id :: clear_ids, (id, new_id) :: ren))
+                     ((Tacmach.New.pf_ids_of_hyps gl), [], []) ids
+    in
+    Tactics.rename_hyp ren
+    <*> set_state (upd_state (fun st -> { st with to_clear = List.rev_append clear_ids st.to_clear }))
+  }
 
 let analyze env evd ty =
   let ((kn, i), _ as indu), unfolded_c_ty =
@@ -386,6 +410,9 @@ let lookup_tac name args : raw_tactic_expr =
 
 let in_ident id =
   TacGeneric (Genarg.in_gen (Genarg.rawwit Stdarg.wit_ident) id)
+
+let in_idents ids =
+  TacGeneric (Genarg.in_gen (Genarg.rawwit (Genarg.wit_list Stdarg.wit_ident)) ids)
 
 let interp_raw_tac t = Tacinterp.hide_interp true t None
 let interp_glob_tac t = Tacinterp.eval_tactic t
@@ -605,7 +632,10 @@ let rec ipat_tac1 ipat : unit tactic =
      interp_raw_tac (lookup_tac ("intro_drop") [])
 
   | IPatClearMark -> tclNIY "IPatClearMark"
-  | IPatClear ids -> tclNIY "IPatClear"
+
+  | IPatClear(ids) ->
+     interp_raw_tac (lookup_tac ("intro_clear") [in_idents ids])
+
   | IPatSimpl simp -> tclNIY "IPatSimpl"
 
 and ipat_tac pl : unit tactic =
