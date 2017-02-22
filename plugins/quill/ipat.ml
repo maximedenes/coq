@@ -386,9 +386,11 @@ let tac_intro_seed interp_ipats where fix =
     interp_ipats ipats
   }
 
-(* FIXME: use unreachable name *)
-let top = Id.of_string "top_assumption"
-let tclWITHTOP tac = intro_id top <*> tac (mkVar top) <*> Tactics.clear [top]
+let tclWITHTOP tac =
+  Goal.enter { enter = fun gl ->
+    let top = mk_anon_id "top_assumption" (Tacmach.New.pf_ids_of_hyps gl) in
+    intro_id top <*> tac (mkVar top) <*> Tactics.clear [top]
+  }
 
 
 (* The .v file that loads the plugin *)
