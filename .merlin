@@ -37,12 +37,12 @@ B toplevel
 S vernac
 B vernac
 
-S plugins/quill 
-B plugins/quill 
 S plugins/ssrmatching
 B plugins/ssrmatching
 S plugins/ssr
 B plugins/ssr
+S plugins/ssr/ssr1
+B plugins/ssr/ssr1
 
 S tools
 B tools

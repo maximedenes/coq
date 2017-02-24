@@ -70,7 +70,7 @@ let max_suffix m (t, j0 as tj0) id  =
 let mk_anon_id t ids =
   let m, si0, id0 =
     let s = ref (Printf.sprintf  "_%s_" t) in
-    if Ssreflect_plugin.Ssrcommon.is_internal_name !s then s := "_" ^ !s;
+    if Ssrcommon.is_internal_name !s then s := "_" ^ !s;
     let n = String.length !s - 1 in
     let rec loop i j =
       let d = !s.[i] in if not (Util.is_digit d) then i + 1, j else
@@ -102,5 +102,5 @@ let rename_hd_prod name =
 let gentac id new_name =
  let gen = ((None,Some(false,[])),cpattern_of_id id) in
  let ist = Geninterp.({ lfun = Id.Map.empty; extra = TacStore.empty }) in
- Proofview.V82.tactic (Ssreflect_plugin.Ssreflect.gentac ist gen)
+ Proofview.V82.tactic (Ssreflect.gentac ist gen)
  <*> rename_hd_prod new_name

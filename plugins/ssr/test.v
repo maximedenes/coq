@@ -1,7 +1,7 @@
-Require Import quill.
+Require Import ssreflect.
 
 Ltac intro_id x :=
-  idtac "intro_id" x; Coq.quill.quill.intro_id x.
+  idtac "intro_id" x; Coq.ssr.ssreflect.intro_id x.
 
 Module TestSquareBrackets.
 

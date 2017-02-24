@@ -14,7 +14,7 @@ open Evarutil
 
 open Printf
 open CoqAPI
-open Quill_common
+open Ssrutils
 
 module AdaptorDb : sig 
 
@@ -238,11 +238,11 @@ let intro ~id k = Goal.enter { enter = fun gl ->
   let id = match id, original_name with
     | Some id, _ -> id
     | _, Name id ->
-       if Ssreflect_plugin.Ssrcommon.is_discharged_id id then id
+       if Ssrcommon.is_discharged_id id then id
        else mk_anon_id (string_of_id id) (Tacmach.New.pf_ids_of_hyps gl)
     | _, _ ->
        let ids = Tacmach.New.pf_ids_of_hyps gl in
-       mk_anon_id Ssreflect_plugin.Ssrcommon.ssr_anon_hyp ids
+       mk_anon_id Ssrcommon.ssr_anon_hyp ids
   in
   unsafe_intro env store (set_decl_id id decl) t
   <*> k original_name id
@@ -257,7 +257,7 @@ let intro_anon_all = Goal.enter { enter = fun gl ->
   let env = Goal.env gl in
   let sigma = Goal.sigma gl in
   let g = Goal.raw_concl gl in
-  let n = Quill_common.nb_assums env (Sigma.to_evar_map sigma) g in
+  let n = Ssrutils.nb_assums env (Sigma.to_evar_map sigma) g in
   Tacticals.New.tclDO n intro_anon
  }
 
@@ -265,7 +265,7 @@ let intro_anon_deps = Goal.enter { enter = fun gl ->
   let env = Goal.env gl in
   let sigma = Goal.sigma gl in
   let g = Goal.raw_concl gl in
-  let n = Quill_common.nb_deps_assums env (Sigma.to_evar_map sigma) g in
+  let n = Ssrutils.nb_deps_assums env (Sigma.to_evar_map sigma) g in
   Tacticals.New.tclDO n intro_anon
  }
 
@@ -353,7 +353,7 @@ let analyze env evd ty =
 let tac_case mode t =
   match mode with
   | Some Equal ->
-      V82.tactic (Ssreflect_plugin.Ssreflect.perform_injection t)
+      V82.tactic (Ssreflect.perform_injection t)
   | None ->
   Goal.enter { enter = fun gl ->
     let env = Goal.env gl in
@@ -362,7 +362,7 @@ let tac_case mode t =
     let evd, ty = Typing.type_of ~refresh:false env evd t in
     let (nparams,seeds) = analyze env evd ty in 
     let i = ref (-1) in
-    let case_tac = Hook.get Ssreflect_plugin.Ssrcommon.simplest_newcase_tac in
+    let case_tac = Hook.get Ssrcommon.simplest_newcase_tac in
     V82.tactic (case_tac t)
     <*> set_state (fun s -> incr i; Printf.printf "i=%i\n" !i; upd_state (fun st -> { st with name_seed = Some seeds.(!i) }) s)
   }
@@ -394,8 +394,8 @@ let tclWITHTOP tac =
 
 
 (* The .v file that loads the plugin *)
-let bios_dirpath = DirPath.make [Id.of_string "quill"]
-let bios_ml = "quill_plugin"
+let bios_dirpath = DirPath.make [Id.of_string "ssreflect"]
+let bios_ml = "ssreflect_plugin"
 
 let locate_tac name =
   let mk_qtid name = Libnames.make_qualid bios_dirpath name in
@@ -405,7 +405,7 @@ let locate_tac name =
   with Not_found ->
     try keep Nametab.locate_tactic (mk_qtid name)
     with Not_found ->
-      CErrors.error ("Quill not loaded, missing " ^ Id.to_string name)
+      CErrors.error ("SSReflect not loaded, missing " ^ Id.to_string name)
 
 let lookup_tac name args : raw_tactic_expr =
   TacArg(Loc.ghost, TacCall(Loc.ghost, locate_tac (Id.of_string name), args))
@@ -575,8 +575,8 @@ let pose_proof s0 p = Proofview.Goal.(enter_one { enter = fun g ->
     List.filter (fun k -> Evar.Set.mem k g0)
       (List.map fst (Evar.Map.bindings (Evd.undefined_map (Tacmach.project s0)))) in
   let rigid = rigid_of und0 in
-  let n, p, to_prune, _ucst = Ssreflect_plugin.Ssrcommon.pf_abs_evars2 s0 rigid (sigma, p) in
-  let p = Ssreflect_plugin.Ssrcommon.pf_abs_cterm s0 n p in
+  let n, p, to_prune, _ucst = Ssrcommon.pf_abs_evars2 s0 rigid (sigma, p) in
+  let p = Ssrcommon.pf_abs_cterm s0 n p in
   Feedback.msg_info Pp.(str"view_result: " ++ Printer.pr_constr p);
   let sigma = List.fold_left Evd.remove sigma to_prune in
   Unsafe.tclEVARS sigma <*> Tactics.generalize [p]

@@ -1,4 +1,4 @@
-open Ipat
+open Ssripat
 open Pltac
 open Stdarg
 open Genarg
@@ -11,14 +11,17 @@ open Pcoq.Constr
 
 open Compat
 
-DECLARE PLUGIN "quill_plugin"
+(* DECLARE PLUGIN should take a variable or a string. *)
+DECLARE PLUGIN "ssreflect_plugin"
 
+(* This function should be an optional argument of DECLARE PLUGIN *)
 let () = Mltop.add_known_plugin (fun () ->
   if Flags.is_verbose () && not !Flags.batch_mode then
-     Feedback.msg_info (Pp.str "Quill mode loaded.")
+     Feedback.msg_info (Pp.str "SSR2 mode loaded.")
   )
-  "quill_plugin"
+  "ssreflect_plugin"
 
+(* Lookahead *)
 let input_term_annotation strm =
   match List.map Compat.get_tok (Stream.npeek 2 strm) with
   | Tok.KEYWORD "(" :: Tok.KEYWORD "(" :: _ -> `DoubleParens
@@ -35,11 +38,7 @@ ARGUMENT EXTEND term
      SUBSTITUTED BY subst_term
      RAW_PRINTED BY pr_term
      GLOB_PRINTED BY pr_term
-END
-
-GEXTEND Gram
-  GLOBAL: term;
-  term: [[ a = term_annotation; c = Pcoq.Constr.constr -> mk_term a c ]];
+  | [ term_annotation(a) constr(c) ] -> [ mk_term a c ]
 END
 
 let pr_ipat_view a b c = Pp.prlist_with_sep (fun _ -> Pp.str"/") (pr_term a b c)
@@ -51,7 +50,6 @@ ARGUMENT EXTEND ipat_view
 END
 
 ARGUMENT EXTEND ipat
-  TYPED AS ipat
   PRINTED BY pr_ipat
   INTERPRETED BY interp_ipat
   GLOBALIZED BY glob_ipat
@@ -75,26 +73,24 @@ ARGUMENT EXTEND name_mod PRINTED BY pr_name_mod
   | [ "^~" ] -> [ HatTilde ]
   | [ "#" ] -> [ Sharp ]
 END
-
-let pr_idents _ _ _ _ = Pp.mt ()
-
-ARGUMENT EXTEND ne_idents TYPED AS ident list PRINTED BY pr_idents
-  | [ ident(i) ne_idents(tl) ] -> [ i :: tl ]
-  | [ ident(i) ] -> [ [i] ]
+(*
+ARGUMENT EXTEND ipat TYPED AS foo list
 END
-
+ *)
+(* Here we'd need to define mutually recursive non-terminals (iorpat, ipat) with
+   ARGUMENT EXTEND *)
 GEXTEND Gram
   GLOBAL: ipat;
   ipat: [ [   "("; m = OPT ipats_mod; il = iorpat; ")" -> IPatDispatch(m,il) 
             | "["; m = OPT ipats_mod; il = iorpat; "]" -> IPatCase(m,il)
             | "/"; v = ipat_view                       -> IPatView(v)
-            |      m = OPT name_mod;  id = preident    -> IPatName(m,Names.Id.of_string id)
+            |      m = OPT name_mod;  id = ident    -> IPatName(m,id)
             | ">" -> IPatAnon(Dependent)
             | "*" -> IPatAnon(All)
             | "?" -> IPatAnon(One)
             | "+" -> IPatAnon(Temporary)
             | "_" -> IPatDrop
-            | "{"; il = ne_idents ; "}" -> IPatClear(il)
+            | "{"; il = LIST1 ident ; "}" -> IPatClear(il)
         ] ];
 END
 
@@ -117,62 +113,9 @@ TACTIC EXTEND pipeau
   | [ "=>" ipat_list(pl) ] -> [ ipat_tac pl ]
 END
 
-(* The TACTIC EXTEND syntax requires a head symbol, so we have to hack around. *)
-
-let pr_tacarg _ _ prt _ = Pp.mt ()
-ARGUMENT EXTEND tacarg TYPED AS tactic PRINTED BY pr_tacarg
-| [ "YouShouldNotTypeThis" ] -> [ CErrors.anomaly (Pp.str "Grammar placeholder match") ]
-END
-GEXTEND Gram
-  GLOBAL: tacarg;
-  tacarg: [[ tac = tactic_expr LEVEL "5" -> tac ]];
-END
-
-ARGUMENT EXTEND ipats TYPED AS ipat list PRINTED BY pr_ipats
-  | [ ipat(i) ipats(tl) ] -> [ i :: tl ]
-  | [ ipat(i) ] -> [ [i] ]
-END
-
-ARGUMENT EXTEND intros TYPED AS ipats
- PRINTED BY pr_ipats
-  | [ "=>" ipats(pats) ] -> [ pats ]
-END
-
-let pr_introsargs _ _ _ _ = Pp.mt ()
-
-ARGUMENT EXTEND introsarg TYPED AS tactic * intros
-   PRINTED BY pr_introsargs
-| [ "YouShouldNotTypeThis" tacarg(arg) intros(ipats) ] -> [ arg, ipats ]
-END
-
-let quilltac_name name = {
-  mltac_plugin = "quill_plugin";
-  mltac_tactic = "quill" ^ name;
-}
-
-let quilltac_entry name n = {
-  mltac_name = quilltac_name name;
-  mltac_index = n;
-}
-let quilltac_atom loc name args = TacML (loc, quilltac_entry name 0, args)
-let quilltac_expr = quilltac_atom
-
-let tclintros_expr loc tac ipats =
-  let args = [Tacexpr.TacGeneric (in_gen (rawwit wit_introsarg) (tac, ipats))] in
-  quilltac_expr loc "tclintros" args
-
-GEXTEND Gram
-  GLOBAL: tactic_expr;
-  tactic_expr: LEVEL "1" [ RIGHTA
-    [ tac = tactic_expr; intros = intros -> tclintros_expr !@loc tac intros
-    ] ];
-END
-
-(* => *)
-TACTIC EXTEND quilltclintros
-| [ "YouShouldNotTypeThis" introsarg(arg) ] ->
-  [ let tac, intros = arg in
-    let tac = Tacinterp.tactic_of_value ist tac in
+TACTIC EXTEND ssrtclintros AT LEVEL 1
+| [ tactic1(tac) "=>" ipat_list(intros) ] ->
+    [ let tac = Tacinterp.tactic_of_value ist tac in
     Proofview.tclTHEN tac (ipat_tac intros) ]
 END
 
