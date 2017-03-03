@@ -649,8 +649,14 @@ let rec ipat_tac1 ipat : unit tactic =
   | IPatRewrite dir ->
      let allocc = Some(false,[]) in
      tclWITHTOP (fun x -> V82.tactic (Hook.get Ssrcommon.ipat_rewrite_tac allocc dir x))
+                 
 
 and ipat_tac pl : unit tactic =
   match pl with
   | [] -> interp_raw_tac (lookup_tac ("intro_finalize") [])
   | pat :: pl -> tclTHEN (ipat_tac1 pat) (ipat_tac pl)
+
+  (* SSR exception *)
+let ipat_tac = function
+  | IPatCase (m,l) :: xs -> ipat_tac (IPatDispatch(m,l) :: xs)
+  | x -> ipat_tac x
