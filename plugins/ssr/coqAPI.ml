@@ -22,12 +22,15 @@ let whd_betaiotazeta = clos_whd_flags CClosure.betaiotazeta (Global.env ())
 let whd_allnolet env sigma = clos_whd_flags CClosure.allnolet env sigma
 let whd_all env sigma = clos_whd_flags CClosure.all env sigma
 
-let decompose_assum env sigma t =
-  let t = whd_allnolet env sigma t in
+let rec decompose_assum env sigma t =
+  let t as goal = whd_allnolet env sigma t in
   match kind_of_term_upto sigma t with
   | Prod(name,ty,t) -> Rel.Declaration.LocalAssum(name,ty), t
   | LetIn(name,ty,t1,t2) -> Rel.Declaration.LocalDef(name, ty, t1), t2
-  | _ -> user_err (Pp.str "No assumption")
+  | App(hd,args) when Term.isLetIn hd -> (* hack *)
+      let _,v,_,b = Term.destLetIn hd in
+      decompose_assum env sigma (mkApp (Vars.subst1 v b, args))
+  | _ -> user_err Pp.(str "No assumption in " ++ Printer.pr_constr goal)
 
 let tclNIY what = anomaly Pp.(str "NIY: " ++ str what)
 
