@@ -175,7 +175,7 @@ type ipat =
   | IPatClearMark
   | IPatDispatch of ipats_mod option * ipat list list (* /[..|..] *)
   | IPatCase of ipats_mod option * ipat list list (* this is not equivalent to /case /[..|..] if there are already multiple goals *)
-(*  | IPatRewrite of occurrence option * rewrite_pattern * direction *)
+  | IPatRewrite of (*occurrence option * rewrite_pattern **) Ssrast.ssrdir
   | IPatView of term list (* /view *)
   | IPatClear of Id.t list(* {H1 H2} *)
   | IPatSimpl of simpl
@@ -194,6 +194,7 @@ let rec map_ipat map_term = function
     | IPatDrop 
     | IPatClearMark
     | IPatSimpl _
+    | IPatRewrite _ (* FIXME *)
     ) as x -> x
   | IPatDispatch(m,ll) ->
       IPatDispatch(m,List.map (List.map (map_ipat map_term)) ll)
@@ -628,7 +629,7 @@ let rec ipat_tac1 ipat : unit tactic =
   | IPatAnon(iter) ->
       interp_raw_tac (lookup_tac ("intro_anon" ^ suffix_of_anon_iter iter) [])
 
-  | IPatNoop -> tclNIY "IPatNoop"
+  | IPatNoop -> tclUNIT ()
 
   | IPatDrop ->
      interp_raw_tac (lookup_tac ("intro_drop") [])
@@ -638,7 +639,16 @@ let rec ipat_tac1 ipat : unit tactic =
   | IPatClear(ids) ->
      interp_raw_tac (lookup_tac ("intro_clear") [in_idents ids])
 
-  | IPatSimpl simp -> tclNIY "IPatSimpl"
+  | IPatSimpl (Simpl n) ->
+       V82.tactic (Hook.get Ssrcommon.simpltac (Ssrast.Simpl n))
+  | IPatSimpl (Cut n) ->
+       V82.tactic (Hook.get Ssrcommon.simpltac (Ssrast.Cut n))
+  | IPatSimpl (SimplCut (n,m)) ->
+       V82.tactic (Hook.get Ssrcommon.simpltac (Ssrast.SimplCut (n,m)))
+
+  | IPatRewrite dir ->
+     let allocc = Some(false,[]) in
+     tclWITHTOP (fun x -> V82.tactic (Hook.get Ssrcommon.ipat_rewrite_tac allocc dir x))
 
 and ipat_tac pl : unit tactic =
   match pl with

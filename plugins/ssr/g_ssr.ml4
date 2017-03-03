@@ -90,6 +90,12 @@ GEXTEND Gram
             | "?" -> IPatAnon(One)
             | "+" -> IPatAnon(Temporary)
             | "_" -> IPatDrop
+            | "-" -> IPatNoop
+            | "->" -> IPatRewrite (Ssrast.L2R)
+            | "<-" -> IPatRewrite (Ssrast.R2L)
+            | "//" -> IPatSimpl (Cut (-1))
+            | "/=" -> IPatSimpl (Simpl (-1))
+            | "//=" -> IPatSimpl (SimplCut ((-1),(-1)))
             | "{"; il = LIST1 ident ; "}" -> IPatClear(il)
         ] ];
 END
