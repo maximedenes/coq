@@ -1,6 +1,8 @@
 (* Testing consistency of globalization and interpretation in some
    extreme cases *)
 
+Require DeclarativeMode.
+
 Section sect.
 
   (* Simplification of the initial example *)

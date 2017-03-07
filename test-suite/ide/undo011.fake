@@ -4,6 +4,7 @@
 # Bug 2082
 # Broken due to proof engine rewriting
 #
+ADD { Require DeclarativeMode. }
 ADD { Variable A : Prop. }
 ADD { Variable B : Prop. }
 ADD { Axiom OR : A \/ B. }

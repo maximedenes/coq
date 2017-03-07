@@ -1,3 +1,5 @@
+Require DeclarativeMode.
+
 Theorem this_is_trivial: True.
 proof.
   thus thesis.

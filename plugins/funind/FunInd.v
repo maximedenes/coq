@@ -6,8 +6,5 @@
 (*         *       GNU Lesser General Public License Version 2.1        *)
 (************************************************************************)
 
-(** Compatibility file for making Coq act similar to Coq v8.6 *)
-
-Require Export Coq.extraction.Extraction.
-Require Export Coq.funind.FunInd.
-Require Export Coq.decl_mode.DeclarativeMode.
+Require Coq.extraction.Extraction.
+Declare ML Module "recdef_plugin".
