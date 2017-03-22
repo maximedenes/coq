@@ -217,7 +217,7 @@ let warn_deprecated_eqn_syntax =
 
 let funind_err loc =
   if not (Mltop.module_is_known "recdef_plugin") then
-    CErrors.user_err ~loc (str "Please do first a Require Import FunInd.")
+    CErrors.user_err ~loc (str "Please do first a Require Import Recdef.")
   else
     raise (Stream.Error "unexpected end of tactic")
 

@@ -6,10 +6,13 @@
 (*         *       GNU Lesser General Public License Version 2.1        *)
 (************************************************************************)
 
-Require Import Coq.funind.FunInd.
+Require Coq.extraction.Extraction.
+
 Require Import PeanoNat.
 Require Compare_dec.
 Require Wf_nat.
+
+Declare ML Module "recdef_plugin".
 
 Section Iter.
 Variable A : Type.

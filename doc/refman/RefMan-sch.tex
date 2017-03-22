@@ -197,7 +197,7 @@ Check tree_forest_mutind.
 The {\tt Functional Scheme} command is a high-level experimental
 tool for generating automatically induction principles
 corresponding to (possibly mutually recursive) functions.
-First, it must be made available via {\tt Require Import FunInd}.
+First, it must be made available via {\tt Require Import Recdef}.
  Its
 syntax then follows the schema:
 \begin{quote}
@@ -321,7 +321,7 @@ of a tree or a forest. Note that we use \texttt{Function} which
 generally produces better principles.
 
 \begin{coq_example*}
-Require Import FunInd.
+Require Import Recdef.
 Function tree_size (t:tree) : nat :=
   match t with
   | node A f => S (forest_size f)

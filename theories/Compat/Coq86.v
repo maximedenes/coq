@@ -9,5 +9,5 @@
 (** Compatibility file for making Coq act similar to Coq v8.6 *)
 
 Require Export Coq.extraction.Extraction.
-Require Export Coq.funind.FunInd.
+Require Export Coq.funind.Recdef.
 Require Export Coq.decl_mode.DeclarativeMode.

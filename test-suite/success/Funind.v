@@ -1,5 +1,5 @@
 
-Require Import Coq.funind.FunInd.
+Require Import Coq.funind.Recdef.
 
 Definition iszero (n : nat) : bool :=
   match n with
