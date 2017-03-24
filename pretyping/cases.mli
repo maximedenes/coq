@@ -41,7 +41,7 @@ val compile_cases :
   ?loc:Loc.t -> case_style ->
   (type_constraint -> env -> evar_map ref -> glob_constr -> unsafe_judgment) * evar_map ref ->
   type_constraint ->
-  env -> glob_constr option * tomatch_tuples * cases_clauses ->
+  env -> ltac_var_map -> glob_constr option * tomatch_tuples * cases_clauses ->
   unsafe_judgment
 
 val constr_of_pat : 
@@ -101,6 +101,7 @@ and pattern_continuation =
 
 type 'a pattern_matching_problem =
     { env       : env;
+      lvar      : Glob_term.ltac_var_map;
       evdref    : evar_map ref;
       pred      : constr;
       tomatch   : tomatch_stack;

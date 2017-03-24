@@ -592,10 +592,10 @@ let interp_uconstr ist env sigma = function
 let interp_gen kind ist allow_patvar flags env sigma (c,ce) =
   let constrvars = extract_ltac_constr_context ist env sigma in
   let vars = {
-    Pretyping.ltac_constrs = constrvars.typed;
-    Pretyping.ltac_uconstrs = constrvars.untyped;
-    Pretyping.ltac_idents = constrvars.idents;
-    Pretyping.ltac_genargs = ist.lfun;
+    Glob_term.ltac_constrs = constrvars.typed;
+    Glob_term.ltac_uconstrs = constrvars.untyped;
+    Glob_term.ltac_idents = constrvars.idents;
+    Glob_term.ltac_genargs = ist.lfun;
   } in
   let c = match ce with
   | None -> c

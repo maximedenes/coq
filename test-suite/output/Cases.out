@@ -72,3 +72,14 @@ e1 : texp t1
 e2 : texp t2
 The term "0" has type "nat" while it is expected to have type
  "typeDenote t0".
+lem1 = 
+fun dd : nat * nat => let (bb, cc) as aa return (aa = aa) := dd in eq_refl
+     : forall k : nat * nat, k = k
+lem2 = 
+fun dd : bool => if dd as aa return (aa = aa) then eq_refl else eq_refl
+     : forall k : bool, k = k
+
+Argument scope is [bool_scope]
+lem3 = 
+fun dd : nat * nat => let (bb, cc) as aa return (aa = aa) := dd in eq_refl
+     : forall k : nat * nat, k = k

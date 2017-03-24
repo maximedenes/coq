@@ -78,3 +78,6 @@ val map_pattern : (glob_constr -> glob_constr) ->
 val cases_pattern_of_glob_constr : Name.t -> glob_constr -> cases_pattern
 
 val glob_constr_of_closed_cases_pattern : cases_pattern -> Name.t * glob_constr
+
+val ltac_interp_name : Glob_term.ltac_var_map -> Names.name -> Names.name
+val empty_lvar : Glob_term.ltac_var_map

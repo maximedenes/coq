@@ -246,6 +246,7 @@ let push_history_pattern n pci cont =
 
 type 'a pattern_matching_problem =
     { env       : env;
+      lvar      : Glob_term.ltac_var_map;
       evdref    : evar_map ref;
       pred      : constr;
       tomatch   : tomatch_stack;
@@ -1393,6 +1394,7 @@ and match_current pb (initial,tomatch) =
             postprocess_dependencies !(pb.evdref) depstocheck
               brvals pb.tomatch pb.pred deps cstrs in
           let brvals = Array.map (fun (sign,body) ->
+            let sign = List.map (map_name (ltac_interp_name pb.lvar)) sign in
             it_mkLambda_or_LetIn body sign) brvals in
 	  let (pred,typ) =
 	    find_predicate pb.caseloc pb.env pb.evdref
@@ -1825,6 +1827,7 @@ let build_inversion_problem loc env sigma tms t =
   let evdref = ref sigma in
   let pb =
     { env       = pb_env;
+      lvar      = empty_lvar;
       evdref    = evdref;
       pred      = (*ty *) mkSort s;
       tomatch   = sub_tms;
@@ -2444,7 +2447,7 @@ let context_of_arsign l =
     l ([], 0)
   in x
 
-let compile_program_cases ?loc style (typing_function, evdref) tycon env
+let compile_program_cases ?loc style (typing_function, evdref) tycon env lvar
     (predopt, tomatchl, eqns) =
   let typing_fun tycon env = function
     | Some t ->	typing_function tycon env evdref t
@@ -2530,6 +2533,7 @@ let compile_program_cases ?loc style (typing_function, evdref) tycon env
 
   let pb =
     { env      = env;
+      lvar     = lvar;
       evdref   = evdref;
       pred     = pred;
       tomatch  = initial_pushed;
@@ -2551,10 +2555,10 @@ let compile_program_cases ?loc style (typing_function, evdref) tycon env
 (**************************************************************************)
 (* Main entry of the matching compilation                                 *)
 
-let compile_cases ?loc style (typing_fun, evdref) tycon env (predopt, tomatchl, eqns) =
+let compile_cases ?loc style (typing_fun, evdref) tycon env lvar (predopt, tomatchl, eqns) =
   if predopt == None && Flags.is_program_mode () && Program.is_program_cases () then
     compile_program_cases ?loc style (typing_fun, evdref)
-      tycon env (predopt, tomatchl, eqns)
+      tycon env lvar (predopt, tomatchl, eqns)
   else
 
   (* We build the matrix of patterns and right-hand side *)
@@ -2580,6 +2584,7 @@ let compile_cases ?loc style (typing_fun, evdref) tycon env (predopt, tomatchl, 
     let out_tmt na = function NotInd (None,t) -> LocalAssum (na,t)
 			    | NotInd (Some b,t) -> LocalDef (na,b,t)
 			    | IsInd (typ,_,_) -> LocalAssum (na,typ) in
+    let nal = List.map (ltac_interp_name lvar) nal in
     let typs = List.map2 (fun na (tm,tmt) -> (tm,out_tmt na tmt)) nal tomatchs in
 
     let typs =
@@ -2608,6 +2613,7 @@ let compile_cases ?loc style (typing_fun, evdref) tycon env (predopt, tomatchl, 
 
     let pb =
       { env       = env;
+        lvar      = lvar;
         evdref    = myevdref;
 	pred      = pred;
 	tomatch   = initial_pushed;

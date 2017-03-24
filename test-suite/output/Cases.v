@@ -106,3 +106,31 @@ Fail Fixpoint texpDenote t (e:texp t):typeDenote t:=
   | TBinop t1 t2 _ b e1 e2 => O
   end.
 
+(* Test use of idents bound to ltac names in a "match" *)
+
+Lemma lem1 : forall k, k=k :>nat * nat.
+let x := fresh "aa" in
+let y := fresh "bb" in
+let z := fresh "cc" in
+let k := fresh "dd" in
+refine (fun k : nat * nat => match k as x return x = x with (y,z) => eq_refl end).
+Qed.
+Print lem1.
+
+Lemma lem2 : forall k, k=k :> bool.
+let x := fresh "aa" in
+let y := fresh "bb" in
+let z := fresh "cc" in
+let k := fresh "dd" in
+refine (fun k => if k as x return x = x then eq_refl else eq_refl).
+Qed.
+Print lem2.
+
+Lemma lem3 : forall k, k=k :>nat * nat.
+let x := fresh "aa" in
+let y := fresh "bb" in
+let z := fresh "cc" in
+let k := fresh "dd" in
+refine (fun k : nat * nat => let (y,z) as x return x = x := k in eq_refl).
+Qed.
+Print lem3.
