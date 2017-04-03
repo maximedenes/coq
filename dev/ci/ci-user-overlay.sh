@@ -20,3 +20,7 @@
 #   the name of the branch from which the PR originated. "" if the
 #   current job is a push build.
 
+if [ $TRAVIS_PULL_REQUEST == "417" ] || [ $TRAVIS_BRANCH == "pr417" ]; then
+    mathcomp_CI_BRANCH=coq-pr417-landing
+    mathcomp_CI_GITURL=https://github.com/maximedenes/math-comp.git
+fi
