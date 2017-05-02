@@ -1,6 +1,7 @@
 open Names
 
 open Ssrmatching_plugin.Ssrmatching
+open Ltac_plugin
 open Tacmach
 
 open Ssrcommon
@@ -23,23 +24,26 @@ let ssrsettac ist id ((_, (pat, pty)), (_, occ)) gl =
   let pat = interp_cpattern ist gl pat (Option.map snd pty) in
   let cl, sigma, env = pf_concl gl, project gl, pf_env gl in
   let (c, ucst), cl = 
+    let cl = EConstr.Unsafe.to_constr cl in
     try fill_occ_pattern ~raise_NoMatch:true env sigma cl pat occ 1
     with NoMatch -> redex_of_pattern ~resolve_typeclasses:true env pat, cl in
-  if Termops.occur_existential c then errorstrm(str"The pattern"++spc()++
-    pr_constr_pat c++spc()++str"did not match and has holes."++spc()++
+  let c = EConstr.of_constr c in
+  let cl = EConstr.of_constr cl in
+  if Termops.occur_existential sigma c then errorstrm(str"The pattern"++spc()++
+    pr_constr_pat (EConstr.Unsafe.to_constr c)++spc()++str"did not match and has holes."++spc()++
     str"Did you mean pose?") else
-  let c, (gl, cty) =  match kind_of_term c with
+  let c, (gl, cty) =  match EConstr.kind sigma c with
   | Cast(t, DEFAULTcast, ty) -> t, (gl, ty)
-  | _ -> c, pf_type_of gl c in
-  let cl' = mkLetIn (Name id, c, cty, cl) in
+  | _ -> c, pfe_type_of gl c in
+  let cl' = EConstr.mkLetIn (Name id, c, cty, cl) in
   let gl = pf_merge_uc ucst gl in
   Tacticals.tclTHEN (Proofview.V82.of_tactic (convert_concl cl')) (Ssripats.introid id) gl
 
 open Util
 
-let is_Evar_or_CastedMeta x =
-  isEvar_or_Meta x ||
-  (isCast x && isEvar_or_Meta (pi1 (destCast x)))
+let rec is_Evar_or_CastedMeta sigma x =
+  EConstr.isEvar sigma x || EConstr.isMeta sigma x ||
+  (EConstr.isCast sigma x && is_Evar_or_CastedMeta sigma (pi1 (EConstr.destCast sigma x)))
 
 let occur_existential_or_casted_meta c =
   let rec occrec c = match kind_of_term c with
@@ -51,27 +55,28 @@ let occur_existential_or_casted_meta c =
 open Printer
 
 let examine_abstract id gl =
-  let gl, tid = pf_type_of gl id in
+  let gl, tid = pfe_type_of gl id in
   let abstract, gl = pf_mkSsrConst "abstract" gl in
-  if not (isApp tid) || not (Term.eq_constr (fst(destApp tid)) abstract) then
-    errorstrm(strbrk"not an abstract constant: "++pr_constr id);
-  let _, args_id = destApp tid in
+  let sigma = project gl in
+  if not (EConstr.isApp sigma tid) || not (EConstr.eq_constr sigma (fst(EConstr.destApp sigma tid)) abstract) then
+    errorstrm(strbrk"not an abstract constant: "++pr_econstr id);
+  let _, args_id = EConstr.destApp sigma tid in
   if Array.length args_id <> 3 then
-    errorstrm(strbrk"not a proper abstract constant: "++pr_constr id);
-  if not (is_Evar_or_CastedMeta args_id.(2)) then
-    errorstrm(strbrk"abstract constant "++pr_constr id++str" already used");
+    errorstrm(strbrk"not a proper abstract constant: "++pr_econstr id);
+  if not (is_Evar_or_CastedMeta sigma args_id.(2)) then
+    errorstrm(strbrk"abstract constant "++pr_econstr id++str" already used");
   tid, args_id
 
 let pf_find_abstract_proof check_lock gl abstract_n = 
-  let fire gl t = Reductionops.nf_evar (project gl) t in
+  let fire gl t = EConstr.Unsafe.to_constr (Reductionops.nf_evar (project gl) (EConstr.of_constr t)) in
   let abstract, gl = pf_mkSsrConst "abstract" gl in
   let l = Evd.fold_undefined (fun e ei l ->
     match kind_of_term ei.Evd.evar_concl with
     | App(hd, [|ty; n; lock|])
       when (not check_lock || 
-                 (occur_existential_or_casted_meta (fire gl ty) &&
-                  is_Evar_or_CastedMeta (fire gl lock))) &&
-      Term.eq_constr hd abstract && Term.eq_constr n abstract_n -> e::l
+                 (occur_existential_or_casted_meta  (fire gl ty) &&
+                  is_Evar_or_CastedMeta (project gl) (EConstr.of_constr @@ fire gl lock))) &&
+      Term.eq_constr hd (EConstr.Unsafe.to_constr abstract) && Term.eq_constr n abstract_n -> e::l
     | _ -> l) (project gl) [] in
   match l with
   | [e] -> e
@@ -83,15 +88,16 @@ let reduct_in_concl t = Tactics.reduct_in_concl (t, DEFAULTcast)
 let unfold cl =
   let module R = Reductionops in let module F = CClosure.RedFlags in
   reduct_in_concl (R.clos_norm_flags (F.mkflags
-    (List.map (fun c -> F.fCONST (fst (destConst c))) cl @
+    (List.map (fun c -> F.fCONST (fst (destConst (EConstr.Unsafe.to_constr c)))) cl @
        [F.fBETA; F.fMATCH; F.fFIX; F.fCOFIX])))
 
 let apply_type x xs = Proofview.V82.of_tactic (Tactics.apply_type x xs)
+
 let havegentac ist t gl =
   let sigma, c, ucst, _ = pf_abs_ssrterm ist gl t in
   let gl = pf_merge_uc ucst gl in
-  let gl, cty = pf_type_of gl c in
-  apply_type (mkArrow cty (pf_concl gl)) [c] gl
+  let gl, cty = pfe_type_of gl c in
+  apply_type (EConstr.mkArrow cty (pf_concl gl)) [c] gl
 
 open Ssrast
 open Ssripats
@@ -154,7 +160,7 @@ let mkCArrow loc ty t =
 
 let basecuttac name c gl =
   let hd, gl = pf_mkSsrConst name gl in
-  let t = mkApp (hd, [|c|]) in
+  let t = EConstr.mkApp (hd, [|c|]) in
   let gl, _ = pf_e_type_of gl t in
   Proofview.V82.of_tactic (Tactics.apply t) gl
 
@@ -180,7 +186,7 @@ let havetac ist
  let cuttac t gl =
    if transp then
      let have_let, gl = pf_mkSsrConst "ssr_have_let" gl in
-     let step = mkApp (have_let, [|concl;t|]) in
+     let step = EConstr.mkApp (have_let, [|concl;t|]) in
      let gl, _ = pf_e_type_of gl step in
      applyn ~with_evars:true ~with_shelve:false 2 step gl
    else basecuttac "ssr_have" t gl in
@@ -211,19 +217,19 @@ let havetac ist
      let cty = combineCG cty hole (mkCArrow loc) mkRArrow in
      let _,t,uc,_ = interp gl false (combineCG ct cty (mkCCast loc) mkRCast) in
      let gl = pf_merge_uc uc gl in
-     let gl, ty = pf_type_of gl t in
-     let ctx, _ = decompose_prod_n 1 ty in
+     let gl, ty = pfe_type_of gl t in
+     let ctx, _ = EConstr.decompose_prod_n_assum (project gl) 1 ty in
      let assert_is_conv gl =
-       try Proofview.V82.of_tactic (convert_concl (compose_prod ctx concl)) gl
+       try Proofview.V82.of_tactic (convert_concl (EConstr.it_mkProd_or_LetIn concl ctx)) gl
        with _ -> errorstrm (str "Given proof term is not of type " ++
-         pr_constr (mkArrow (mkVar (id_of_string "_")) concl)) in
+         pr_econstr (EConstr.mkArrow (EConstr.mkVar (id_of_string "_")) concl)) in
      gl, ty, Tacticals.tclTHEN assert_is_conv (Proofview.V82.of_tactic (Tactics.apply t)), id, itac_c
    | FwdHave, false, false ->
      let skols = List.flatten (List.map (function
        | IpatNewHidden ids -> ids
        | _ -> assert false) skols) in
      let skols_args =
-       List.map (fun id -> examine_abstract (mkVar id) gl) skols in
+       List.map (fun id -> examine_abstract (EConstr.mkVar id) gl) skols in
      let gl = List.fold_right unlock_abs skols_args gl in
      let sigma, t, uc, n_evars =
        interp gl false (combineCG ct cty (mkCCast loc) mkRCast) in
@@ -234,7 +240,7 @@ let havetac ist
      let gl = re_sig (sig_it gl) (Evd.merge_universe_context sigma uc) in
      let gs =
        List.map (fun (_,a) ->
-         pf_find_abstract_proof false gl a.(1)) skols_args in
+         pf_find_abstract_proof false gl (EConstr.Unsafe.to_constr a.(1))) skols_args in
      let tacopen_skols gl =
         let stuff, g = Refiner.unpackage gl in
         Refiner.repackage stuff (gs @ [g]) in
@@ -246,10 +252,10 @@ let havetac ist
             Proofview.V82.of_tactic (unfold [abstract; abstract_key]) gl))
    | _,true,true  ->
      let _, ty, uc = interp_ty gl fixtc cty in let gl = pf_merge_uc uc gl in
-     gl, mkArrow ty concl, hint, itac, clr
+     gl, EConstr.mkArrow ty concl, hint, itac, clr
    | _,false,true ->
      let _, ty, uc = interp_ty gl fixtc cty in let gl = pf_merge_uc uc gl in
-     gl, mkArrow ty concl, hint, id, itac_c
+     gl, EConstr.mkArrow ty concl, hint, id, itac_c
    | _, false, false -> 
      let n, cty, uc = interp_ty gl fixtc cty in let gl = pf_merge_uc uc gl in
      gl, cty, Tacticals.tclTHEN (binderstac n) hint, id, Tacticals.tclTHEN itac_c simpltac
@@ -275,20 +281,21 @@ let ssrabstract ist gens (*last*) gl =
     let abstract, gl = pf_mkSsrConst "abstract" gl in
     let abstract_key, gl = pf_mkSsrConst "abstract_key" gl in
     let cid_interpreted = interp_cpattern ist gl cid None in
-    let id = mkVar (Option.get (id_of_pattern cid_interpreted)) in
+    let id = EConstr.mkVar (Option.get (id_of_pattern cid_interpreted)) in
     let idty, args_id = examine_abstract id gl in
     let abstract_n = args_id.(1) in
-    let abstract_proof = pf_find_abstract_proof true gl abstract_n in 
+    let abstract_proof = pf_find_abstract_proof true gl (EConstr.Unsafe.to_constr abstract_n) in 
     let gl, proof =
       let pf_unify_HO gl a b =
         try pf_unify_HO gl a b
-        with _ -> errorstrm(strbrk"The abstract variable "++pr_constr id++
+        with _ -> errorstrm(strbrk"The abstract variable "++pr_econstr id++
           strbrk" cannot abstract this goal.  Did you generalize it?") in
       let rec find_hole p t =
-        match kind_of_term t with
+        match EConstr.kind (project gl) t with
         | Evar _ (*when last*) -> pf_unify_HO gl concl t, p
         | Meta _ (*when last*) -> pf_unify_HO gl concl t, p
-        | Cast(m,_,_) when isEvar_or_Meta m (*when last*) -> pf_unify_HO gl concl t, p
+        | Cast(m,_,_) when EConstr.isEvar (project gl) m || EConstr.isMeta
+          (project gl) m (*when last*) -> pf_unify_HO gl concl t, p
 (*
         | Evar _ ->
             let sigma, it = project gl, sig_it gl in
@@ -300,7 +307,7 @@ let ssrabstract ist gens (*last*) gl =
         | App(hd, [|left; right|]) when Term.eq_constr hd prod ->
             find_hole (mkApp (proj1,[|left;right;p|])) left
 *)
-        | _ -> errorstrm(strbrk"abstract constant "++pr_constr abstract_n++
+        | _ -> errorstrm(strbrk"abstract constant "++pr_econstr abstract_n++
                strbrk" has an unexpected shape. Did you tamper with it?")
       in
         find_hole

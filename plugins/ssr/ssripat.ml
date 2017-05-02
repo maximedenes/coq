@@ -6,6 +6,7 @@ open Term
 open Vars
 open Environ
 open Constrexpr
+open Ltac_plugin
 open Tacexpr
 open Sigma
 open Proofview
@@ -86,8 +87,8 @@ type state = {
   to_drop : Id.t list;
   to_clear : Id.t list;
   to_generalize : delayed_gen list;
-  name_seed : Constr.t option;
-  view_pile : (Id.t * Constr.t) option;  (* to incrementally build /v1/v2/v3.. *)
+  name_seed : EConstr.t option;
+  view_pile : (Id.t * EConstr.t) option;  (* to incrementally build /v1/v2/v3.. *)
 }
 
 let state_field : state Proofview_monad.StateStore.field =
@@ -211,12 +212,12 @@ let glob_ipat ist = map_ipat (glob_term ist)
 let unsafe_intro env store decl b =
   Refine.refine ~unsafe:true { run = begin fun sigma ->
     let ctx = named_context_val env in
-    let nctx = push_named_context_val decl ctx in
-    let inst = List.map (Named.Declaration.get_id %> mkVar) (named_context env) in
-    let ninst = mkRel 1 :: inst in
-    let nb = subst1 (mkVar (Named.Declaration.get_id decl)) b in
+    let nctx = EConstr.push_named_context_val decl ctx in
+    let inst = List.map (Named.Declaration.get_id %> EConstr.mkVar) (named_context env) in
+    let ninst = EConstr.mkRel 1 :: inst in
+    let nb = EConstr.Vars.subst1 (EConstr.mkVar (Named.Declaration.get_id decl)) b in
     let Sigma (ev, sigma, p) = new_evar_instance nctx sigma nb ~principal:true ~store ninst in
-    Sigma (mkNamedLambda_or_LetIn decl ev, sigma, p)
+    Sigma (EConstr.mkNamedLambda_or_LetIn decl ev, sigma, p)
   end }
 
 let set_decl_id id = function
@@ -233,7 +234,7 @@ let intro ~id k = Goal.enter { enter = fun gl ->
   let env = Goal.env gl in
   let sigma = Goal.sigma gl in
   let store = Goal.extra gl in
-  let g = Goal.raw_concl gl in
+  let g = Goal.concl gl in
   let decl,t = CoqAPI.decompose_assum env (Sigma.to_evar_map sigma) g in
   let original_name = Rel.Declaration.get_name decl in
   let id = match id, original_name with
@@ -257,7 +258,7 @@ let intro_anon = intro ~id:None return
 let intro_anon_all = Goal.enter { enter = fun gl ->
   let env = Goal.env gl in
   let sigma = Goal.sigma gl in
-  let g = Goal.raw_concl gl in
+  let g = Goal.concl gl in
   let n = Ssrutils.nb_assums env (Sigma.to_evar_map sigma) g in
   Tacticals.New.tclDO n intro_anon
  }
@@ -265,7 +266,7 @@ let intro_anon_all = Goal.enter { enter = fun gl ->
 let intro_anon_deps = Goal.enter { enter = fun gl ->
   let env = Goal.env gl in
   let sigma = Goal.sigma gl in
-  let g = Goal.raw_concl gl in
+  let g = Goal.concl gl in
   let n = Ssrutils.nb_deps_assums env (Sigma.to_evar_map sigma) g in
   Tacticals.New.tclDO n intro_anon
  }
@@ -349,7 +350,7 @@ let analyze env evd ty =
     Tacred.reduce_to_quantified_ind env evd ty
   in
   let mind,indb = Inductive.lookup_mind_specif env (kn,i) in
-  (mind.Declarations.mind_nparams,indb.Declarations.mind_nf_lc)
+  (mind.Declarations.mind_nparams, Array.map EConstr.of_constr indb.Declarations.mind_nf_lc)
 
 let tac_case mode t =
   match mode with
@@ -371,11 +372,12 @@ let tac_case mode t =
 let tac_intro_seed interp_ipats where fix =
   Goal.enter { enter = fun gl ->
     let env = Goal.env gl in
+    let sigma = Sigma.to_evar_map @@ Goal.sigma gl in
     let state = Goal.state gl in
     let state = Option.get (Proofview_monad.StateStore.get state state_field) in
     let ty = Option.get state.name_seed in
-    let ctx,_ = decompose_prod_assum ty in
-    Printf.printf "tac_intro_seed with l(ctx)=%i,ty=%s\n" (List.length ctx) (Pp.string_of_ppcmds (Printer.pr_constr ty));
+    let ctx,_ = EConstr.decompose_prod_assum sigma ty in
+    Printf.printf "tac_intro_seed with l(ctx)=%i,ty=%s\n" (List.length ctx) (Pp.string_of_ppcmds (Printer.pr_econstr ty));
     let seeds = CList.rev_map Context.Rel.Declaration.get_name ctx in
     let ipats = List.map (function
        | Anonymous -> IPatAnon One
@@ -390,7 +392,7 @@ let tac_intro_seed interp_ipats where fix =
 let tclWITHTOP tac =
   Goal.enter { enter = fun gl ->
     let top = mk_anon_id "top_assumption" (Tacmach.New.pf_ids_of_hyps gl) in
-    intro_id top <*> tac (mkVar top) <*> Tactics.clear [top]
+    intro_id top <*> tac (EConstr.mkVar top) <*> Tactics.clear [top]
   }
 
 
@@ -442,7 +444,7 @@ let is_tac_in_term { body; glob_env; interp_env } =
 
 let tclGET_VIEWPILE = Proofview.Goal.(enter_one { enter = fun goal ->
   let name = Id.of_string "tmp" in (* make private *)
-  let t = mkVar name in
+  let t = EConstr.mkVar name in
   match get_view_pile goal with
   | None ->  intro_id name <*> set_view_pile (name,t) <*> tclUNIT t
   | Some (_,x) -> tclUNIT x
@@ -489,7 +491,7 @@ let interp_glob ist glob = Proofview.Goal.(enter_one { enter = fun goal ->
     let sigma = Sigma.to_evar_map (sigma goal) in
     Feedback.msg_info Pp.(str"interp-in: " ++ Printer.pr_glob_constr glob);
     let sigma, term = Tacinterp.interp_open_constr ist env sigma (glob,None) in
-    Feedback.msg_info Pp.(str"interp-out: " ++ Printer.pr_constr term);
+    Feedback.msg_info Pp.(str"interp-out: " ++ Printer.pr_econstr term);
     tclUNIT (env,sigma,term)
   })
 
@@ -566,7 +568,7 @@ let pose_proof s0 p = Proofview.Goal.(enter_one { enter = fun g ->
           k :: l @ 
         (Evar.Set.elements
           (Evd.evars_of_term
-            (Reductionops.nf_evar sigma (get_body (Evd.(evar_body (find sigma k)))))))
+            (EConstr.Unsafe.to_constr (Reductionops.nf_evar sigma (EConstr.of_constr (get_body (Evd.(evar_body (find sigma k)))))))))
       else l
     ) [] s in
   let und0 = (* Undefined in initial goal *)
@@ -578,7 +580,7 @@ let pose_proof s0 p = Proofview.Goal.(enter_one { enter = fun g ->
   let rigid = rigid_of und0 in
   let n, p, to_prune, _ucst = Ssrcommon.pf_abs_evars2 s0 rigid (sigma, p) in
   let p = Ssrcommon.pf_abs_cterm s0 n p in
-  Feedback.msg_info Pp.(str"view_result: " ++ Printer.pr_constr p);
+  Feedback.msg_info Pp.(str"view_result: " ++ Printer.pr_econstr p);
   let sigma = List.fold_left Evd.remove sigma to_prune in
   Unsafe.tclEVARS sigma <*> Tactics.generalize [p]
 })

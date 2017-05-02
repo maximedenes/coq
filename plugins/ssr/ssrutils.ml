@@ -9,6 +9,7 @@ open Vars
 open Evarsolve
 open Proofview
 open Proofview.Notations
+open Ltac_plugin
 open Ssrmatching_plugin.Ssrmatching
 open CoqAPI
 
@@ -16,10 +17,10 @@ open CoqAPI
 (** TODO: decide what we should do with occurrences in evars / evar contexts *)
 let rec nb_deps_assums cur env sigma t =
   let t' = whd_allnolet env sigma t in
-  match kind_of_term_upto sigma t' with
+  match EConstr.kind sigma t' with
   | Prod(name,ty,body) ->
      (* FIXME use EConstr.noccur *)
-     if noccurn 1 body then cur
+     if EConstr.Vars.noccurn sigma 1 body then cur
      else
        nb_deps_assums (cur+1) env sigma body
   | LetIn(name,ty,t1,t2) ->
@@ -34,7 +35,7 @@ let nb_deps_assums = nb_deps_assums 0
 (** Warning: unlike [nb_deps_assums], it does not perform reduction *)
 (** TODO: decide what we should do with occurrences in evars / evar contexts *)
 let rec nb_assums cur env sigma t =
-  match kind_of_term_upto sigma t with
+  match EConstr.kind sigma t with
   | Prod(name,ty,body) ->
      nb_assums (cur+1) env sigma body
   | LetIn(name,ty,t1,t2) ->
@@ -73,29 +74,30 @@ let mk_anon_id t ids =
     if Ssrcommon.is_internal_name !s then s := "_" ^ !s;
     let n = String.length !s - 1 in
     let rec loop i j =
-      let d = !s.[i] in if not (Util.is_digit d) then i + 1, j else
+      let d = !s.[i] in if not (is_digit d) then i + 1, j else
       loop (i - 1) (if d = '0' then j else i) in
     let m, j = loop (n - 1) n in m, (!s, j), id_of_string !s in
   if not (List.mem id0 ids) then id0 else
   let s, i = List.fold_left (max_suffix m) si0 ids in
-  let s = Bytes.of_string s in
-  let n = Bytes.length s - 1 in
-  let set = Bytes.set s in
+  let open Bytes in
+  let s = of_string s in
+  let n = length s - 1 in
   let rec loop i =
-    if s.[i] = '9' then (set i '0'; loop (i - 1)) else
-    if i < m then (set n '0'; set m '1'; s ^ "_") else
-    (set i (Char.chr (Char.code s.[i] + 1)); s) in
-  id_of_string (Bytes.to_string (loop (n - 1)))
+    if get s i = '9' then (set s i '0'; loop (i - 1)) else
+    if i < m then (set s n '0'; set s m '1'; cat s (of_string "_")) else
+    (set s i (Char.chr (Char.code (get s i) + 1)); s) in
+  Id.of_bytes (loop (n - 1))
 
 let convert_concl_no_check t = Tactics.convert_concl_no_check t Term.DEFAULTcast
 let convert_concl t = Tactics.convert_concl t Term.DEFAULTcast
 
 let rename_hd_prod name =
   Goal.enter { enter = fun gl ->
-    let concl = Goal.raw_concl gl in
-    match Term.kind_of_term concl with
+    let concl = Goal.concl gl in
+    let sigma = Sigma.to_evar_map @@ Goal.sigma gl in
+    match EConstr.kind sigma concl with
     | Prod(_,src,tgt) ->
-        convert_concl_no_check (mkProd (name,src,tgt))
+        convert_concl_no_check EConstr.(mkProd (name,src,tgt))
     | _ -> CErrors.anomaly (Pp.str "rename_hd_prod: no head product")
   }
 

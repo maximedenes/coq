@@ -1,3 +1,5 @@
+open Ltac_plugin
+
 open Ssripat
 open Pltac
 open Stdarg
@@ -8,8 +10,6 @@ open Tacexpr
 open Pcoq
 open Pcoq.Prim
 open Pcoq.Constr
-
-open Compat
 
 (* DECLARE PLUGIN should take a variable or a string. *)
 DECLARE PLUGIN "ssreflect_plugin"
@@ -23,7 +23,7 @@ let () = Mltop.add_known_plugin (fun () ->
 
 (* Lookahead *)
 let input_term_annotation strm =
-  match List.map Compat.get_tok (Stream.npeek 2 strm) with
+  match Stream.npeek 2 strm with
   | Tok.KEYWORD "(" :: Tok.KEYWORD "(" :: _ -> `DoubleParens
   | Tok.KEYWORD "(" :: _ -> `Parens
   | Tok.KEYWORD "@" :: _ -> `At

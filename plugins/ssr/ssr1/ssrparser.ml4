@@ -4,6 +4,7 @@ open Feedback
 open Pcoq
 open Pcoq.Prim
 open Pcoq.Constr
+open Ltac_plugin
 open Genarg
 open Stdarg
 open Tacarg
@@ -46,13 +47,12 @@ open Notation_ops
 open Locus
 open Locusops
 
-open Compat
 open Tok
 
 DECLARE PLUGIN "ssreflect_plugin"
 (* Defining grammar rules with "xx" in it automatically declares keywords too,
  * we thus save the lexer to restore it at the end of the file *)
-let frozen_lexer = CLexer.freeze () ;;
+let frozen_lexer = CLexer.get_keyword_state () ;;
 
 
 
@@ -112,18 +112,18 @@ let interp_wit wit ist gl x =
 (** Primitive parsing to avoid syntax conflicts with basic tactics. *)
 
 let accept_before_syms syms strm =
-  match Compat.get_tok (Util.stream_nth 1 strm) with
+  match Util.stream_nth 1 strm with
   | Tok.KEYWORD sym when List.mem sym syms -> ()
   | _ -> raise Stream.Failure
 
 let accept_before_syms_or_any_id syms strm =
-  match Compat.get_tok (Util.stream_nth 1 strm) with
+  match Util.stream_nth 1 strm with
   | Tok.KEYWORD sym when List.mem sym syms -> ()
   | Tok.IDENT _ -> ()
   | _ -> raise Stream.Failure
 
 let accept_before_syms_or_ids syms ids strm =
-  match Compat.get_tok (Util.stream_nth 1 strm) with
+  match Util.stream_nth 1 strm with
   | Tok.KEYWORD sym when List.mem sym syms -> ()
   | Tok.IDENT id when List.mem id ids -> ()
   | _ -> raise Stream.Failure
@@ -270,24 +270,24 @@ let pr_ssrsimpl _ _ _ = pr_simpl
 let wit_ssrsimplrep = add_genarg "ssrsimplrep" pr_simpl
 
 let test_ssrslashnum b1 b2 strm =
-  match Compat.get_tok (Util.stream_nth 0 strm) with
+  match Util.stream_nth 0 strm with
   | Tok.KEYWORD "/" ->
-      (match Compat.get_tok (Util.stream_nth 1 strm) with
+      (match Util.stream_nth 1 strm with
       | Tok.INT _ when b1 ->
-         (match Compat.get_tok (Util.stream_nth 2 strm) with
+         (match Util.stream_nth 2 strm with
          | Tok.KEYWORD "=" | Tok.KEYWORD "/=" when not b2 -> ()
          | Tok.KEYWORD "/" ->
              if not b2 then () else begin
-               match Compat.get_tok (Util.stream_nth 3 strm) with
+               match Util.stream_nth 3 strm with
                | Tok.INT _ -> ()
                | _ -> raise Stream.Failure
              end
          | _ -> raise Stream.Failure)
       | Tok.KEYWORD "/" when not b1 ->
-         (match Compat.get_tok (Util.stream_nth 2 strm) with
+         (match Util.stream_nth 2 strm with
          | Tok.KEYWORD "=" when not b2 -> ()
          | Tok.INT _ when b2 ->
-           (match Compat.get_tok (Util.stream_nth 3 strm) with
+           (match Util.stream_nth 3 strm with
            | Tok.KEYWORD "=" -> ()
            | _ -> raise Stream.Failure)
          | _ when not b2 -> ()
@@ -295,10 +295,10 @@ let test_ssrslashnum b1 b2 strm =
       | Tok.KEYWORD "=" when not b1 && not b2 -> ()
       | _ -> raise Stream.Failure)
   | Tok.KEYWORD "//" when not b1 ->
-         (match Compat.get_tok (Util.stream_nth 1 strm) with
+         (match Util.stream_nth 1 strm with
          | Tok.KEYWORD "=" when not b2 -> ()
          | Tok.INT _ when b2 ->
-           (match Compat.get_tok (Util.stream_nth 2 strm) with
+           (match Util.stream_nth 2 strm with
            | Tok.KEYWORD "=" -> ()
            | _ -> raise Stream.Failure)
          | _ when not b2 -> ()
@@ -517,7 +517,7 @@ let xWithAt = '@'
 let xNoFlag = ' '
 let xCpattern = 'x'
 
-let input_ssrtermkind strm = match Compat.get_tok (Util.stream_nth 0 strm) with
+let input_ssrtermkind strm = match Util.stream_nth 0 strm with
   | Tok.KEYWORD "(" -> xInParens
   | Tok.KEYWORD "@" -> xWithAt
   | _ -> xNoFlag
@@ -563,7 +563,7 @@ let guard_term ch1 s i = match s.[i] with
 (* We also guard characters that might interfere with the ssreflect   *)
 (* tactic syntax.                                                     *)
 let pr_guarded guard prc c =
-  msg_with Format.str_formatter (prc c);
+  pp_with Format.str_formatter (prc c);
   let s = Format.flush_str_formatter () ^ "$" in
   if guard s (skip_wschars s 0) then pr_paren prc c else prc c
 
@@ -856,9 +856,9 @@ ARGUMENT EXTEND ssriorpat TYPED AS ssripat list PRINTED BY pr_ssriorpat
 END
 
 let reject_ssrhid strm =
-  match Compat.get_tok (Util.stream_nth 0 strm) with
+  match Util.stream_nth 0 strm with
   | Tok.KEYWORD "[" ->
-      (match Compat.get_tok (Util.stream_nth 1 strm) with
+      (match Util.stream_nth 1 strm with
       | Tok.KEYWORD ":" -> raise Stream.Failure
       | _ -> ())
   | _ -> ()
@@ -897,30 +897,6 @@ let rec check_no_inner_seed loc seen = function
      else CErrors.user_err ~loc ~hdr:"ssreflect"
             (strbrk "Mixing block and regular ipat is forbidden")
 ;;
-
-Pcoq.(
-GEXTEND Gram
-  GLOBAL: ssrcpat;
-  ssrcpat: [
-   [ test_nohidden; "["; iorpat = ssriorpat; "]" ->
-      check_no_inner_seed !@loc false iorpat;
-      IpatCase (understand_case_type iorpat)
-   | test_nohidden; "[="; iorpat = ssriorpat; "]" ->
-      check_no_inner_seed !@loc false iorpat;
-      IpatInj iorpat ]];
-END
-);;
-
-Pcoq.(
-GEXTEND Gram
-  GLOBAL: ssripat;
-  ssripat: [[ pat = ssrcpat -> [pat] ]];
-END
-)
-
-ARGUMENT EXTEND ssripats_ne TYPED AS ssripat PRINTED BY pr_ssripats
-  | [ ssripat(i) ssripats(tl) ] -> [ i @ tl ]
-END
 
 (* subsets of patterns *)
 
@@ -991,25 +967,8 @@ let pr_intros sep intrs =
   if intrs = [] then mt() else sep () ++ str "=>" ++ pr_ipats intrs
 let pr_ssrintros _ _ _ = pr_intros mt
 
-ARGUMENT EXTEND ssrintros_ne TYPED AS ssripat
- PRINTED BY pr_ssrintros
-  | [ "=>" ssripats_ne(pats) ] -> [ pats ]
-  | [ "=>" ">" ssripats_ne(pats) ] -> [ IpatFastMode :: pats ]
-  | [ "=>>" ssripats_ne(pats) ] -> [ IpatFastMode :: pats ]
-END
-
-ARGUMENT EXTEND ssrintros TYPED AS ssrintros_ne PRINTED BY pr_ssrintros
-  | [ ssrintros_ne(intrs) ] -> [ intrs ]
-  | [ ] -> [ [] ]
-END
-
 let pr_ssrintrosarg _ _ prt (tac, ipats) =
   prt tacltop tac ++ pr_intros spc ipats
-
-ARGUMENT EXTEND ssrintrosarg TYPED AS tactic * ssrintros
-   PRINTED BY pr_ssrintrosarg
-| [ "YouShouldNotTypeThis" ssrtacarg(arg) ssrintros_ne(ipats) ] -> [ arg, ipats ]
-END
 
 (* set_pr_ssrtac "tclintros" 0 [ArgSsr "introsarg"] *)
 let ssrtac_name name = {
@@ -1024,17 +983,6 @@ let ssrtac_entry name n = {
 let ssrtac_atom loc name args = TacML (loc, ssrtac_entry name 0, args)
 let ssrtac_expr = ssrtac_atom
 
-let tclintros_expr loc tac ipats =
-  let args = [Tacexpr.TacGeneric (in_gen (rawwit wit_ssrintrosarg) (tac, ipats))] in
-  ssrtac_expr loc "tclintros" args
-
-GEXTEND Gram
-  GLOBAL: tactic_expr;
-  tactic_expr: LEVEL "1" [ RIGHTA
-    [ tac = tactic_expr; intros = ssrintros_ne -> tclintros_expr !@loc tac intros
-    ] ];
-END
-
 (** Defined identifier *)
 let pr_ssrfwdid id = pr_spc () ++ pr_id id
 
@@ -1047,7 +995,7 @@ ARGUMENT EXTEND ssrfwdid TYPED AS ident PRINTED BY pr_ssrfwdidx
 END
 
 let accept_ssrfwdid strm =
-  match Compat.get_tok (stream_nth 0 strm) with
+  match stream_nth 0 strm with
   | Tok.IDENT id -> accept_before_syms_or_any_id [":"; ":="; "("] strm
   | _ -> raise Stream.Failure
 
@@ -1232,15 +1180,12 @@ let rec mkBstruct i = function
   | [] -> []
 
 let rec format_local_binders h0 bl0 = match h0, bl0 with
-  | BFvar :: h, LocalRawAssum ([_, x], _,  _) :: bl ->
+  | BFvar :: h, CLocalAssum ([_, x], _,  _) :: bl ->
     Bvar x :: format_local_binders h bl
-  | BFdecl _ :: h, LocalRawAssum (lxs, _, t) :: bl ->
+  | BFdecl _ :: h, CLocalAssum (lxs, _, t) :: bl ->
     Bdecl (List.map snd lxs, t) :: format_local_binders h bl
-  | BFdef false :: h, LocalRawDef ((_, x), v) :: bl ->
-    Bdef (x, None, v) :: format_local_binders h bl
-  | BFdef true :: h,
-      LocalRawDef ((_, x), CCast (_, v, CastConv t)) :: bl ->
-    Bdef (x, Some t, v) :: format_local_binders h bl
+  | BFdef :: h, CLocalDef ((_, x), v, oty) :: bl ->
+    Bdef (x, oty, v) :: format_local_binders h bl
   | _ -> []
   
 let rec format_constr_expr h0 c0 = match h0, c0 with
@@ -1250,12 +1195,9 @@ let rec format_constr_expr h0 c0 = match h0, c0 with
   | BFdecl _:: h, CLambdaN (_, [lxs, _, t], c) ->
     let bs, c' = format_constr_expr h c in
     Bdecl (List.map snd lxs, t) :: bs, c'
-  | BFdef false :: h, CLetIn(_, (_, x), v, c) ->
+  | BFdef :: h, CLetIn(_, (_, x), v, oty, c) ->
     let bs, c' = format_constr_expr h c in
-    Bdef (x, None, v) :: bs, c'
-  | BFdef true :: h, CLetIn(_, (_, x), CCast (_, v, CastConv t), c) ->
-    let bs, c' = format_constr_expr h c in
-    Bdef (x, Some t, v) :: bs, c'
+    Bdef (x, oty, v) :: bs, c'
   | [BFcast], CCast (_, c, CastConv t) ->
     [Bcast t], c
   | BFrec (has_str, has_cast) :: h, 
@@ -1278,10 +1220,8 @@ let rec format_glob_decl h0 d0 = match h0, d0 with
     | Bdecl (xs, _) :: bs -> Bdecl (x :: xs, t) :: bs
     | bs -> Bdecl ([x], t) :: bs
     end
-  | BFdef false :: h, (x, _, Some v, _)  :: d ->
+  | BFdef :: h, (x, _, Some v, _)  :: d ->
     Bdef (x, None, v) :: format_glob_decl h d
-  | BFdef true:: h, (x, _, Some (GCast (_, v, CastConv t)), _) :: d ->
-    Bdef (x, Some t, v) :: format_glob_decl h d
   | _, (x, _, None, t) :: d ->
     Bdecl ([x], t) :: format_glob_decl [] d
   | _, (x, _, Some v, _) :: d ->
@@ -1300,12 +1240,9 @@ let rec format_glob_constr h0 c0 = match h0, c0 with
     | Bdecl (xs, _) :: bs, c' -> Bdecl (x :: xs, t) :: bs, c'
     | _ -> [Bdecl ([x], t)], c
     end
-  | BFdef false :: h, GLetIn(_, x, v, c) ->
+  | BFdef :: h, GLetIn(_, x, v, oty, c) ->
     let bs, c' = format_glob_constr h c in
-    Bdef (x, None, v) :: bs, c'
-  | BFdef true :: h, GLetIn(_, x, GCast (_, v, CastConv t), c) ->
-    let bs, c' = format_glob_constr h c in
-    Bdef (x, Some t, v) :: bs, c'
+    Bdef (x, oty, v) :: bs, c'
   | [BFcast], GCast (_, c, CastConv t) ->
     [Bcast t], c
   | BFrec (has_str, has_cast) :: h, GRec (_, f, _, bl, t, c)
@@ -1412,10 +1349,9 @@ ARGUMENT EXTEND ssrbinder TYPED AS ssrfwdfmt * constr PRINTED BY pr_ssrbinder
      CLambdaN (loc, [xs, Default Explicit, t], mkCHole loc) ]
  | [ "(" ssrbvar(id) ":" lconstr(t) ":=" lconstr(v) ")" ] ->
    [ let loc' = Loc.join_loc (constr_loc t) (constr_loc v) in
-     let v' = CCast (loc', v, dC t) in
-     (FwdPose,[BFdef true]), CLetIn (loc,bvar_lname id, v',mkCHole loc) ]
+     (FwdPose,[BFdef]), CLetIn (loc,bvar_lname id, v,Some t,mkCHole loc) ]
  | [ "(" ssrbvar(id) ":=" lconstr(v) ")" ] ->
-   [ (FwdPose,[BFdef false]), CLetIn (loc,bvar_lname id, v,mkCHole loc) ]
+   [ (FwdPose,[BFdef]), CLetIn (loc,bvar_lname id, v,None,mkCHole loc) ]
 END
 
 GEXTEND Gram
@@ -1439,8 +1375,8 @@ let push_binders c2 bs =
       CProdN (mkloc loc1, b, loop ty c bs)
   | (_, CLambdaN (loc1, b, _)) :: bs ->
       CLambdaN (mkloc loc1, b, loop ty c bs)
-  | (_, CLetIn (loc1, x, v, _)) :: bs ->
-      CLetIn (mkloc loc1, x, v, loop ty c bs)
+  | (_, CLetIn (loc1, x, v, oty, _)) :: bs ->
+      CLetIn (mkloc loc1, x, v, oty, loop ty c bs)
   | [] -> c
   | _ -> anomaly "binder not a lambda nor a let in" in
   match c2 with
@@ -1450,9 +1386,9 @@ let push_binders c2 bs =
 
 let rec fix_binders = function
   | (_, CLambdaN (_, [xs, _, t], _)) :: bs ->
-      LocalRawAssum (xs, Default Explicit, t) :: fix_binders bs
-  | (_, CLetIn (_, x, v, _)) :: bs ->
-    LocalRawDef (x, v) :: fix_binders bs
+      CLocalAssum (xs, Default Explicit, t) :: fix_binders bs
+  | (_, CLetIn (_, x, v, oty, _)) :: bs ->
+    CLocalDef (x, v, oty) :: fix_binders bs
   | _ -> []
 
 let pr_ssrstruct _ _ _ = function
@@ -1577,8 +1513,8 @@ let binder_to_intro_id = List.map (function
   | (FwdPose, [BFvar]), CLambdaN (_,[ids,_,_],_)
   | (FwdPose, [BFdecl _]), CLambdaN (_,[ids,_,_],_) ->
       List.map (function (_, Name id) -> IpatId id | _ -> IpatAnon) ids
-  | (FwdPose, [BFdef _]), CLetIn (_,(_,Name id),_,_) -> [IpatId id]
-  | (FwdPose, [BFdef _]), CLetIn (_,(_,Anonymous),_,_) -> [IpatAnon]
+  | (FwdPose, [BFdef]), CLetIn (_,(_,Name id),_,_,_) -> [IpatId id]
+  | (FwdPose, [BFdef]), CLetIn (_,(_,Anonymous),_,_,_) -> [IpatAnon]
   | _ -> anomaly "ssrbinder is not a binder")
 
 let pr_ssrhavefwdwbinders _ _ prt (tr,((hpats, (fwd, hint)))) =
@@ -1629,7 +1565,7 @@ let sq_brace_tacnames =
    ["first"; "solve"; "do"; "rewrite"; "have"; "suffices"; "wlog"]
    (* "by" is a keyword *)
 let accept_ssrseqvar strm =
-  match Compat.get_tok (stream_nth 0 strm) with
+  match stream_nth 0 strm with
   | Tok.IDENT id when not (List.mem id sq_brace_tacnames) ->
      accept_before_syms_or_ids ["["] ["first";"last"] strm
   | _ -> raise Stream.Failure
@@ -1665,7 +1601,7 @@ END
 (* The user is supposed to Require Import ssreflect or Require ssreflect   *)
 (* and Import ssreflect.SsrSyntax to obtain these keywords and as a         *)
 (* consequence the extended ssreflect grammar.                             *)
-let () = CLexer.unfreeze frozen_lexer ;;
+let () = CLexer.set_keyword_state frozen_lexer ;;
 
 
 (* vim: set filetype=ocaml foldmethod=marker: *)

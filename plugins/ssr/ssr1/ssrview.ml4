@@ -1,5 +1,6 @@
 open Names
 open Term
+open Ltac_plugin
 open Tacinterp
 open Genarg
 open Globnames
@@ -39,7 +40,7 @@ let interp_view ist si env sigma gv v rid =
   snd (view_with (if view_nbimps < 0 then [] else Ssrvernac.viewtab.(0)))
 
 
-let with_view ist ~next si env (gl0 : (Proof_type.goal * tac_ctx) Evd.sigma) c name cl prune (conclude : constr -> constr -> tac_ctx tac_a) clr =
+let with_view ist ~next si env (gl0 : (Proof_type.goal * tac_ctx) Evd.sigma) c name cl prune (conclude : EConstr.t -> EConstr.t -> tac_ctx tac_a) clr =
   let c2r ist x = { ist with lfun =
     Id.Map.add top_id (Value.of_constr x) ist.lfun } in
   let terminate (sigma, c') =
@@ -50,7 +51,7 @@ let with_view ist ~next si env (gl0 : (Proof_type.goal * tac_ctx) Evd.sigma) c n
     let gl0 = pf_merge_uc ucst gl0 in
     let gl0, ap =
       let gl0, ctx = pull_ctx gl0 in
-      let gl0, ap = pf_abs_prod name gl0 c' (prod_applist cl [c]) in
+      let gl0, ap = pf_abs_prod name gl0 c' (Termops.prod_applist sigma cl [c]) in
       push_ctx ctx gl0, ap in
     let gl0 = pf_merge_uc_of sigma gl0 in
     ap, c', gl0 in
@@ -60,7 +61,7 @@ let with_view ist ~next si env (gl0 : (Proof_type.goal * tac_ctx) Evd.sigma) c n
       ap, c', conclude ap c' gl
   | f :: view ->
       let ist, rid =
-        match kind_of_term c' with
+        match EConstr.kind sigma c' with
         | Var id -> ist,mkRVar id
         | _ -> c2r ist c',mkRltacVar top_id in
       let v = intern_term ist env f in
@@ -96,7 +97,7 @@ let pfa_with_view ist ?(next=ref []) (prune, view) cl c conclude clr gl =
   let env, sigma, si =
     without_ctx pf_env gl, Refiner.project gl, without_ctx sig_it gl in
   with_view
-    ist ~next si env gl c (constr_name c) cl prune conclude clr (sigma, c) view 
+    ist ~next si env gl c (constr_name sigma c) cl prune conclude clr (sigma, c) view 
 
 let pf_with_view_linear ist gl v cl c =
   let x,y,gl =

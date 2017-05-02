@@ -1,5 +1,7 @@
 open Names
 
+open Ltac_plugin
+
 open Ssrast
 open Ssrcommon
 
@@ -26,3 +28,6 @@ val ssrabstract :
            (Ssrast.ssrdocc * Ssrmatching_plugin.Ssrmatching.cpattern) list
            list * Ssrast.ssrclear -> v82tac
 
+val basecuttac :
+           string ->
+           EConstr.t -> Proof_type.goal Evd.sigma -> Evar.t list Evd.sigma

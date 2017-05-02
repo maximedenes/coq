@@ -7,7 +7,7 @@ Module TestSquareBrackets.
 
 Lemma test1 : forall x : bool, x = x.
 Proof.
-=> [ | ].
+move=> [ | ]. (* FIXME: what should => [ | ] do here? *)
   match goal with |- true = true => idtac end.
   reflexivity.
 match goal with |- false = false => idtac end.
@@ -20,7 +20,7 @@ Inductive named :=
 
 Lemma test2 : forall x : named, x = x.
 Proof.
-=> [ ^ _1 | ^~ two_ ].
+move=> [ ^ _1 | ^~ two_ ].
   match goal with |- K1 n_1 = K1 n_1 => idtac end.
   reflexivity.
 match goal with |- K2 two_n two_k = K2 two_n two_k => idtac end.

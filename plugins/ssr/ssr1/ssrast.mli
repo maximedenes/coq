@@ -1,4 +1,6 @@
 open Names
+open Ltac_plugin
+
 type loc = Loc.t
 
 (* Names of variables to be cleared (automatic check: not a section var) *)
@@ -83,7 +85,7 @@ type ssrbindfmt =
   | BFvar
   | BFdecl of int        (* #xs *)
   | BFcast               (* final cast *)
-  | BFdef of bool        (* has cast? *)
+  | BFdef                (* has cast? *)
   | BFrec of bool * bool (* has struct? * has cast? *)
 type 'term ssrbindval = 'term ssrbind list * 'term
 

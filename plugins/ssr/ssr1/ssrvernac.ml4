@@ -9,6 +9,7 @@ open Pcoq
 open Pcoq.Prim
 open Pcoq.Constr
 open Pcoq.Vernac_
+open Ltac_plugin
 open Notation_ops
 open Notation_term
 open Glob_term
@@ -27,11 +28,11 @@ open Ssrcommon
 open Ssrparser
 DECLARE PLUGIN "ssreflect_plugin"
 
-let (!@) = Compat.to_coqloc
+let (!@) = Pcoq.to_coqloc
 
 (* Defining grammar rules with "xx" in it automatically declares keywords too,
  * we thus save the lexer to restore it at the end of the file *)
-let frozen_lexer = CLexer.freeze () ;;
+let frozen_lexer = CLexer.get_keyword_state () ;;
 
 (* global syntactic changes and vernacular commands *)
 
@@ -106,7 +107,7 @@ GEXTEND Gram
   GLOBAL: closed_binder;
   closed_binder: [
     [ ["of" | "&"]; c = operconstr LEVEL "99" ->
-      [LocalRawAssum ([!@loc, Anonymous], Default Explicit, c)]
+      [CLocalAssum ([!@loc, Anonymous], Default Explicit, c)]
   ] ];
 END
 (* }}} *)
@@ -201,10 +202,10 @@ let is_ident s = try CLexer.check_ident s; true with _ -> false
 let is_ident_part s = is_ident ("H" ^ s)
 
 let interp_search_notation loc tag okey =
-  let err msg = loc_error loc msg in
+  let err msg = CErrors.user_err ~loc ~hdr:"interp_search_notation" msg in
   let mk_pntn s for_key =
     let n = String.length s in
-    let s' = String.make (n + 2) ' ' in
+    let s' = Bytes.make (n + 2) ' ' in
     let rec loop i i' =
       if i >= n then s', i' - 2 else if s.[i] = ' ' then loop (i + 1) i' else
       let j = try String.index_from s (i + 1) ' ' with _ -> n in
@@ -212,10 +213,10 @@ let interp_search_notation loc tag okey =
       if s.[i] = '\'' && i < j - 2 && s.[j - 1] = '\'' then
         (String.blit s (i + 1) s' i' (m - 2); loop (j + 1) (i' + m - 1))
       else if for_key && is_ident (String.sub s i m) then
-         (s'.[i'] <- '_'; loop (j + 1) (i' + 2))
+         (Bytes.set s' i' '_'; loop (j + 1) (i' + 2))
       else (String.blit s i s' i' m; loop (j + 1) (i' + m + 1)) in
     loop 0 1 in
-  let trim_ntn (pntn, m) = String.sub pntn 1 (max 0 m) in
+  let trim_ntn (pntn, m) = Bytes.sub_string pntn 1 (max 0 m) in
   let pr_ntn ntn = str "(" ++ str ntn ++ str ")" in
   let pr_and_list pr = function
     | [x] -> pr x
@@ -247,7 +248,7 @@ let interp_search_notation loc tag okey =
   | "Lonely notation" -> last_sc := ""; last := ""
   | "\"" ->
       let pntn, m = mk_pntn s true in
-      if String.string_contains pntn ptag then begin
+      if String.string_contains (Bytes.to_string pntn) (Bytes.to_string ptag) then begin
         let ntn = trim_ntn (pntn, m) in
         match !ntns with
         | [] -> ntns := [ntn]; scs := [!last_sc]
@@ -323,9 +324,13 @@ END
 
 let rec splay_search_pattern na = function 
   | Pattern.PApp (fp, args) -> splay_search_pattern (na + Array.length args) fp
-  | Pattern.PLetIn (_, _, bp) -> splay_search_pattern na bp
+  | Pattern.PLetIn (_, _, _, bp) -> splay_search_pattern na bp
   | Pattern.PRef hr -> hr, na
   | _ -> CErrors.error "no head constant in head search pattern"
+
+let push_rels_assum l e =
+  let l = List.map (fun (n,t) -> n, EConstr.Unsafe.to_constr t) l in
+  push_rels_assum l e
 
 let coerce_search_pattern_to_sort hpat =
   let env = Global.env () and sigma = Evd.empty in
@@ -334,14 +339,14 @@ let coerce_search_pattern_to_sort hpat =
     Pattern.PApp (fp, args') in
   let hr, na = splay_search_pattern 0 hpat in
   let dc, ht =
-    Reductionops.splay_prod env sigma (Universes.unsafe_type_of_global hr) in
+    Reductionops.splay_prod env sigma (EConstr.of_constr (Universes.unsafe_type_of_global hr)) in
   let np = List.length dc in
   if np < na then CErrors.error "too many arguments in head search pattern" else
   let hpat' = if np = na then hpat else mkPApp hpat (np - na) [||] in
   let warn () =
     Feedback.msg_warning (str "Listing only lemmas with conclusion matching " ++ 
       pr_constr_pattern hpat') in
-  if isSort ht then begin warn (); true, hpat' end else
+  if EConstr.isSort sigma ht then begin warn (); true, hpat' end else
   let filter_head, coe_path =
     try 
       let _, cp =
@@ -366,7 +371,7 @@ let rec interp_head_pat hpat =
   | Cast (c', _, _) -> loop c'
   | Prod (_, _, c') -> loop c'
   | LetIn (_, _, _, c') -> loop c'
-  | _ -> Constr_matching.is_matching (Global.env()) Evd.empty p c in
+  | _ -> Constr_matching.is_matching (Global.env()) Evd.empty p (EConstr.of_constr c) in
   filter_head, loop
 
 let all_true _ = true
@@ -637,6 +642,6 @@ END
 (* The user is supposed to Require Import ssreflect or Require ssreflect   *)
 (* and Import ssreflect.SsrSyntax to obtain these keywords and as a         *)
 (* consequence the extended ssreflect grammar.                             *)
-let () = CLexer.unfreeze frozen_lexer ;;
+let () = CLexer.set_keyword_state frozen_lexer ;;
 
 (* vim: set filetype=ocaml foldmethod=marker: *)

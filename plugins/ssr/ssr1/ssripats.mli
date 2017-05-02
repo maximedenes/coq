@@ -3,7 +3,7 @@ open Names
 open Ssrast
 open Ssrcommon
 
-type block_names = (int * Term.types array) option
+type block_names = (int * EConstr.types array) option
 
 (* For case/elim with eq generation: args are elim_tac introeq_tac ipats
  * elim E : "=> ipats" where E give rise to introeq_tac *)
@@ -30,6 +30,6 @@ val introstac : ?ist:ist -> ssripats -> v82tac
 val introid : ?speed:[ `Slow | `Fast ] -> ?orig:name ref -> Id.t -> v82tac
 
 (* "move=> top; tac top; clear top" respecting the speed *)
-val with_top : (Term.constr -> v82tac) -> tac_ctx tac_a
+val with_top : (EConstr.t -> v82tac) -> tac_ctx tac_a
 
 

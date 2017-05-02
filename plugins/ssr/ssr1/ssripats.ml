@@ -46,7 +46,6 @@ open Notation_ops
 open Locus
 open Locusops
 
-open Compat
 open Tok
 
 open Ssrmatching_plugin
@@ -83,7 +82,7 @@ let betared env =
 ;;
 let rec fst_prod red tac = PG.nf_enter { PG.enter = begin fun gl ->
   let concl = PG.concl (PG.assume gl) in
-  match kind_of_term concl with
+  match EConstr.kind (Sigma.to_evar_map @@ PG.sigma gl) concl with
   | Prod (id,_,tgt) | LetIn(id,_,_,tgt) -> tac id
   | _ -> if red then TN.tclZEROMSG (str"No product even after head-reduction.")
          else TN.tclTHEN hnf_in_concl (fst_prod true tac)
@@ -91,10 +90,10 @@ end }
 ;;
 let introid ?(orig=ref Anonymous) name = tclTHEN (fun gl ->
    let g, env = pf_concl gl, pf_env gl in
-   match kind_of_term g with
-   | App (hd, _) when isLambda hd -> 
-     let g = CClosure.whd_val (betared env) (CClosure.inject g) in
-     new_tac (convert_concl_no_check g) gl
+   let sigma = project gl in
+   match EConstr.kind sigma g with
+   | App (hd, _) when EConstr.isLambda sigma hd -> 
+     new_tac (convert_concl_no_check (Reductionops.whd_beta sigma g)) gl
    | _ -> tclIDTAC gl)
   (Proofview.V82.of_tactic
     (fst_prod false (fun id -> orig := id; intro_mustbe_force name)))
@@ -107,19 +106,20 @@ let anontac decl gl =
   introid id gl
 
 let intro_all gl =
-  let dc, _ = Term.decompose_prod_assum (pf_concl gl) in
+  let dc, _ = EConstr.decompose_prod_assum (project gl) (pf_concl gl) in
   tclTHENLIST (List.map anontac (List.rev dc)) gl
 
 let rec intro_anon gl =
-  try anontac (List.hd (fst (Term.decompose_prod_n_assum 1 (pf_concl gl)))) gl
+  try anontac (List.hd (fst (EConstr.decompose_prod_n_assum (project gl) 1 (pf_concl gl)))) gl
   with err0 -> try tclTHEN (Proofview.V82.of_tactic red_in_concl) intro_anon gl with e when CErrors.noncritical e -> raise err0
   (* with _ -> CErrors.error "No product even after reduction" *)
 
 let rec fst_unused_prod red tac = PG.nf_enter { PG.enter = begin fun gl ->
   let concl = PG.concl (PG.assume gl) in
-  match kind_of_term concl with
+  let sigma = Sigma.to_evar_map @@ PG.sigma gl in
+  match EConstr.kind sigma concl with
   | Prod (id,_,tgt) | LetIn(id,_,_,tgt) ->
-      if noccurn 1 tgt then tac id
+      if EConstr.Vars.noccurn sigma 1 tgt then tac id
       else TN.tclTHEN (old_tac intro_anon) (fst_unused_prod false tac)
   | _ -> if red then TN.tclZEROMSG (str"No product even after head-reduction.")
          else TN.tclTHEN hnf_in_concl (fst_unused_prod true tac)
@@ -142,11 +142,11 @@ let speed_to_next_NDP gl =
 let introid ?(speed=`Slow) ?(orig=ref Anonymous) name =
   if speed = `Slow then introid ~orig name
   else tclTHEN (fun gl ->
+   let sigma = project gl in
    let g, env = pf_concl gl, pf_env gl in
-   match kind_of_term g with
-   | App (hd, _) when isLambda hd -> 
-     let g = CClosure.whd_val (betared env) (CClosure.inject g) in
-     new_tac (convert_concl_no_check g) gl
+   match EConstr.kind sigma g with
+   | App (hd, _) when EConstr.isLambda sigma hd -> 
+     new_tac (convert_concl_no_check (Reductionops.whd_beta sigma g)) gl
    | _ -> tclIDTAC gl)
   (new_tac (introid_fast orig name))
 ;;
@@ -162,7 +162,7 @@ let ssrscasetac ?ind force_inj c gl = Hook.get simplest_newcase_or_inj_tac ?ind 
 let with_top tac gl =
   let speed = (snd (pull_ctx gl)).speed in
   tac_ctx
-    (tclTHENLIST [ introid ~speed top_id; tac (mkVar top_id); new_tac (clear [top_id])])
+    (tclTHENLIST [ introid ~speed top_id; tac (EConstr.mkVar top_id); new_tac (clear [top_id])])
     gl
 
 let tclTHENS_nonstrict tac tacl taclname gl =
@@ -178,15 +178,15 @@ let tclTHENS_nonstrict tac tacl taclname gl =
              ++ str "for " ++ pr_nb n_gls n_tac "subgoal")
 
 let rec nat_of_n n =
-  if n = 0 then mkConstruct path_of_O
-  else mkApp (mkConstruct path_of_S, [|nat_of_n (n-1)|])
+  if n = 0 then EConstr.mkConstruct path_of_O
+  else EConstr.mkApp (EConstr.mkConstruct path_of_S, [|nat_of_n (n-1)|])
 
 let ssr_abstract_id = Summary.ref "~name:SSR:abstractid" 0
 
 let mk_abstract_id () = incr ssr_abstract_id; nat_of_n !ssr_abstract_id
 
 let ssrmkabs id gl =
-  let env, concl = pf_env gl, pf_concl gl in
+  let env, concl = pf_env gl, Tacmach.pf_concl gl in
   let step = { run = begin fun sigma ->
     let Sigma ((abstract_proof, abstract_ty), sigma, p) =
       let Sigma ((ty, _), sigma, p1) =
@@ -194,17 +194,17 @@ let ssrmkabs id gl =
       let Sigma (ablock, sigma, p2) = mkSsrConst "abstract_lock" env sigma in
       let Sigma (lock, sigma, p3) = Evarutil.new_evar env sigma ablock in
       let Sigma (abstract, sigma, p4) = mkSsrConst "abstract" env sigma in
-      let abstract_ty = mkApp(abstract, [|ty;mk_abstract_id ();lock|]) in
+      let abstract_ty = EConstr.mkApp(abstract, [|ty;mk_abstract_id ();lock|]) in
       let Sigma (m, sigma, p5) = Evarutil.new_evar env sigma abstract_ty in
       Sigma ((m, abstract_ty), sigma, p1 +> p2 +> p3 +> p4 +> p5) in
     let sigma, kont =
       let rd = RelDecl.LocalAssum (Name id, abstract_ty) in
-      let Sigma (ev, sigma, _) = Evarutil.new_evar (Environ.push_rel rd env) sigma concl in
+      let Sigma (ev, sigma, _) = Evarutil.new_evar (EConstr.push_rel rd env) sigma concl in
       let sigma = Sigma.to_evar_map sigma in
       (sigma, ev)
     in
-(*     pp(lazy(pr_constr concl)); *)
-    let term = mkApp (mkLambda(Name id,abstract_ty,kont) ,[|abstract_proof|]) in
+(*    pp(lazy(pr_econstr concl)); *)
+    let term = EConstr.(mkApp (mkLambda(Name id,abstract_ty,kont) ,[|abstract_proof|])) in
     let sigma, _ = Typing.type_of env sigma term in
     Sigma.Unsafe.of_pair (term, sigma)
   end } in
@@ -248,7 +248,7 @@ let move_top_with_view ~next c r v ist gl =
   Hook.get move_top_with_view_tac ~next c r v ist gl
 let simpltac x gl = Hook.get simpltac x gl
 
-type block_names = (int * Term.types array) option
+type block_names = (int * EConstr.types array) option
 
 let (introstac : ?ist:Tacinterp.interp_sign -> ssripats -> Proof_type.tactic),
     (tclEQINTROS : ?ind:block_names ref -> ?ist:Tacinterp.interp_sign ->
@@ -335,18 +335,18 @@ let (introstac : ?ist:Tacinterp.interp_sign -> ssripats -> Proof_type.tactic),
           match side with
           | `Pre -> IpatId (Id.of_string (Id.to_string prefix ^ id))
           | `Post -> IpatId (Id.of_string (id ^ Id.to_string prefix)) in
-    let rec ipat_of_ty n t =
-      match kind_of_type t with
-      | CastType(t,_) ->  ipat_of_ty n t
+    let rec ipat_of_ty sigma n t =
+      match EConstr.kind_of_type sigma t with
+      | CastType(t,_) ->  ipat_of_ty sigma n t
       | ProdType(name,_,tgt) | LetInType(name,_,_,tgt) ->
           (if n<= 0 then [ipat_of_name name] else []) @
-          ipat_of_ty (n-1) tgt
+          ipat_of_ty sigma (n-1) tgt
       | AtomicType _ | SortType _ -> [] in
     if nth <= n_before then
       List.nth before (nth-1) gl
     else if nth > n_before && nth <= n_before + n_ks then
       let ktype = ktypes.(nth - 1 - n_before) in
-      let ipats = ipat_of_ty nparams ktype in
+      let ipats = ipat_of_ty (sig_sig gl) nparams ktype in
 (*
       pp(lazy(str"=> "++pr_ipats ipats++str" on "++
         pr_constr (without_ctx pf_concl gl)));

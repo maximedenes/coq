@@ -41,8 +41,8 @@ val pr_hyp : ssrhyp -> Pp.std_ppcmds
 val hyp_err : loc -> string -> Id.t -> 'a
 val hyp_id : ssrhyp -> Id.t
 val not_section_id : Id.t -> bool
-val check_hyp_exists : Context.Named.t -> ssrhyp -> unit
-val test_hypname_exists : Context.Named.t -> Id.t -> bool
+val check_hyp_exists : EConstr.named_context -> ssrhyp -> unit
+val test_hypname_exists : EConstr.named_context -> Id.t -> bool
 
 (* Variant of the above *)
 val ssrhoi_id : ssrhyp_or_id Pcoq.Gram.entry
@@ -162,7 +162,7 @@ val glob_constr :
     Tacexpr.glob_constr_and_expr -> Glob_term.glob_constr
 val interp_open_constr : 
   Tacinterp.interp_sign -> Proof_type.goal Tacmach.sigma ->
-    Tacexpr.glob_constr_and_expr -> Evd.evar_map * Evd.open_constr
+    Tacexpr.glob_constr_and_expr -> Evd.evar_map * (Evd.evar_map * EConstr.t)
 val intern_term : 
   Tacinterp.interp_sign -> Environ.env ->
     ssrterm -> Glob_term.glob_constr
@@ -171,10 +171,10 @@ val pf_intern_term :
     ssrterm -> Glob_term.glob_constr
 val interp_term :
   Tacinterp.interp_sign -> Proof_type.goal Tacmach.sigma ->
-    ssrterm -> Evd.open_constr
+    ssrterm -> Evd.evar_map * EConstr.t
 val force_term :
   Tacinterp.interp_sign -> Proof_type.goal Tacmach.sigma ->
-    ssrterm -> Evd.open_constr
+    ssrterm -> Evd.evar_map * EConstr.t
 val subst_ssrterm : Mod_subst.substitution -> ssrterm -> ssrterm
 val glob_ssrterm : Tacintern.glob_sign -> ssrterm -> ssrterm
 val mk_term : ssrtermkind -> Constrexpr.constr_expr -> ssrterm
@@ -298,7 +298,7 @@ val ssrbinder : (ssrfwdfmt * Constrexpr.constr_expr) Pcoq.Gram.entry
 val wit_ssrbinder :
    (Ssrast.ssrfwdfmt * Constrexpr.constr_expr,
             Ssrast.ssrfwdfmt * Tactypes.glob_constr_and_expr,
-            Ssrast.ssrfwdfmt * Term.constr)
+            Ssrast.ssrfwdfmt * EConstr.t)
            Genarg.genarg_type
 val intro_id_to_binder : ssripats -> (ssrfwdfmt * Constrexpr.constr_expr) list
 val binder_to_intro_id : (ssrfwdfmt * Constrexpr.constr_expr) list -> ssripatss
@@ -330,18 +330,3 @@ val pr_ssrseqarg : 'x -> 'y ->
 val check_seqtacarg : ssrdir -> Tacexpr.raw_tactic_expr ssrseqarg -> Tacexpr.raw_tactic_expr ssrseqarg 
 
 val ssrorelse : Tacexpr.raw_tactic_expr Pcoq.Gram.entry
-
-(* OOP *)
-val interp_open_constr :
-           Tacinterp.interp_sign ->
-           Proof_type.goal Tacmach.sigma ->
-           Tacexpr.glob_constr_and_expr ->
-           Evd.evar_map * (Evd.evar_map * Term.constr)
-
-
-val tclintros_expr :
-           Loc.t ->
-           Tacexpr.raw_tactic_expr ->
-           Ssrast.ssripats ->
-           Tacexpr.raw_tactic_expr
-

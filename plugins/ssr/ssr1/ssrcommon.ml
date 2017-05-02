@@ -1,8 +1,10 @@
 (* (c) Copyright Microsoft Corporation and Inria. All rights reserved. *)
 
+open Util
 open Names
 open Proof_type
 open Evd
+open Ltac_plugin
 open Tacmach
 open Refiner
 open Ssrmatching_plugin.Ssrmatching
@@ -10,7 +12,7 @@ open Ssrast
 
 (* Defining grammar rules with "xx" in it automatically declares keywords too,
  * we thus save the lexer to restore it at the end of the file *)
-let frozen_lexer = CLexer.freeze () ;;
+let frozen_lexer = CLexer.get_keyword_state () ;;
 
 
 type 'a tac_a = (goal * 'a) sigma -> (goal * 'a) list sigma
@@ -124,7 +126,7 @@ let array_list_of_tl v =
 (* end patch *)
 
 
-let (!@) = Compat.to_coqloc
+let (!@) = Pcoq.to_coqloc
 
 (** Constructors for rawconstr *)
 open Glob_term
@@ -162,7 +164,7 @@ let isAppInd gl c =
 
 let interp_view_nbimps ist gl rc =
   try
-    let sigma, t = interp_open_constr ist gl (rc, None) in
+    let sigma, t = Ssrparser.interp_open_constr ist gl (rc, None) in
     let si = sig_it gl in
     let gl = re_sig si sigma in
     let pl, c = splay_open_constr gl t in
@@ -197,11 +199,9 @@ let new_tmp_id ctx =
   (id, orig), { ctx with tmp_ids = (id, orig) :: ctx.tmp_ids }
 ;;
 
-
 let mk_internal_id s =
-  let s' = Bytes.of_string (Printf.sprintf "_%s_" s) in
-  for i = 1 to Bytes.length s do if s'.[i] = ' ' then Bytes.set s' i '_' done;
-  let s' = Bytes.to_string s' in
+  let s' = Printf.sprintf "_%s_" s in
+  let s' = String.map (fun c -> if c = ' ' then '_' else c) s' in
   add_internal_name ((=) s'); id_of_string s'
 
 let same_prefix s t n =
@@ -209,7 +209,7 @@ let same_prefix s t n =
 
 let skip_digits s =
   let n = String.length s in 
-  let rec loop i = if i < n && Util.is_digit s.[i] then loop (i + 1) else i in loop
+  let rec loop i = if i < n && is_digit s.[i] then loop (i + 1) else i in loop
 
 let mk_tagged_id t i = id_of_string (Printf.sprintf "%s%d_" t i)
 let is_tagged t s =
@@ -267,28 +267,28 @@ let mk_anon_id t gl =
     if is_internal_name !s then s := "_" ^ !s;
     let n = String.length !s - 1 in
     let rec loop i j =
-      let d = !s.[i] in if not (Util.is_digit d) then i + 1, j else
+      let d = !s.[i] in if not (is_digit d) then i + 1, j else
       loop (i - 1) (if d = '0' then j else i) in
     let m, j = loop (n - 1) n in m, (!s, j), id_of_string !s in
   let gl_ids = pf_ids_of_hyps gl in
   if not (List.mem id0 gl_ids) then id0 else
   let s, i = List.fold_left (max_suffix m) si0 gl_ids in
-  let s = Bytes.of_string s in
-  let n = Bytes.length s - 1 in
-  let set = Bytes.set s in
+  let open Bytes in
+  let s = of_string s in
+  let n = length s - 1 in
   let rec loop i =
-    if s.[i] = '9' then (set i '0'; loop (i - 1)) else
-    if i < m then (set n '0'; set m '1'; s ^ "_") else
-    (set i (Char.chr (Char.code s.[i] + 1)); s) in
-  id_of_string (Bytes.to_string (loop (n - 1)))
+    if get s i = '9' then (set s i '0'; loop (i - 1)) else
+    if i < m then (set s n '0'; set s m '1'; cat s (of_string "_")) else
+    (set s i (Char.chr (Char.code (get s i) + 1)); s) in
+  Id.of_bytes (loop (n - 1))
 
 let convert_concl_no_check t = Tactics.convert_concl_no_check t Term.DEFAULTcast
 let convert_concl t = Tactics.convert_concl t Term.DEFAULTcast
 
 let rename_hd_prod orig_name_ref gl =
-  match Term.kind_of_term (pf_concl gl) with
-  | Term.Prod(_,src,tgt) ->
-      Proofview.V82.of_tactic (convert_concl_no_check (Term.mkProd (!orig_name_ref,src,tgt))) gl
+  match EConstr.kind (project gl) (pf_concl gl) with
+  | Constr.Prod(_,src,tgt) ->
+      Proofview.V82.of_tactic (convert_concl_no_check (EConstr.mkProd (!orig_name_ref,src,tgt))) gl
   | _ -> CErrors.anomaly (str "gentac creates no product")
 
 let gentac, gen = Hook.make ()
@@ -342,7 +342,16 @@ module NamedDecl = Context.Named.Declaration
 open Term
 let env_size env = List.length (Environ.named_context env)
 
+let pf_concl gl = EConstr.Unsafe.to_constr (pf_concl gl)
+let pf_get_hyp gl x = EConstr.Unsafe.to_named_decl (pf_get_hyp gl x)
+let pf_get_hyp_typ gl x = EConstr.Unsafe.to_constr (pf_get_hyp_typ gl x)
+let pf_hyps gl = List.map EConstr.Unsafe.to_named_decl (pf_hyps gl)
+
+let nf_evar sigma t = 
+  EConstr.Unsafe.to_constr (Evarutil.nf_evar sigma (EConstr.of_constr t))
+
 let pf_abs_evars2 gl rigid (sigma, c0) =
+  let c0 = EConstr.Unsafe.to_constr c0 in
   let sigma0, ucst = project gl, Evd.evar_universe_context sigma in
   let nenv = env_size (pf_env gl) in
   let abs_evar n k =
@@ -352,7 +361,7 @@ let pf_abs_evars2 gl rigid (sigma, c0) =
     | NamedDecl.LocalDef (x,b,t) -> mkNamedLetIn x b t (mkArrow t c)
     | NamedDecl.LocalAssum (x,t) -> mkNamedProd x t c in
     let t = Context.Named.fold_inside abs_dc ~init:evi.evar_concl dc in
-    Evarutil.nf_evar sigma t in
+    nf_evar sigma t in
   let rec put evlist c = match kind_of_term c with
   | Evar (k, a) ->  
     if List.mem_assoc k evlist || Evd.mem sigma0 k || List.mem k rigid then evlist else
@@ -360,7 +369,7 @@ let pf_abs_evars2 gl rigid (sigma, c0) =
     let t = abs_evar n k in (k, (n, t)) :: put evlist t
   | _ -> fold_constr put evlist c in
   let evlist = put [] c0 in
-  if evlist = [] then 0, c0,[], ucst else
+  if evlist = [] then 0, EConstr.of_constr c0,[], ucst else
   let rec lookup k i = function
     | [] -> 0, 0
     | (k', (n, _)) :: evl -> if k = k' then i, n else lookup k (i + 1) evl in
@@ -374,7 +383,7 @@ let pf_abs_evars2 gl rigid (sigma, c0) =
   | (_, (n, t)) :: evl ->
     loop (mkLambda (mk_evar_name n, get (i - 1) t, c)) (i - 1) evl
   | [] -> c in
-  List.length evlist, loop (get 1 c0) 1 evlist, List.map fst evlist, ucst
+  List.length evlist, EConstr.of_constr (loop (get 1 c0) 1 evlist), List.map fst evlist, ucst
 
 let pf_abs_evars gl t = pf_abs_evars2 gl [] t
 
@@ -403,7 +412,7 @@ let pf_abs_evars_pirrel gl (sigma, c0) =
   pp(lazy(str"==PF_ABS_EVARS_PIRREL=="));
   pp(lazy(str"c0= " ++ Printer.pr_constr c0));
   let sigma0 = project gl in
-  let c0 = Evarutil.nf_evar sigma0 (Evarutil.nf_evar sigma c0) in
+  let c0 = nf_evar sigma0 (nf_evar sigma c0) in
   let nenv = env_size (pf_env gl) in
   let abs_evar n k =
     let evi = Evd.find sigma k in
@@ -412,24 +421,25 @@ let pf_abs_evars_pirrel gl (sigma, c0) =
     | NamedDecl.LocalDef (x,b,t) -> mkNamedLetIn x b t (mkArrow t c)
     | NamedDecl.LocalAssum (x,t) -> mkNamedProd x t c in
     let t = Context.Named.fold_inside abs_dc ~init:evi.evar_concl dc in
-    Evarutil.nf_evar sigma0 (Evarutil.nf_evar sigma t) in
+    nf_evar sigma0 (nf_evar sigma t) in
   let rec put evlist c = match kind_of_term c with
   | Evar (k, a) ->  
     if List.mem_assoc k evlist || Evd.mem sigma0 k then evlist else
     let n = max 0 (Array.length a - nenv) in
     let k_ty = 
       Retyping.get_sort_family_of 
-        (pf_env gl) sigma (Evd.evar_concl (Evd.find sigma k)) in
+        (pf_env gl) sigma (EConstr.of_constr (Evd.evar_concl (Evd.find sigma k))) in
     let is_prop = k_ty = InProp in
     let t = abs_evar n k in (k, (n, t, is_prop)) :: put evlist t
   | _ -> fold_constr put evlist c in
   let evlist = put [] c0 in
   if evlist = [] then 0, c0 else
-  let pr_constr t = Printer.pr_constr (Reductionops.nf_beta (project gl) t) in
+  let pr_constr t = Printer.pr_econstr (Reductionops.nf_beta (project gl) (EConstr.of_constr t)) in
   pp(lazy(str"evlist=" ++ pr_list (fun () -> str";")
     (fun (k,_) -> str(Evd.string_of_existential k)) evlist));
   let evplist = 
     let depev = List.fold_left (fun evs (_,(_,t,_)) -> 
+        let t = EConstr.of_constr t in
         Intset.union evs (Evarutil.undefined_evars_of_term sigma t)) Intset.empty evlist in
     List.filter (fun (i,(_,_,b)) -> b && Intset.mem i depev) evlist in
   let evlist, evplist, sigma = 
@@ -440,11 +450,11 @@ let pf_abs_evars_pirrel gl (sigma, c0) =
         if (ng <> []) then errorstrm (str "Should we tell the user?");
         List.filter (fun (j,_) -> j <> i) ev, evp, sigma
       with _ -> ev, p::evp, sigma) (evlist, [], sigma) (List.rev evplist) in
-  let c0 = Evarutil.nf_evar sigma c0 in
+  let c0 = nf_evar sigma c0 in
   let evlist = 
-    List.map (fun (x,(y,t,z)) -> x,(y,Evarutil.nf_evar sigma t,z)) evlist in
+    List.map (fun (x,(y,t,z)) -> x,(y,nf_evar sigma t,z)) evlist in
   let evplist = 
-    List.map (fun (x,(y,t,z)) -> x,(y,Evarutil.nf_evar sigma t,z)) evplist in
+    List.map (fun (x,(y,t,z)) -> x,(y,nf_evar sigma t,z)) evplist in
   pp(lazy(str"c0= " ++ pr_constr c0));
   let rec lookup k i = function
     | [] -> 0, 0
@@ -468,7 +478,7 @@ let pf_abs_evars_pirrel gl (sigma, c0) =
   | [] -> c in
   let rec loop c i = function
   | (_, (n, t, _)) :: evl ->
-    let evs = Evarutil.undefined_evars_of_term sigma t in
+    let evs = Evarutil.undefined_evars_of_term sigma (EConstr.of_constr t) in
     let t_evplist = List.filter (fun (k,_) -> Intset.mem k evs) evplist in
     let t = loopP t_evplist (get t_evplist 1 t) 1 t_evplist in
     let t = get evlist (i - 1) t in
@@ -493,12 +503,17 @@ let nb_evar_deps = function
     (try int_of_string (String.sub s m (String.length s - 1 - m)) with _ -> 0)
   | _ -> 0
 
-let pf_type_id gl t = id_of_string (Namegen.hdchar (pf_env gl) t)
-let pf_type_of gl t = let sigma, ty = pf_type_of gl t in re_sig (sig_it gl)  sigma, ty
-
+let pf_type_id gl t = id_of_string (Namegen.hdchar (pf_env gl) (project gl) t)
+let pfe_type_of gl t =
+  let sigma, ty = pf_type_of gl t in
+  re_sig (sig_it gl) sigma, ty
+let pf_type_of gl t =
+  let sigma, ty = pf_type_of gl (EConstr.of_constr t) in
+  re_sig (sig_it gl)  sigma, EConstr.Unsafe.to_constr ty
 
 let pf_abs_cterm gl n c0 =
   if n <= 0 then c0 else
+  let c0 = EConstr.Unsafe.to_constr c0 in
   let noargs = [|0|] in
   let eva = Array.make n noargs in
   let rec strip i c = match kind_of_term c with
@@ -528,12 +543,12 @@ let pf_abs_cterm gl n c0 =
       let na' = List.length dl in
       eva.(i) <- Array.of_list (na - na' :: dl);
       let x' =
-        if na' = 0 then Name (pf_type_id gl t2) else mk_evar_name na' in
+        if na' = 0 then Name (pf_type_id gl (EConstr.of_constr t2)) else mk_evar_name na' in
       mkLambda (x', t2, strip_evars (i + 1) c1)
 (*      if noccurn 1 c2 then lift (-1) c2 else
       mkLambda (Name (pf_type_id gl t2), t2, c2) *)
     | _ -> strip i c in
-  strip_evars 0 c0
+  EConstr.of_constr (strip_evars 0 c0)
 
 (* Undo the evar abstractions. Also works for non-evar variables. *)
 
@@ -564,12 +579,12 @@ let pf_unabs_evars gl ise n c0 =
   | LetIn (x, b, t, c1) when i < j ->
     let _, _, c2 = destProd c1 in
     mk_evar j (push_rel (RelDecl.LocalDef (x, unabs i b, unabs i t)) env) (i + 1) c2
-  | _ -> Evarutil.e_new_evar env ise (unabs i c) in
+  | _ -> Evarutil.e_new_evar env ise (EConstr.of_constr (unabs i c)) in
   let rec unabs_evars c =
     if !nev = n then unabs n c else match kind_of_term c with
   | Lambda (x, t, c1) when !nev < n ->
     let i = !nev in
-    evv.(i) <- mk_evar (i + nb_evar_deps x) env0 i t;
+    evv.(i) <- EConstr.Unsafe.to_constr (mk_evar (i + nb_evar_deps x) env0 i t);
     incr nev; unabs_evars c1
   | _ -> unabs !nev c in
   unabs_evars c0
@@ -583,19 +598,19 @@ let pf_merge_uc_of sigma gl =
   pf_merge_uc ucst gl
 
 
-let rec constr_name c = match kind_of_term c with
+let rec constr_name sigma c = match EConstr.kind sigma c with
   | Var id -> Name id
-  | Cast (c', _, _) -> constr_name c'
+  | Cast (c', _, _) -> constr_name sigma c'
   | Const (cn,_) -> Name (id_of_label (con_label cn))
-  | App (c', _) -> constr_name c'
+  | App (c', _) -> constr_name sigma c'
   | _ -> Anonymous
 
-let pf_mkprod gl c ?(name=constr_name c) cl =
-  let gl, t = pf_type_of gl c in
-  if name <> Anonymous || Vars.noccurn 1 cl then gl, mkProd (name, t, cl) else
-  gl, mkProd (Name (pf_type_id gl t), t, cl)
+let pf_mkprod gl c ?(name=constr_name (project gl) c) cl =
+  let gl, t = pfe_type_of gl c in
+  if name <> Anonymous || EConstr.Vars.noccurn (project gl) 1 cl then gl, EConstr.mkProd (name, t, cl) else
+  gl, EConstr.mkProd (Name (pf_type_id gl t), t, cl)
 
-let pf_abs_prod name gl c cl = pf_mkprod gl c ~name (Termops.subst_term c cl)
+let pf_abs_prod name gl c cl = pf_mkprod gl c ~name (Termops.subst_term (project gl) c cl)
 
 (** look up a name in the ssreflect internals module *)
 let ssrdirpath = make_dirpath [id_of_string "ssreflect"]
@@ -609,7 +624,7 @@ let mkSsrRef name =
   CErrors.error "Small scale reflection library not loaded"
 let mkSsrRRef name = GRef (dummy_loc, mkSsrRef name,None), None
 let mkSsrConst name env sigma =
-  Sigma.fresh_global env sigma (mkSsrRef name)
+  EConstr.fresh_global env sigma (mkSsrRef name)
 let pf_mkSsrConst name gl =
   let sigma, env, it = project gl, pf_env gl, sig_it gl in
   let sigma = Sigma.Unsafe.of_evar_map sigma in
@@ -622,20 +637,22 @@ let pf_fresh_global name gl =
   t, re_sig it sigma
 
 let mkEtaApp c n imin =
+  let open EConstr in
   if n = 0 then c else
   let nargs, mkarg =
     if n < 0 then -n, (fun i -> mkRel (imin + i)) else
     let imax = imin + n - 1 in n, (fun i -> mkRel (imax - i)) in
   mkApp (c, Array.init nargs mkarg)
 
-
 let discharge_hyp (id', (id, mode)) gl =
   let cl' = Vars.subst_var id (pf_concl gl) in
   match pf_get_hyp gl id, mode with
   | NamedDecl.LocalAssum (_, t), _ | NamedDecl.LocalDef (_, _, t), "(" ->
-     Proofview.V82.of_tactic (Tactics.apply_type (mkProd (Name id', t, cl')) [mkVar id]) gl
+     Proofview.V82.of_tactic (Tactics.apply_type (EConstr.of_constr (mkProd (Name id', t, cl')))
+       [EConstr.of_constr (mkVar id)]) gl
   | NamedDecl.LocalDef (_, v, t), _ ->
-     Proofview.V82.of_tactic (convert_concl (mkLetIn (Name id', v, t, cl'))) gl
+     Proofview.V82.of_tactic
+       (convert_concl (EConstr.of_constr (mkLetIn (Name id', v, t, cl')))) gl
 
 (* wildcard names *)
 let clear_wilds wilds gl =
@@ -645,10 +662,10 @@ let clear_with_wilds wilds clr0 gl =
   let extend_clr clr nd =
     let id = NamedDecl.get_id nd in
     if List.mem id clr || not (List.mem id wilds) then clr else
-    let vars = Termops.global_vars_set_of_decl (pf_env gl) nd in
+    let vars = Termops.global_vars_set_of_decl (pf_env gl) (project gl) nd in
     let occurs id' = Idset.mem id' vars in
     if List.exists occurs clr then id :: clr else clr in
-  Proofview.V82.of_tactic (Tactics.clear (Context.Named.fold_inside extend_clr ~init:clr0 (pf_hyps gl))) gl
+  Proofview.V82.of_tactic (Tactics.clear (Context.Named.fold_inside extend_clr ~init:clr0 (Tacmach.pf_hyps gl))) gl
 
 let clear_wilds_and_tmp_and_delayed_ids gl =
   let _, ctx = pull_ctx gl in
@@ -682,18 +699,18 @@ let rewritetac dir c =
 
 (**********************`:********* hooks ************************************)
 
-type name_hint = (int * Constr.types array) option ref
+type name_hint = (int * EConstr.types array) option ref
 
-type simplest_newcase = ?ind:name_hint -> Constr.t -> tactic
+type simplest_newcase = ?ind:name_hint -> EConstr.t -> tactic
 let simplest_newcase_tac, simplest_newcase = Hook.make ()
 
 
-type simplest_newcase_or_inj = ?ind:name_hint -> force_inj:bool -> Constr.t -> v82tac
+type simplest_newcase_or_inj = ?ind:name_hint -> force_inj:bool -> EConstr.t -> v82tac
 let simplest_newcase_or_inj_tac, simplest_newcase_or_inj = Hook.make ()
 
 
 
-type ipat_rewrite = ssrocc -> ssrdir -> Constr.t -> tactic
+type ipat_rewrite = ssrocc -> ssrdir -> EConstr.t -> tactic
 let ipat_rewrite_tac, ipat_rewrite =
   Hook.make ~default:(fun _ -> rewritetac) ()
 
@@ -744,7 +761,7 @@ let pf_interp_ty ?(resolve_typeclasses=false) ist gl ty =
    | a, (t, None) ->
      let rec force_type = function
      | GProd (l, x, k, s, t) -> incr n_binders; GProd (l, x, k, s, force_type t)
-     | GLetIn (l, x, v, t) -> incr n_binders; GLetIn (l, x, v, force_type t)
+     | GLetIn (l, x, v, oty, t) -> incr n_binders; GLetIn (l, x, v, oty, force_type t)
      | ty -> mkRCast ty mkRType in
      a, (force_type t, None)
    | _, (_, Some ty) ->
@@ -752,14 +769,14 @@ let pf_interp_ty ?(resolve_typeclasses=false) ist gl ty =
      | CProdN (l, abs, t) ->
        n_binders := !n_binders +  List.length (List.flatten (List.map pi1 abs));
        CProdN (l, abs, force_type t)
-     | CLetIn (l, n, v, t) -> incr n_binders; CLetIn (l, n, v, force_type t)
+     | CLetIn (l, n, v, oty, t) -> incr n_binders; CLetIn (l, n, v, oty, force_type t)
      | ty -> mkCCast dummy_loc ty (mkCType dummy_loc) in
      mk_term xNoFlag (force_type ty) in
    let strip_cast (sigma, t) =
-     let rec aux t = match kind_of_type t with
-     | CastType (t, ty) when !n_binders = 0 && isSort ty -> t
-     | ProdType(n,s,t) -> decr n_binders; mkProd (n, s, aux t)
-     | LetInType(n,v,ty,t) -> decr n_binders; mkLetIn (n, v, ty, aux t)
+     let rec aux t = match EConstr.kind_of_type sigma t with
+     | CastType (t, ty) when !n_binders = 0 && EConstr.isSort sigma ty -> t
+     | ProdType(n,s,t) -> decr n_binders; EConstr.mkProd (n, s, aux t)
+     | LetInType(n,v,ty,t) -> decr n_binders; EConstr.mkLetIn (n, v, ty, aux t)
      | _ -> anomaly "pf_interp_ty: ssr Type cast deleted by typecheck" in
      sigma, aux t in
    let sigma, cty as ty = strip_cast (interp_term ist gl ty) in
@@ -771,8 +788,8 @@ let pf_interp_ty ?(resolve_typeclasses=false) ist gl ty =
        sigma, Evarutil.nf_evar sigma cty in
    let n, c, _, ucst = pf_abs_evars gl ty in
    let lam_c = pf_abs_cterm gl n c in
-   let ctx, c = decompose_lam_n n lam_c in
-   n, compose_prod ctx c, lam_c, ucst
+   let ctx, c = EConstr.decompose_lam_n_assum sigma n lam_c in
+   n, EConstr.it_mkProd_or_LetIn c ctx, lam_c, ucst
 ;;
 
 (* TASSI: given (c : ty), generates (c ??? : ty[???/...]) with m evars *)
@@ -784,8 +801,8 @@ let saturate ?(beta=false) ?(bi_types=false) env sigma c ?(ty=Retyping.get_type_
   if n = 0 then 
     let args = List.rev args in
      (if beta then Reductionops.whd_beta sigma else fun x -> x)
-      (mkApp (c, Array.of_list (List.map snd args))), ty, args, sigma 
-  else match kind_of_type ty with
+      (EConstr.mkApp (c, Array.of_list (List.map snd args))), ty, args, sigma 
+  else match EConstr.kind_of_type sigma ty with
   | ProdType (_, src, tgt) ->
       let sigma = create_evar_defs sigma in
       let sigma = Sigma.Unsafe.of_evar_map sigma in
@@ -793,14 +810,14 @@ let saturate ?(beta=false) ?(bi_types=false) env sigma c ?(ty=Retyping.get_type_
         Evarutil.new_evar env sigma
           (if bi_types then Reductionops.nf_betaiota (Sigma.to_evar_map sigma) src else src) in
       let sigma = Sigma.to_evar_map sigma in
-      loop (Vars.subst1 x tgt) ((m - n,x) :: args) sigma (n-1)
+      loop (EConstr.Vars.subst1 x tgt) ((m - n,x) :: args) sigma (n-1)
   | CastType (t, _) -> loop t args sigma n 
-  | LetInType (_, v, _, t) -> loop (Vars.subst1 v t) args sigma n
+  | LetInType (_, v, _, t) -> loop (EConstr.Vars.subst1 v t) args sigma n
   | SortType _ -> assert false
   | AtomicType _ ->
       let ty =  (* FIXME *)
         (Reductionops.whd_all env sigma) ty in
-      match kind_of_type ty with
+      match EConstr.kind_of_type sigma ty with
       | ProdType _ -> loop ty args sigma n
       | _ -> raise NotEnoughProducts
   in
@@ -817,7 +834,7 @@ let pf_nf_evar gl e = Reductionops.nf_evar (project gl) e
 let pf_partial_solution gl t evl =
   let sigma, g = project gl, sig_it gl in
   let sigma = Goal.V82.partial_solution sigma g t in
-  re_sig (List.map (fun x -> (fst (destEvar x))) evl) sigma
+  re_sig (List.map (fun x -> (fst (EConstr.destEvar sigma x))) evl) sigma
 
 let dependent_apply_error =
   try CErrors.error "Could not fill dependent hole in \"apply\"" with err -> err
@@ -837,9 +854,9 @@ let applyn ~with_evars ?beta ?(with_shelve=false) n t gl =
     let refine gl =
       let t, ty, args, gl = pf_saturate ?beta ~bi_types:true gl t n in
 (*       pp(lazy(str"sigma@saturate=" ++ pr_evar_map None (project gl))); *)
-      let gl = pf_unify_HO gl ty (pf_concl gl) in
+      let gl = pf_unify_HO gl ty (Tacmach.pf_concl gl) in
       let gs = CList.map_filter (fun (_, e) ->
-        if isEvar (pf_nf_evar gl e) then Some e else None)
+        if EConstr.isEvar (project gl) e then Some e else None)
         args in
       pf_partial_solution gl t gs
     in
@@ -850,21 +867,22 @@ let applyn ~with_evars ?beta ?(with_shelve=false) n t gl =
     let t, gl = if n = 0 then t, gl else
       let sigma, si = project gl, sig_it gl in
       let rec loop sigma bo args = function (* saturate with metas *)
-        | 0 -> mkApp (t, Array.of_list (List.rev args)), re_sig si sigma 
-        | n -> match kind_of_term bo with
+        | 0 -> EConstr.mkApp (t, Array.of_list (List.rev args)), re_sig si sigma 
+        | n -> match EConstr.kind sigma bo with
           | Lambda (_, ty, bo) -> 
-              if not (Vars.closed0 ty) then raise dependent_apply_error;
+              if not (EConstr.Vars.closed0 sigma ty) then
+                raise dependent_apply_error;
               let m = Evarutil.new_meta () in
-              loop (meta_declare m ty sigma) bo ((mkMeta m)::args) (n-1)
+              loop (meta_declare m (EConstr.Unsafe.to_constr ty) sigma) bo ((EConstr.mkMeta m)::args) (n-1)
           | _ -> assert false
       in loop sigma t [] n in
-    pp(lazy(str"Refiner.refiner " ++ Printer.pr_constr t));
-    Refiner.refiner (Proof_type.Refine t) gl
+    pp(lazy(str"Refiner.refiner " ++ Printer.pr_econstr t));
+    Refiner.refiner (Proof_type.Refine (EConstr.Unsafe.to_constr t)) gl
 
 let refine_with ?(first_goes_last=false) ?beta ?(with_evars=true) oc gl =
   let rec mkRels = function 1 -> [] | n -> mkRel n :: mkRels (n-1) in
   let uct = Evd.evar_universe_context (fst oc) in
-  let n, oc = pf_abs_evars_pirrel gl oc in
+  let n, oc = pf_abs_evars_pirrel gl (fst oc, EConstr.Unsafe.to_constr (snd oc)) in
   let gl = pf_unsafe_merge_uc uct gl in
   let oc = if not first_goes_last || n <= 1 then oc else
     let l, c = decompose_lam oc in
@@ -873,7 +891,7 @@ let refine_with ?(first_goes_last=false) ?beta ?(with_evars=true) oc gl =
       (mkApp (compose_lam l c, Array.of_list (mkRel 1 :: mkRels n)))
   in
   pp(lazy(str"after: " ++ Printer.pr_constr oc));
-  try applyn ~with_evars ~with_shelve:true ?beta n oc gl
+  try applyn ~with_evars ~with_shelve:true ?beta n (EConstr.of_constr oc) gl
   with e when CErrors.noncritical e -> raise dependent_apply_error
 
 type with_dgens = (Ssrast.ssrdocc * Ssrmatching_plugin.Ssrmatching.cpattern) list list *
@@ -889,6 +907,6 @@ let with_dgens, with_dgens_hook = Hook.make ()
 (* The user is supposed to Require Import ssreflect or Require ssreflect   *)
 (* and Import ssreflect.SsrSyntax to obtain these keywords and as a         *)
 (* consequence the extended ssreflect grammar.                             *)
-let () = CLexer.unfreeze frozen_lexer ;;
+let () = CLexer.set_keyword_state frozen_lexer ;;
 
 (* vim: set filetype=ocaml foldmethod=marker: *)
