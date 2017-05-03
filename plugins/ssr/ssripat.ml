@@ -363,9 +363,9 @@ let tac_case mode t =
     let sigma = Goal.sigma gl in
     let evd = Sigma.to_evar_map sigma in
     let evd, ty = Typing.type_of ~refresh:false env evd t in
-    let (nparams,seeds) = analyze env evd ty in 
+    let (nparams,seeds) = analyze env evd ty in (* FIXME this analysis may make no sense if we are performing injection *)
     let i = ref (-1) in
-    let case_tac = Hook.get Ssrcommon.simplest_newcase_tac in
+    let case_tac = (Hook.get Ssrcommon.simplest_newcase_or_inj_tac) ~force_inj:false in
     V82.tactic (case_tac t)
     <*> set_state (fun s -> incr i; Printf.printf "i=%i\n" !i; upd_state (fun st -> { st with name_seed = Some seeds.(!i) }) s)
   }
