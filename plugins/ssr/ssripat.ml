@@ -6,6 +6,7 @@ open Term
 open Vars
 open Environ
 open Constrexpr
+open Glob_term
 open Ltac_plugin
 open Tacexpr
 open Sigma
@@ -547,6 +548,10 @@ let interp_view ist v p =
   let adaptors = AdaptorDb.(get Forward) in
   (* We cast the pile of views p into a term p_id *)
   tclINJ_CONSTR_IST ist p >>= fun (ist, p_id) ->
+  match v with
+  | GApp (loc, GHole _, rargs) ->
+     interp_glob ist (GApp (loc, p_id, rargs)) >>= fun (env, sigma, c) -> tclUNIT c
+  | _ ->
   (* We find out how to build (v p) eventually using an adaptor *)
   tclORELSE
     (pad_to_inductive ist v >>= fun vpad ->
