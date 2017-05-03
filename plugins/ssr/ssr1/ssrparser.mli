@@ -2,6 +2,7 @@
 open Genarg
 open Ssrast
 open Names
+open Ltac_plugin
 
 val ssrtacarg : Tacexpr.raw_tactic_expr Pcoq.Gram.entry
 val wit_ssrtacarg : (Tacexpr.raw_tactic_expr, Tacexpr.glob_tactic_expr, Geninterp.Val.t) Genarg.genarg_type
@@ -330,3 +331,17 @@ val pr_ssrseqarg : 'x -> 'y ->
 val check_seqtacarg : ssrdir -> Tacexpr.raw_tactic_expr ssrseqarg -> Tacexpr.raw_tactic_expr ssrseqarg 
 
 val ssrorelse : Tacexpr.raw_tactic_expr Pcoq.Gram.entry
+
+(* OOP *)
+val interp_open_constr :
+           Tacinterp.interp_sign ->
+           Proof_type.goal Tacmach.sigma ->
+           Tacexpr.glob_constr_and_expr ->
+           Evd.evar_map * (Evd.evar_map * EConstr.t)
+
+
+val tclintros_expr :
+           Loc.t ->
+           Tacexpr.raw_tactic_expr ->
+           Ssrast.ssripats ->
+           Tacexpr.raw_tactic_expr

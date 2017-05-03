@@ -898,6 +898,30 @@ let rec check_no_inner_seed loc seen = function
             (strbrk "Mixing block and regular ipat is forbidden")
 ;;
 
+Pcoq.(
+GEXTEND Gram
+  GLOBAL: ssrcpat;
+  ssrcpat: [
+   [ test_nohidden; "["; iorpat = ssriorpat; "]" ->
+      check_no_inner_seed !@loc false iorpat;
+      IpatCase (understand_case_type iorpat)
+   | test_nohidden; "[="; iorpat = ssriorpat; "]" ->
+      check_no_inner_seed !@loc false iorpat;
+      IpatInj iorpat ]];
+END
+);;
+
+Pcoq.(
+GEXTEND Gram
+  GLOBAL: ssripat;
+  ssripat: [[ pat = ssrcpat -> [pat] ]];
+END
+)
+
+ARGUMENT EXTEND ssripats_ne TYPED AS ssripat PRINTED BY pr_ssripats
+  | [ ssripat(i) ssripats(tl) ] -> [ i @ tl ]
+                                     END
+
 (* subsets of patterns *)
 
 let check_ssrhpats loc w_binders ipats =
@@ -967,8 +991,25 @@ let pr_intros sep intrs =
   if intrs = [] then mt() else sep () ++ str "=>" ++ pr_ipats intrs
 let pr_ssrintros _ _ _ = pr_intros mt
 
+ARGUMENT EXTEND ssrintros_ne TYPED AS ssripat
+ PRINTED BY pr_ssrintros
+  | [ "=>" ssripats_ne(pats) ] -> [ pats ]
+  | [ "=>" ">" ssripats_ne(pats) ] -> [ IpatFastMode :: pats ]
+  | [ "=>>" ssripats_ne(pats) ] -> [ IpatFastMode :: pats ]
+END
+
+ARGUMENT EXTEND ssrintros TYPED AS ssrintros_ne PRINTED BY pr_ssrintros
+  | [ ssrintros_ne(intrs) ] -> [ intrs ]
+  | [ ] -> [ [] ]
+END
+
 let pr_ssrintrosarg _ _ prt (tac, ipats) =
   prt tacltop tac ++ pr_intros spc ipats
+
+ARGUMENT EXTEND ssrintrosarg TYPED AS tactic * ssrintros
+   PRINTED BY pr_ssrintrosarg
+| [ "YouShouldNotTypeThis" ssrtacarg(arg) ssrintros_ne(ipats) ] -> [ arg, ipats ]
+END
 
 (* set_pr_ssrtac "tclintros" 0 [ArgSsr "introsarg"] *)
 let ssrtac_name name = {
@@ -982,6 +1023,17 @@ let ssrtac_entry name n = {
 }
 let ssrtac_atom loc name args = TacML (loc, ssrtac_entry name 0, args)
 let ssrtac_expr = ssrtac_atom
+
+let tclintros_expr loc tac ipats =
+  let args = [Tacexpr.TacGeneric (in_gen (rawwit wit_ssrintrosarg) (tac, ipats))] in
+  ssrtac_expr loc "tclintros" args
+
+GEXTEND Gram
+  GLOBAL: tactic_expr;
+  tactic_expr: LEVEL "1" [ RIGHTA
+    [ tac = tactic_expr; intros = ssrintros_ne -> tclintros_expr !@loc tac intros
+    ] ];
+END
 
 (** Defined identifier *)
 let pr_ssrfwdid id = pr_spc () ++ pr_id id
