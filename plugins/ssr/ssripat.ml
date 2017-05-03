@@ -642,7 +642,7 @@ let rec ipat_tac1 ipat : unit tactic =
      interp_raw_tac (lookup_tac ("intro_id" ^ suffix_of_name_mod m) [in_ident id])
        
   | IPatCase(m,ipatss) ->
-     Tacticals.New.tclTHENS (tclWITHTOP (tac_case m)) (List.map ipat_tac ipatss)
+     tclIORPAT (tclWITHTOP (tac_case m)) ipatss
 
   | IPatAnon(iter) ->
       interp_raw_tac (lookup_tac ("intro_anon" ^ suffix_of_anon_iter iter) [])
@@ -673,6 +673,10 @@ and ipat_tac pl : unit tactic =
   match pl with
   | [] -> interp_raw_tac (lookup_tac ("intro_finalize") [])
   | pat :: pl -> tclTHEN (ipat_tac1 pat) (ipat_tac pl)
+
+and tclIORPAT tac = function
+  | [[]] -> tac
+  | orp -> Tacticals.New.tclTHENS (* FIXME _nonstrict? *) tac (List.map ipat_tac orp)
 
   (* SSR exception *)
 let ipat_tac = function
