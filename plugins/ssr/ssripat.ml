@@ -517,6 +517,17 @@ let guess_max_implicits ist glob =
      tclUNIT (List.length ctx))
   (fun _ -> tclUNIT 5)
 
+
+(* FIXME [guess_max_implicits] above can in fact trigger coercions to Funclass,
+   and fails on ssrbool.v. So porting a heuristic closer to what ssr1 does. *)
+let guess_max_implicits ist glob =
+  try
+    interp_glob ist glob >>= fun (env,evd,c) ->
+    let ty = Retyping.get_type_of env evd c in
+    let pl, c = Reductionops.splay_prod env evd ty in
+    tclUNIT @@ List.length pl
+  with _ -> tclUNIT 0
+
 let pad_to_inductive ist glob = Proofview.Goal.(enter_one { enter = fun goal ->
   interp_glob ist glob >>= fun (env,sigma,term) ->
     let term_ty = Retyping.get_type_of env sigma term in
