@@ -353,7 +353,7 @@ let tactic_mode = G_ltac.tactic_mode
 (** 1. Utilities *)
 
 
-let ssroldreworder = Summary.ref ~name:"SSR:oldreworder" true
+let ssroldreworder = Summary.ref ~name:"SSR:oldreworder" false
 let _ =
   Goptions.declare_bool_option
     { Goptions.optsync  = false;
