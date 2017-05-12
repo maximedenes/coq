@@ -39,7 +39,7 @@ val irrefutable : env -> cases_pattern -> bool
 
 val compile_cases :
   ?loc:Loc.t -> case_style ->
-  (type_constraint -> env -> evar_map ref -> glob_constr -> unsafe_judgment) * evar_map ref ->
+  (type_constraint -> env -> evar_map ref -> ltac_var_map -> glob_constr -> unsafe_judgment) * evar_map ref ->
   type_constraint ->
   env -> ltac_var_map -> glob_constr option * tomatch_tuples * cases_clauses ->
   unsafe_judgment
@@ -116,10 +116,11 @@ val compile : 'a pattern_matching_problem -> unsafe_judgment
 
 val prepare_predicate : ?loc:Loc.t ->
            (Evarutil.type_constraint ->
-            Environ.env -> Evd.evar_map ref -> glob_constr -> unsafe_judgment) ->
+            Environ.env -> Evd.evar_map ref -> ltac_var_map -> glob_constr -> unsafe_judgment) ->
            Environ.env ->
            Evd.evar_map ->
+           Glob_term.ltac_var_map ->
            (types * tomatch_type) list ->
-           rel_context list ->
+           (rel_context * rel_context) list ->
            constr option ->
            glob_constr option -> (Evd.evar_map * Names.name list * constr) list

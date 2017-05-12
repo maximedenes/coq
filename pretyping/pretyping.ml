@@ -1028,7 +1028,7 @@ let rec pretype k0 resolve_tc (tycon : type_constraint) (env : ExtraEnv.t) evdre
 
   | GCases (sty,po,tml,eqns) ->
     Cases.compile_cases ?loc sty
-      ((fun vtyc env evdref -> pretype vtyc (make_env env !evdref) evdref lvar),evdref)
+      ((fun vtyc env evdref -> pretype vtyc (make_env env !evdref) evdref),evdref)
       tycon env.ExtraEnv.env (* loc *) lvar (po,tml,eqns)
 
   | GCast (c,k) ->
