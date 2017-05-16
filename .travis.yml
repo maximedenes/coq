@@ -132,6 +132,13 @@ matrix:
           sources:
           - avsm
           packages: *coqide-packages
+    - os: osx
+      env:
+      - TEST_TARGET="test-suite"
+      - COMPILER="4.04.1"
+      - CAMLP5_VER="6.17"
+      - EXTRA_CONF="-coqide opt -with-doc yes"
+      - EXTRA_OPAM="lablgtk-extras hevea"
 
 install:
 - opam init -j ${NJOBS} --compiler=${COMPILER} -n -y
