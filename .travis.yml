@@ -141,7 +141,7 @@ matrix:
       - EXTRA_OPAM="lablgtk-extras"
       before_install:
       - brew update
-      - brew install opam
+      - brew install opam gtk expat gtksourceview libxml2
 
 install:
 - opam init -j ${NJOBS} --compiler=${COMPILER} -n -y
