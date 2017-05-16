@@ -137,8 +137,11 @@ matrix:
       - TEST_TARGET="test-suite"
       - COMPILER="4.04.1"
       - CAMLP5_VER="6.17"
-      - EXTRA_CONF="-coqide opt -with-doc yes"
-      - EXTRA_OPAM="lablgtk-extras hevea"
+      - EXTRA_CONF="-coqide opt"
+      - EXTRA_OPAM="lablgtk-extras"
+      before_install:
+      - brew update
+      - brew install opam
 
 install:
 - opam init -j ${NJOBS} --compiler=${COMPILER} -n -y
