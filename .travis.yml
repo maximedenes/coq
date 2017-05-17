@@ -146,7 +146,7 @@ matrix:
       - COQ_DEST="-prefix "${OUTDIR}
       before_install:
       - brew update
-      - brew install opam gtk expat gtksourceview libxml2
+      - brew install opam gtk+ expat gtksourceview libxml2
 
       before_deploy:
       - DMGDIR="_dmg"
