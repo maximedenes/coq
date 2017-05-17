@@ -31,6 +31,8 @@ env:
   # system is == 4.02.3
   - COMPILER="system"
   - CAMLP5_VER="6.14"
+  - NATIVE_COMP="yes"
+  - COQ_DEST="-local"
   # Main test suites
   matrix:
   - TEST_TARGET="test-suite" COMPILER="4.02.3+32bit"
@@ -134,14 +136,45 @@ matrix:
           packages: *coqide-packages
     - os: osx
       env:
-      - TEST_TARGET="test-suite"
-      - COMPILER="4.04.1"
+      - TEST_TARGET=""
+      - COMPILER="system"
       - CAMLP5_VER="6.17"
+      - NATIVE_COMP="no"
       - EXTRA_CONF="-coqide opt"
       - EXTRA_OPAM="lablgtk-extras"
+      - OUTDIR="_install"
+      - COQ_DEST="-prefix "${OUTDIR}
       before_install:
       - brew update
       - brew install opam gtk expat gtksourceview libxml2
+
+      before_deploy:
+      - DMGDIR="_dmg"
+      - VERSION=$(sed -n -e '/^let coq_version/ s/^[^"]*"\([^"]*\)"$/\1/p' configure.ml)
+      - APP=bin/CoqIDE_${VERSION}.app
+      # Create a .app file with CoqIDE
+      - make -j ${NJOBS} ${APP}
+      # Add Coq to the .app file
+      - make OLDROOT=${OUTDIR} COQINSTALLPREFIX=${APP}/Contents/Resources/ install-coq install-ide-toploop
+      # Sign the .app file
+      - codesign -f -s - ${APP}
+
+      # Create the dmg bundle
+      - mkdir -p ${DMGDIR}
+      - ln -sf /Applications ${DMGDIR}/Applications
+      - cp -r ${APP} ${DMGDIR}
+
+      # Temporary countermeasure to hdiutil error 5341
+      # - head -c9703424 /dev/urandom > $DMGDIR/.padding
+
+      - hdiutil create -imagekey zlib-level=9 -volname CoqIDE_${VERSION} -srcfolder ${DMGDIR} -ov -format UDZO CoqIDE_${VERSION}.dmg
+
+      deploy:
+        skip_cleanup: true
+        on:
+          all_branches: true
+
+
 
 install:
 - opam init -j ${NJOBS} --compiler=${COMPILER} -n -y
@@ -154,7 +187,7 @@ script:
 
 - set -e
 - echo 'Configuring Coq...' && echo -en 'travis_fold:start:coq.config\\r'
-- ./configure -local -usecamlp5 -native-compiler yes ${EXTRA_CONF}
+- ./configure ${COQ_DEST} -usecamlp5 -native-compiler ${NATIVE_COMP} ${EXTRA_CONF}
 - echo -en 'travis_fold:end:coq.config\\r'
 
 - echo 'Building Coq...' && echo -en 'travis_fold:start:coq.build\\r'
