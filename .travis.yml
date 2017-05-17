@@ -152,6 +152,7 @@ matrix:
       - DMGDIR="_dmg"
       - VERSION=$(sed -n -e '/^let coq_version/ s/^[^"]*"\([^"]*\)"$/\1/p' configure.ml)
       - APP=bin/CoqIDE_${VERSION}.app
+      - ls /usr/local/Cellar/gtk+/2.24.31_1/bin
       # Create a .app file with CoqIDE
       - make -j ${NJOBS} ${APP}
       # Add Coq to the .app file
