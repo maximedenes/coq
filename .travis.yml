@@ -143,16 +143,17 @@ matrix:
       - EXTRA_CONF="-coqide opt"
       - OUTDIR="_install"
       - COQ_DEST="-prefix "${OUTDIR}
+      - EXTRA_OPAM="lablgtk-extras"
       before_install:
-      #- brew update
-      #- brew install opam gtk+ expat gtksourceview libxml2 gdk-pixbuf
+      - brew update
+      - brew install opam gtk+ expat gtksourceview libxml2 gdk-pixbuf
       - wget https://git.gnome.org/browse/gtk-osx/plain/gtk-osx-build-setup.sh
       - sh gtk-osx-build-setup.sh
-      - ~/.local/bin/jhbuild bootstrap
-      - ~/.local/bin/jhbuild build meta-gtk-osx-bootstrap meta-gtk-osx-core
+      #- ~/.local/bin/jhbuild bootstrap
+      #- ~/.local/bin/jhbuild build meta-gtk-osx-bootstrap meta-gtk-osx-core
 
-      after_install:
-      - ~/.local/bin/jhbuild run opam install lablgtk-extras
+      #after_install:
+      #- ~/.local/bin/jhbuild run opam install lablgtk-extras
 
       before_deploy:
       - DMGDIR="_dmg"

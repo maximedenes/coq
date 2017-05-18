@@ -210,17 +210,17 @@ $(COQIDEAPP)/Contents/Resources/etc: $(COQIDEAPP)/Contents/Resources/lib
 $(COQIDEAPP)/Contents/Resources/lib: $(COQIDEAPP)/Contents/Resources/immodules $(COQIDEAPP)/Contents/Resources/loaders $(COQIDEAPP)/Contents $(COQIDEINAPP)
 	$(MKDIR) $@
 #	$(INSTALLLIB) $(GTKLIBS)/charset.alias $@/
-	$(MKDIR) $@/pango/1.8.0/modules
-	$(INSTALLLIB) "$(GTKLIBS)/pango/1.8.0/modules/"*.so $@/pango/1.8.0/modules/
-	{ "$(GTKBIN)/pango-querymodules" $@/pango/1.8.0/modules/*.so |\
-	 sed -e "s!/.*\(/pango/1.8.0/modules/.*.so\)!@executable_path/../Resources/lib\1!"; } \
-	> $@/pango/1.8.0/modules.cache
+#	$(MKDIR) $@/pango/1.8.0/modules
+#	$(INSTALLLIB) "$(GTKLIBS)/pango/1.8.0/modules/"*.so $@/pango/1.8.0/modules/
+#	{ "$(GTKBIN)/pango-querymodules" $@/pango/1.8.0/modules/*.so |\
+#	 sed -e "s!/.*\(/pango/1.8.0/modules/.*.so\)!@executable_path/../Resources/lib\1!"; } \
+#	> $@/pango/1.8.0/modules.cache
 
 	for i in $$(otool -L $(COQIDEINAPP) |sed -n -e "\@$(GTKLIBS)@ s/[^/]*\(\/[^ ]*\) .*$$/\1/p"); \
 	    do cp $$i $@/; \
 	    ide/MacOS/relatify_with-respect-to_.sh $@/$$(basename $$i) $(GTKLIBS) $@; \
 	done
-	for i in $@/../loaders/*.so $@/../immodules/*.so $@/pango/1.8.0/modules/*.so; \
+	for i in $@/../loaders/*.so $@/../immodules/*.so; \
 	    do \
 		for j in $$(otool -L $$i | sed -n -e "\@$(GTKLIBS)@ s/[^/]*\(\/[^ ]*\) .*$$/\1/p"); \
 		do cp $$j $@/; ide/MacOS/relatify_with-respect-to_.sh $@/$$(basename $$j) $(GTKLIBS) $@; done; \
