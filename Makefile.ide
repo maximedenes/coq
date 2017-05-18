@@ -56,6 +56,7 @@ GTKSHARE=$(shell pkg-config --variable=prefix gtk+-2.0)/share
 GTKBIN=$(shell pkg-config --variable=prefix gtk+-2.0)/bin
 GTKLIBS=$(shell pkg-config --variable=libdir gtk+-2.0)
 PIXBUFBIN=$(shell pkg-config --variable=prefix gdk-pixbuf-2.0)/bin
+SOURCEVIEWSHARE=$(shell pkg-config --variable=prefix gtksourceview-2.0)/share
 
 
 ###########################################################################
@@ -177,10 +178,10 @@ $(COQIDEAPP)/Contents/Resources/share: $(COQIDEAPP)/Contents
 	$(MKDIR) $@/coq/
 	$(INSTALLLIB) ide/coq.png ide/*.lang ide/coq_style.xml $@/coq/
 	$(MKDIR) $@/gtksourceview-2.0/{language-specs,styles}
-	$(INSTALLLIB) "$(GTKSHARE)/"gtksourceview-2.0/language-specs/{def.lang,language2.rng} $@/gtksourceview-2.0/language-specs/
-	$(INSTALLLIB) "$(GTKSHARE)/"gtksourceview-2.0/styles/{styles.rng,classic.xml} $@/gtksourceview-2.0/styles/
+	$(INSTALLLIB) "$(SOURCEVIEWSHARE)/"gtksourceview-2.0/language-specs/{def.lang,language2.rng} $@/gtksourceview-2.0/language-specs/
+	$(INSTALLLIB) "$(SOURCEVIEWSHARE)/"gtksourceview-2.0/styles/{styles.rng,classic.xml} $@/gtksourceview-2.0/styles/
 	cp -R "$(GTKSHARE)/"locale $@
-	cp -R "$(GTKSHARE)/"icons $@
+#	cp -R "$(GTKSHARE)/"icons $@
 	cp -R "$(GTKSHARE)/"themes $@
 
 $(COQIDEAPP)/Contents/Resources/loaders: $(COQIDEAPP)/Contents
