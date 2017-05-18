@@ -141,18 +141,23 @@ matrix:
       - CAMLP5_VER="6.17"
       - NATIVE_COMP="no"
       - EXTRA_CONF="-coqide opt"
-      - EXTRA_OPAM="lablgtk-extras"
       - OUTDIR="_install"
       - COQ_DEST="-prefix "${OUTDIR}
       before_install:
-      - brew update
-      - brew install opam gtk+ expat gtksourceview libxml2 gdk-pixbuf
+      #- brew update
+      #- brew install opam gtk+ expat gtksourceview libxml2 gdk-pixbuf
+      - wget https://git.gnome.org/browse/gtk-osx/plain/gtk-osx-build-setup.sh
+      - sh gtk-osx-build-setup.sh
+      - ~/.local/bin/jhbuild bootstrap
+      - ~/.local/bin/jhbuild build meta-gtk-osx-bootstrap meta-gtk-osx-core
+
+      after_install:
+      - ~/.local/bin/jhbuild run opam install lablgtk-extras
 
       before_deploy:
       - DMGDIR="_dmg"
       - VERSION=$(sed -n -e '/^let coq_version/ s/^[^"]*"\([^"]*\)"$/\1/p' configure.ml)
       - APP=bin/CoqIDE_${VERSION}.app
-      - ls /usr/local/Cellar/gtk+/2.24.31_1/bin
       # Create a .app file with CoqIDE
       - make -j ${NJOBS} ${APP}
       # Add Coq to the .app file
