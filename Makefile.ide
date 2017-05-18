@@ -209,7 +209,7 @@ $(COQIDEAPP)/Contents/Resources/etc: $(COQIDEAPP)/Contents/Resources/lib
 
 $(COQIDEAPP)/Contents/Resources/lib: $(COQIDEAPP)/Contents/Resources/immodules $(COQIDEAPP)/Contents/Resources/loaders $(COQIDEAPP)/Contents $(COQIDEINAPP)
 	$(MKDIR) $@
-	$(INSTALLLIB) $(GTKLIBS)/charset.alias $@/
+#	$(INSTALLLIB) $(GTKLIBS)/charset.alias $@/
 	$(MKDIR) $@/pango/1.8.0/modules
 	$(INSTALLLIB) "$(GTKLIBS)/pango/1.8.0/modules/"*.so $@/pango/1.8.0/modules/
 	{ "$(GTKBIN)/pango-querymodules" $@/pango/1.8.0/modules/*.so |\
