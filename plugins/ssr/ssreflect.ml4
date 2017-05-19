@@ -1020,6 +1020,8 @@ END
 
 (** The "exact" tactic *)
 
+let mk_exactarg views dgens = mk_applyarg views dgens []
+
 ARGUMENT EXTEND ssrexactarg TYPED AS ssrapplyarg PRINTED BY pr_ssraarg
 | [ ":" ssragen(gen) ssragens(dgens) ] ->
   [ mk_exactarg [] (cons_gen gen dgens) ]
@@ -1029,6 +1031,10 @@ ARGUMENT EXTEND ssrexactarg TYPED AS ssrapplyarg PRINTED BY pr_ssraarg
   [ mk_exactarg [] ([], clr) ]
 END
 
+let vmexacttac pf =
+  Proofview.Goal.nf_enter { enter = begin fun gl ->
+  exact_no_check (EConstr.mkCast (pf, VMcast, Tacmach.New.pf_concl gl))
+  end }
 
 TACTIC EXTEND ssrexact
 | [ "exact" ssrexactarg(arg) ] -> [ Proofview.V82.tactic (tclBY (ssrapplytac ist arg)) ]

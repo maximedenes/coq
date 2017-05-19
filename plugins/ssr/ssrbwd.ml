@@ -112,12 +112,3 @@ let inner_ssrapplytac gviews ggenl gclr ist gl =
     Tacticals.tclTHENLIST [cleartac clr; refine_with ~beta:true lemma; cleartac clr'] gl
   | _, _ -> Tacticals.tclTHEN apply_top_tac (cleartac clr) gl) gl
 
-(** The "exact" tactic *)
-
-let mk_exactarg views dgens = mk_applyarg views dgens []
-
-let vmexacttac pf =
-  Proofview.Goal.nf_enter { enter = begin fun gl ->
-  exact_no_check (EConstr.mkCast (pf, VMcast, Tacmach.New.pf_concl gl))
-  end }
-
