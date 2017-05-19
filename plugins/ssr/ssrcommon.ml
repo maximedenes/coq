@@ -829,23 +829,9 @@ let rewritetac dir c =
 
 type name_hint = (int * EConstr.types array) option ref
 
-type simplest_newcase = ?ind:name_hint -> EConstr.t -> tactic
-let simplest_newcase_tac, simplest_newcase = Hook.make ()
-
-
-type simplest_newcase_or_inj = ?ind:name_hint -> force_inj:bool -> EConstr.t -> v82tac
-let simplest_newcase_or_inj_tac, simplest_newcase_or_inj = Hook.make ()
-
-
-
 type ipat_rewrite = ssrocc -> ssrdir -> EConstr.t -> tactic
 let ipat_rewrite_tac, ipat_rewrite =
   Hook.make ~default:(fun _ -> rewritetac) ()
-
-type move_top_with_view =
-  next:ssripats ref -> bool -> Id.t ref -> bool * ssrterm list -> ist ->
-    tac_ctx tac_a
-let move_top_with_view_tac, move_top_with_view = Hook.make ()
 
 let pf_abs_ssrterm ?(resolve_typeclasses=false) ist gl t =
   let sigma, ct as t = interp_term ist gl t in

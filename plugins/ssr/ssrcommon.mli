@@ -314,23 +314,10 @@ val rewritetac : ssrdir -> EConstr.t -> tactic
 (***** Hooks to break recursive deps among tactics ************************)
 
 type name_hint = (int * EConstr.types array) option ref
-type simplest_newcase = ?ind:name_hint -> EConstr.t -> tactic
-val simplest_newcase : simplest_newcase Hook.t
-val simplest_newcase_tac : simplest_newcase Hook.value
-
-type simplest_newcase_or_inj = ?ind:name_hint -> force_inj:bool -> EConstr.t -> v82tac
-val simplest_newcase_or_inj : simplest_newcase_or_inj Hook.t
-val simplest_newcase_or_inj_tac : simplest_newcase_or_inj Hook.value
 
 type ipat_rewrite = ssrocc -> ssrdir -> EConstr.t -> tactic
 val ipat_rewrite : ipat_rewrite Hook.t
 val ipat_rewrite_tac : ipat_rewrite Hook.value
-
-type move_top_with_view =
-  next:ssripats ref -> bool -> Id.t ref -> bool * ssrterm list -> ist ->
-    tac_ctx tac_a
-val move_top_with_view : move_top_with_view Hook.t
-val move_top_with_view_tac : move_top_with_view Hook.value
 
 val gentac : 
   (Geninterp.interp_sign ->

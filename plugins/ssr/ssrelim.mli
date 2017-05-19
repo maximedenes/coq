@@ -31,3 +31,13 @@ val elimtac :
 val casetac :
   EConstr.constr ->
   Proof_type.goal Tacmach.sigma -> Proof_type.goal list Evd.sigma
+
+val is_injection_case : EConstr.t -> Proof_type.goal Tacmach.sigma -> bool
+val perform_injection :
+  EConstr.constr ->
+  Proof_type.goal Tacmach.sigma -> Proof_type.goal list Evd.sigma
+
+val ssrscasetac :
+  bool ->
+  EConstr.constr ->
+  Proof_type.goal Tacmach.sigma -> Proof_type.goal list Evd.sigma

@@ -7,6 +7,8 @@ open Locus
 open Printer
 open Globnames
 open Termops
+open Misctypes
+
 open Ssrmatching_plugin
 open Ssrmatching
 
@@ -665,3 +667,4 @@ let unlocktac ist args gl =
     (fun gl -> unfoldtac None None (project gl,locked) xInParens gl); 
     Ssrelim.casetac key ] in
   tclTHENLIST (List.map utac args @ ktacs) gl
+

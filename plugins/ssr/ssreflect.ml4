@@ -83,8 +83,6 @@ open Ssrparser
 
 module RelDecl = Context.Rel.Declaration
 module NamedDecl = Context.Named.Declaration
-(* Forward references to tactics used everywhere in the language *)
-let simplest_newcase ?ind x gl = Hook.get simplest_newcase_tac ?ind x gl
 
 module Intset = Evar.Set
 
@@ -983,66 +981,8 @@ let pf_fresh_inductive_instance ind gl =
   let sigma, indu = Evd.fresh_inductive_instance env sigma ind in
   indu, re_sig it sigma
 
-let injecteq_id = mk_internal_id "injection equation"
-
-let pf_nb_prod gl = nb_prod (project gl) (pf_concl gl)
-
-let rev_id = mk_internal_id "rev concl"
-
-let revtoptac n0 gl =
-  let n = pf_nb_prod gl - n0 in
-  let dc, cl = EConstr.decompose_prod_n_assum (project gl) n (pf_concl gl) in
-  let dc' = dc @ [Rel.Declaration.LocalAssum (Name rev_id) (EConstr.it_mkProd_or_LetIn cl (List.rev dc))] in
-  let f = EConstr.it_mkLambda_or_LetIn (mkEtaApp (EConstr.mkRel (n + 1)) (-n) 1) dc' in
-  refine (EConstr.mkApp (f, [|Evarutil.mk_new_meta ()|])) gl
-
-let equality_inj l b id c gl =
-  let msg = ref "" in
-  try Proofview.V82.of_tactic (Equality.inj l b None c) gl
-  with
-    | Ploc.Exc(_,CErrors.UserError (_,s))
-    | CErrors.UserError (_,s)
-  when msg := Pp.string_of_ppcmds s;
-       !msg = "Not a projectable equality but a discriminable one." ||
-       !msg = "Nothing to inject." ->
-    msg_warning (str !msg);
-    discharge_hyp (id, (id, "")) gl
-
-let injectidl2rtac id c gl =
-  tclTHEN (equality_inj None true id c) (revtoptac (pf_nb_prod gl)) gl
-
-let injectl2rtac sigma c = match EConstr.kind sigma c with
-| Var id -> injectidl2rtac id (EConstr.mkVar id, NoBindings)
-| _ ->
-  let id = injecteq_id in
-  let xhavetac id c = Proofview.V82.of_tactic (pose_proof (Name id) c) in
-  tclTHENLIST [xhavetac id c; injectidl2rtac id (EConstr.mkVar id, NoBindings); Proofview.V82.of_tactic (clear [id])]
 
 
-let is_injection_case c gl =
-  let gl, cty = pfe_type_of gl c in
-  let (mind,_), _ = pf_reduce_to_quantified_ind gl cty in
-  eq_gr (IndRef mind) (build_coq_eq ())
-
-let perform_injection c gl =
-  let gl, cty = pfe_type_of gl c in
-  let mind, t = pf_reduce_to_quantified_ind gl cty in
-  let dc, eqt = EConstr.decompose_prod (project gl) t in
-  if dc = [] then injectl2rtac (project gl) c gl else
-  if not (EConstr.Vars.closed0 (project gl) eqt) then
-    CErrors.error "can't decompose a quantified equality" else
-  let cl = pf_concl gl in let n = List.length dc in
-  let c_eq = mkEtaApp c n 2 in
-  let cl1 = EConstr.mkLambda EConstr.(Anonymous, mkArrow eqt cl, mkApp (mkRel 1, [|c_eq|])) in
-  let id = injecteq_id in
-  let id_with_ebind = (EConstr.mkVar id, NoBindings) in
-  let injtac = tclTHEN (introid id) (injectidl2rtac id id_with_ebind) in 
-  tclTHENLAST (Proofview.V82.of_tactic (apply (EConstr.compose_lam dc cl1))) injtac gl  
-let ssrscasetac ?ind force_inj c gl =
-  if force_inj || is_injection_case c gl then perform_injection c gl
-  else simplest_newcase ?ind c gl
-let () = Hook.set Ssrcommon.simplest_newcase_or_inj
-  (fun ?ind ~force_inj c gl -> ssrscasetac ?ind force_inj c gl)
 
 let check_casearg = function
 | view, (_, (([_; gen :: _], _), _)) when view <> [] && has_occ gen ->
@@ -1053,22 +993,6 @@ ARGUMENT EXTEND ssrcasearg TYPED AS ssrarg PRINTED BY pr_ssrarg
 | [ ssrarg(arg) ] -> [ check_casearg arg ]
 END
 
-let ssrcasetac ist (view, (eqid, (dgens, ipats))) =
-  let ndefectcasetac view eqid ipats deps ((_, occ), _ as gen) ist gl =
-    let simple = (eqid = None && deps = [] && occ = None) in
-    let cl, c, clr, gl = pf_interp_gen ist gl true gen in
-    let _,vc, gl =
-      if view = [] then c,c, gl else pf_with_view_linear ist gl (false, view) cl c in
-    if simple && is_injection_case vc gl then
-      tclTHENLIST [perform_injection vc; cleartac clr; introstac ~ist ipats] gl
-    else 
-      (* macro for "case/v E: x" ---> "case E: x / (v x)" *)
-      let deps, clr, occ = 
-        if view <> [] && eqid <> None && deps = [] then [gen], [], None
-        else deps, clr, occ in
-      ssrelim ~is_case:true ~ist deps (`EConstr (clr,occ, vc)) eqid (elim_intro_tac ipats) gl
-  in
-  with_dgens dgens (ndefectcasetac view eqid ipats) ist
 
 TACTIC EXTEND ssrcase
 | [ "case" ssrcasearg(arg) ssrclauses(clauses) ] ->

@@ -55,6 +55,7 @@ open Ssrprinters
 open Ssrcommon
 open Ssrequality
 open Ssrview
+open Ssrelim
 
 module RelDecl = Context.Rel.Declaration
 module NamedDecl = Context.Named.Declaration
@@ -122,10 +123,6 @@ let introid ?(speed=`Slow) ?(orig=ref Anonymous) name =
 
 let introid_a ?orig name gl =
   tac_ctx (introid ~speed:(snd (pull_ctx gl)).speed ?orig name) gl
-
-
-let ssrscasetac ?ind force_inj c gl = Hook.get simplest_newcase_or_inj_tac ?ind ~force_inj c gl
-
 
 let with_top tac gl =
   let speed = (snd (pull_ctx gl)).speed in
@@ -513,6 +510,22 @@ let ssrmovetac ist = function
   | _, (_, ((_, clr), ipats)) ->
     tclTHENLIST [movehnftac; cleartac clr; introstac ~ist ipats]
 
+let ssrcasetac ist (view, (eqid, (dgens, ipats))) =
+  let ndefectcasetac view eqid ipats deps ((_, occ), _ as gen) ist gl =
+    let simple = (eqid = None && deps = [] && occ = None) in
+    let cl, c, clr, gl = pf_interp_gen ist gl true gen in
+    let _,vc, gl =
+      if view = [] then c,c, gl else pf_with_view_linear ist gl (false, view) cl c in
+    if simple && is_injection_case vc gl then
+      tclTHENLIST [perform_injection vc; cleartac clr; introstac ~ist ipats] gl
+    else 
+      (* macro for "case/v E: x" ---> "case E: x / (v x)" *)
+      let deps, clr, occ = 
+        if view <> [] && eqid <> None && deps = [] then [gen], [], None
+        else deps, clr, occ in
+      ssrelim ~is_case:true ~ist deps (`EConstr (clr,occ, vc)) eqid (elim_intro_tac ipats) gl
+  in
+  with_dgens dgens (ndefectcasetac view eqid ipats) ist
 
 
 (* vim: set filetype=ocaml foldmethod=marker: *)

@@ -62,3 +62,10 @@ val with_dgens :
    Ltac_plugin.Tacinterp.interp_sign -> Proof_type.tactic) ->
   Ltac_plugin.Tacinterp.interp_sign -> Proof_type.tactic
 
+val ssrcasetac :
+  Ltac_plugin.Tacinterp.interp_sign ->
+  Ssrast.ssrterm list *
+    (Ssrast.ssripat option *
+       (((Ssrast.ssrdocc * Ssrmatching.cpattern) list list * Ssrast.ssrclear) *
+          Ssrast.ssripats)) ->
+  Proof_type.tactic
