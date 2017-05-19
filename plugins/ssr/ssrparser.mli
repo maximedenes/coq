@@ -38,14 +38,6 @@ val intern_hyp : gist -> ssrhyp -> ssrhyp
 val interp_hyp : ist -> goal sigma -> ssrhyp -> evar_map * ssrhyp
 
 (* Variant of the above *)
-val pr_hyp : ssrhyp -> Pp.std_ppcmds
-val hyp_err : loc -> string -> Id.t -> 'a
-val hyp_id : ssrhyp -> Id.t
-val not_section_id : Id.t -> bool
-val check_hyp_exists : EConstr.named_context -> ssrhyp -> unit
-val test_hypname_exists : EConstr.named_context -> Id.t -> bool
-
-(* Variant of the above *)
 val ssrhoi_id : ssrhyp_or_id Pcoq.Gram.entry
 val ssrhoi_hyp : ssrhyp_or_id Pcoq.Gram.entry
 val wit_ssrhoi_hyp : ssrhyp_or_id uniform_genarg_type
@@ -60,14 +52,11 @@ val wit_ssrhyps : ssrhyps uniform_genarg_type
 val interp_hyps : ist -> goal sigma -> ssrhyps -> evar_map * ssrhyps
 
 val pr_hyps : ssrhyps -> Pp.std_ppcmds
-val check_hyps_uniq : Id.t list -> ssrhyps -> unit
-val hyps_ids : ssrhyps -> Id.t list
 
 val wit_ssrdir : ssrdir uniform_genarg_type
 
 val pr_dir : ssrdir -> Pp.std_ppcmds
 val pr_rwdir : ssrdir -> Pp.std_ppcmds
-val dir_org : ssrdir -> int
 val pr_dir_side : ssrdir -> Pp.std_ppcmds
 val inv_dir : ssrdir -> ssrdir
 
@@ -94,9 +83,6 @@ val check_index : loc -> int -> int
 val ssrocc : ssrocc Pcoq.Gram.entry
 val wit_ssrocc : ssrocc uniform_genarg_type
 
-val pr_occ : ssrocc -> Pp.std_ppcmds
-val allocc : ssrocc
-
 (* modality for rewrite and do: ! ? *)
 val ssrmmod : ssrmmod Pcoq.Gram.entry
 val wit_ssrmmod : ssrmmod uniform_genarg_type
@@ -111,8 +97,6 @@ val wit_ssrmult : ssrmult uniform_genarg_type
 val wit_ssrmult_ne : ssrmult uniform_genarg_type
 
 val pr_mult : ssrmult -> Pp.std_ppcmds
-val notimes : int
-val nomult : ssrmult
 
 (* clear switch {H G} *)
 
@@ -130,58 +114,17 @@ val ssrdocc : ssrdocc Pcoq.Gram.entry
 val wit_ssrdocc : ssrdocc uniform_genarg_type
 
 val pr_docc : ssrdocc -> Pp.std_ppcmds
-val mkocc : ssrocc -> ssrdocc
-val noclr : ssrdocc
-val mkclr : ssrclear -> ssrdocc
-val nodocc : ssrdocc
-
-(* terms are pre constr, the kind is parsing/printing flag to distinguish
- * between x, @x and (x). It affects automatic clear and let-in preservation.
- * Cpattern is a temporary flag that becomes InParens ASAP. *)
-(* type ssrtermkind = InParens | WithAt | NoFlag | Cpattern *)
- val xInParens : char
- val xWithAt : char
- val xNoFlag : char
- val xCpattern : char
 
 val ssrtermkind : ssrtermkind Pcoq.Gram.entry
-
 
 val ssrterm : ssrterm Pcoq.Gram.entry
 val wit_ssrterm : ssrterm uniform_genarg_type
 
-val pr_paren : ('a -> Pp.std_ppcmds) -> 'a -> Pp.std_ppcmds
-
-val pr_term : ssrterm -> Pp.std_ppcmds
-val prl_term : ssrterm -> Pp.std_ppcmds
-val prl_glob_constr : Glob_term.glob_constr -> Pp.std_ppcmds
-val pr_guarded :
-  (string -> int -> bool) -> ('a -> Pp.std_ppcmds) -> 'a -> Pp.std_ppcmds
-val guard_term : ssrtermkind -> string -> int -> bool
-val glob_constr :
-  Tacinterp.interp_sign -> Environ.env ->
-    Tacexpr.glob_constr_and_expr -> Glob_term.glob_constr
-val interp_open_constr : 
-  Tacinterp.interp_sign -> Proof_type.goal Tacmach.sigma ->
-    Tacexpr.glob_constr_and_expr -> Evd.evar_map * (Evd.evar_map * EConstr.t)
-val intern_term : 
-  Tacinterp.interp_sign -> Environ.env ->
-    ssrterm -> Glob_term.glob_constr
-val pf_intern_term :
-  Tacinterp.interp_sign -> Proof_type.goal Tacmach.sigma ->
-    ssrterm -> Glob_term.glob_constr
-val interp_term :
-  Tacinterp.interp_sign -> Proof_type.goal Tacmach.sigma ->
-    ssrterm -> Evd.evar_map * EConstr.t
 val force_term :
   Tacinterp.interp_sign -> Proof_type.goal Tacmach.sigma ->
     ssrterm -> Evd.evar_map * EConstr.t
 val subst_ssrterm : Mod_subst.substitution -> ssrterm -> ssrterm
 val glob_ssrterm : Tacintern.glob_sign -> ssrterm -> ssrterm
-val mk_term : ssrtermkind -> Constrexpr.constr_expr -> ssrterm
-val mk_lterm : Constrexpr.constr_expr -> ssrterm
-
-val mkRHole : Glob_term.glob_constr
 
 (* views *)
 
@@ -333,13 +276,6 @@ val check_seqtacarg : ssrdir -> Tacexpr.raw_tactic_expr ssrseqarg -> Tacexpr.raw
 val ssrorelse : Tacexpr.raw_tactic_expr Pcoq.Gram.entry
 
 (* OOP *)
-val interp_open_constr :
-           Tacinterp.interp_sign ->
-           Proof_type.goal Tacmach.sigma ->
-           Tacexpr.glob_constr_and_expr ->
-           Evd.evar_map * (Evd.evar_map * EConstr.t)
-
-
 val tclintros_expr :
            Loc.t ->
            Tacexpr.raw_tactic_expr ->

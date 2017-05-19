@@ -1,6 +1,8 @@
 open Names
 open Ltac_plugin
 
+open CoqAPI
+
 type loc = Loc.t
 
 (* Names of variables to be cleared (automatic check: not a section var) *)
@@ -42,10 +44,36 @@ type ssrterm = ssrtermkind * Tacexpr.glob_constr_and_expr
 
 type ssrview = ssrterm list
 
-(* Extended intro patterns: foo /bar[ H | -> ] and company *)
-type seed = [ `Id of Id.t * [`Pre | `Post] | `Anon | `Wild ]
+type id_mod = Hat | HatTilde | Sharp
+
+(* Only [One] forces an introduction, possibly reducing the goal. *)
+type anon_iter =
+  | One
+  | Dependent (* fast mode *)
+  | UntilMark
+  | Temporary (* "+" *)
+  | Drop (* _ *)
+  | All
+
 type ssripat =
-  | IpatSimpl of ssrclear * ssrsimpl
+  | IPatNoop
+  | IPatId of id_mod option * Id.t
+  | IPatAnon of anon_iter (* inaccessible name *)
+  | IPatClearMark
+  | IPatDispatch of ssripatss (* /[..|..] *)
+  | IPatCase of (* ipats_mod option * *) ssripatss (* this is not equivalent to /case /[..|..] if there are already multiple goals *)
+  | IPatInj of ssripatss
+  | IPatRewrite of (*occurrence option * rewrite_pattern **) ssrocc * ssrdir
+  | IPatView of ssrterm list (* /view *)
+  | IPatClear of ssrclear (* {H1 H2} *)
+  | IPatSimpl of ssrsimpl
+  | IPatNewHidden of identifier list
+(* | IPatVarsForAbstract of Id.t list *)
+
+(*
+type ssripat =
+  | IpatSimpl of ssrsimpl
+  | IPatClear of ssrclear
   | IpatId of identifier
   | IpatWild
   | IpatCase of [ `Regular of ssripatss
@@ -59,7 +87,7 @@ type ssripat =
   | IpatNewHidden of identifier list
   | IpatFastMode
   | IpatTmpId
-  | IpatSeed of seed
+  | IpatSeed of seed *)
 and ssripats = ssripat list
 and ssripatss = ssripats list
 type ssrhpats = ((ssrclear * ssripats) * ssripats) * ssripats

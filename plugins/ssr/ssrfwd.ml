@@ -4,6 +4,7 @@ open Ssrmatching_plugin.Ssrmatching
 open Ltac_plugin
 open Tacmach
 
+open Ssrprinters
 open Ssrcommon
 
 (** 8. Forward chaining tactics (pose, set, have, suffice, wlog) *)
@@ -101,14 +102,6 @@ let havegentac ist t gl =
 
 open Ssrast
 open Ssripats
-open Ssrparser
-
-let cleartac clr = check_hyps_uniq [] clr; Proofview.V82.of_tactic (Tactics.clear (hyps_ids clr))
-
-let pf_e_type_of gl t =
-  let sigma, env, it = project gl, pf_env gl, sig_it gl in
-  let sigma, ty = Typing.type_of env sigma t in
-  re_sig it sigma, ty
 
 let eval_tclarg ist tac = ssrevaltac ist tac
 
@@ -170,12 +163,12 @@ let havetac ist
 =
  let concl = pf_concl gl in
  let skols, pats =
-   List.partition (function IpatNewHidden _ -> true | _ -> false) pats in
+   List.partition (function IPatNewHidden _ -> true | _ -> false) pats in
  let itac_mkabs = introstac ~ist skols in
- let itac_c = introstac ~ist (IpatSimpl(clr,Nop) :: pats) in
+ let itac_c = introstac ~ist (IPatClear clr :: pats) in
  let itac, id, clr = introstac ~ist pats, Tacticals.tclIDTAC, cleartac clr in
  let binderstac n =
-   let rec aux = function 0 -> [] | n -> IpatAnon :: aux (n-1) in
+   let rec aux = function 0 -> [] | n -> IPatAnon One :: aux (n-1) in
    Tacticals.tclTHEN (if binders <> [] then introstac ~ist (aux n) else Tacticals.tclIDTAC)
      (introstac ~ist binders) in
  let simpltac = introstac ~ist simpl in
@@ -226,7 +219,7 @@ let havetac ist
      gl, ty, Tacticals.tclTHEN assert_is_conv (Proofview.V82.of_tactic (Tactics.apply t)), id, itac_c
    | FwdHave, false, false ->
      let skols = List.flatten (List.map (function
-       | IpatNewHidden ids -> ids
+       | IPatNewHidden ids -> ids
        | _ -> assert false) skols) in
      let skols_args =
        List.map (fun id -> examine_abstract (EConstr.mkVar id) gl) skols in
@@ -327,8 +320,8 @@ let ssrabstract ist gens (*last*) gl =
   let introback ist (gens, _) =
     introstac ~ist
       (List.map (fun (_,cp) -> match id_of_pattern (interp_cpattern ist gl cp None) with
-        | None -> IpatAnon
-        | Some id -> IpatId id)
+        | None -> IPatAnon One
+        | Some id -> IPatId (None, id))
         (List.tl (List.hd gens))) in
-  Tacticals.tclTHEN (Hook.get with_dgens gens main ist) (introback ist gens) gl
+  Tacticals.tclTHEN (with_dgens gens main ist) (introback ist gens) gl
 

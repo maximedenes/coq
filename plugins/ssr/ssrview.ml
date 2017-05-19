@@ -1,3 +1,4 @@
+open Util
 open Names
 open Term
 open Ltac_plugin
@@ -11,9 +12,47 @@ open Tacmach
 open Tactics
 open Tacticals
 
-open Ssrparser
 open Ssrcommon
-open Ssripats
+
+(* The table and its display command *)
+
+(* FIXME this looks hackish *)
+
+let viewtab : glob_constr list array = Array.make 3 []
+
+let _ =
+  let init () = Array.fill viewtab 0 3 [] in
+  let freeze _ = Array.copy viewtab in
+  let unfreeze vt = Array.blit vt 0 viewtab 0 3 in
+  Summary.declare_summary "ssrview"
+    { Summary.freeze_function   = freeze;
+      Summary.unfreeze_function = unfreeze;
+      Summary.init_function     = init }
+
+(* Populating the table *)
+
+let cache_viewhint (_, (i, lvh)) =
+  let mem_raw h = List.exists (Glob_ops.glob_constr_eq h) in
+  let add_hint h hdb = if mem_raw h hdb then hdb else h :: hdb in
+  viewtab.(i) <- List.fold_right add_hint lvh viewtab.(i)
+
+let subst_viewhint ( subst, (i, lvh as ilvh)) =
+  let lvh' = List.smartmap (Detyping.subst_glob_constr subst) lvh in
+  if lvh' == lvh then ilvh else i, lvh'
+      
+let classify_viewhint x = Libobject.Substitute x
+
+let in_viewhint =
+  Libobject.declare_object {(Libobject.default_object "VIEW_HINTS") with
+       Libobject.open_function = (fun i o -> if i = 1 then cache_viewhint o);
+       Libobject.cache_function = cache_viewhint;
+       Libobject.subst_function = subst_viewhint;
+       Libobject.classify_function = classify_viewhint }
+
+let glob_view_hints lvh =
+  List.map (Constrintern.intern_constr (Global.env ())) lvh
+
+let add_view_hints lvh i = Lib.add_anonymous_leaf (in_viewhint (i, lvh))
 
 module PG = Proofview.Goal
 module TN = Tacticals.New
@@ -37,7 +76,7 @@ let interp_view ist si env sigma gv v rid =
   let rec view_with = function
   | [] -> simple_view [rid] (interp_nbargs ist (re_sig si sigma) rv)
   | hint :: hints -> try interp hint view_args with _ -> view_with hints in
-  snd (view_with (if view_nbimps < 0 then [] else Ssrvernac.viewtab.(0)))
+  snd (view_with (if view_nbimps < 0 then [] else viewtab.(0)))
 
 
 let with_view ist ~next si env (gl0 : (Proof_type.goal * tac_ctx) Evd.sigma) c name cl prune (conclude : EConstr.t -> EConstr.t -> tac_ctx tac_a) clr =
@@ -65,32 +104,7 @@ let with_view ist ~next si env (gl0 : (Proof_type.goal * tac_ctx) Evd.sigma) c n
         | Var id -> ist,mkRVar id
         | _ -> c2r ist c',mkRltacVar top_id in
       let v = intern_term ist env f in
-      let tactic_view = mkSsrRef "tactic_view" in
-      match v with
-      | GApp (loc, GRef (_,box,None), [GHole (_,_,_, Some tac)])
-       when has_type tac (glbwit Tacarg.wit_tactic) &&
-            eq_gr box tactic_view -> begin
-        let tac = out_gen (glbwit Tacarg.wit_tactic) tac in
-        match tac with
-        | TacLetIn (false,binds,TacArg(l0,TacCall(l,k,args))) ->
-            let ap, c', gl = terminate (sigma, c') in
-            let wid, gl = with_ctx new_wild_id gl in
-            let argid = ArgVar(dummy_loc,wid) in
-            let tac =
-              TacLetIn (false,binds, 
-                TacArg(l0,TacCall(l,k,args @ [ Reference argid ]))) in
-            let tac = tac_ctx (ssrevaltac ist (Tacinterp.Value.of_closure ist tac)) in
-            let tac = tclTHENLIST_a [
-                tac_ctx (apply_type ap [c']);
-                tac_ctx (introid wid);
-                (tclINTROSviewtac ~ist ~next tac);
-                (tac_ctx (new_tac (clear (hyps_ids clr)))) ] in
-            let tac_check _ max gl =
-              if view <> [] then CErrors.error "No view can follow a tactic-view"
-              else tac_ctx tclIDTAC gl in
-            ap,c',tclTHEN_i_max tac tac_check gl
-        | _ -> CErrors.error "Only simple tactic call allowed as tactic-view" end
-      | _ -> loop (interp_view ist si env sigma f v rid) view
+      loop (interp_view ist si env sigma f v rid) view
   in loop
 
 let pfa_with_view ist ?(next=ref []) (prune, view) cl c conclude clr gl =

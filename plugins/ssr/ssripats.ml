@@ -51,8 +51,10 @@ open Tok
 open Ssrmatching_plugin
 open Ssrmatching
 open Ssrast
+open Ssrprinters
 open Ssrcommon
-open Ssrparser
+open Ssrequality
+open Ssrview
 
 module RelDecl = Context.Rel.Declaration
 module NamedDecl = Context.Named.Declaration
@@ -80,39 +82,6 @@ let betared env =
    (RedFlags.mkflags [RedFlags.fBETA])
     env)
 ;;
-let rec fst_prod red tac = PG.nf_enter { PG.enter = begin fun gl ->
-  let concl = PG.concl (PG.assume gl) in
-  match EConstr.kind (Sigma.to_evar_map @@ PG.sigma gl) concl with
-  | Prod (id,_,tgt) | LetIn(id,_,_,tgt) -> tac id
-  | _ -> if red then TN.tclZEROMSG (str"No product even after head-reduction.")
-         else TN.tclTHEN hnf_in_concl (fst_prod true tac)
-end }
-;;
-let introid ?(orig=ref Anonymous) name = tclTHEN (fun gl ->
-   let g, env = pf_concl gl, pf_env gl in
-   let sigma = project gl in
-   match EConstr.kind sigma g with
-   | App (hd, _) when EConstr.isLambda sigma hd -> 
-     new_tac (convert_concl_no_check (Reductionops.whd_beta sigma g)) gl
-   | _ -> tclIDTAC gl)
-  (Proofview.V82.of_tactic
-    (fst_prod false (fun id -> orig := id; intro_mustbe_force name)))
-;;
-let anontac decl gl =
-  let id =  match RelDecl.get_name decl with
-  | Name id ->
-    if is_discharged_id id then id else mk_anon_id (string_of_id id) gl
-  | _ -> mk_anon_id ssr_anon_hyp gl in
-  introid id gl
-
-let intro_all gl =
-  let dc, _ = EConstr.decompose_prod_assum (project gl) (pf_concl gl) in
-  tclTHENLIST (List.map anontac (List.rev dc)) gl
-
-let rec intro_anon gl =
-  try anontac (List.hd (fst (EConstr.decompose_prod_n_assum (project gl) 1 (pf_concl gl)))) gl
-  with err0 -> try tclTHEN (Proofview.V82.of_tactic red_in_concl) intro_anon gl with e when CErrors.noncritical e -> raise err0
-  (* with _ -> CErrors.error "No product even after reduction" *)
 
 let rec fst_unused_prod red tac = PG.nf_enter { PG.enter = begin fun gl ->
   let concl = PG.concl (PG.assume gl) in
@@ -155,7 +124,6 @@ let introid_a ?orig name gl =
   tac_ctx (introid ~speed:(snd (pull_ctx gl)).speed ?orig name) gl
 
 
-let simplest_newcase ?ind x gl = Hook.get simplest_newcase_tac ?ind x gl
 let ssrscasetac ?ind force_inj c gl = Hook.get simplest_newcase_or_inj_tac ?ind ~force_inj c gl
 
 
@@ -244,9 +212,54 @@ let delayed_clear force rest clr gl =
     tac_ctx tclIDTAC gl
       
 let ipat_rewrite occ dir gl = Hook.get ipat_rewrite_tac occ dir gl
-let move_top_with_view ~next c r v ist gl =
-  Hook.get move_top_with_view_tac ~next c r v ist gl
-let simpltac x gl = Hook.get simpltac x gl
+
+(* Common code to handle generalization lists along with the defective case *)
+
+let with_defective maintac deps clr ist gl =
+  let top_id =
+    match EConstr.kind_of_type (project gl) (pf_concl gl) with
+    | ProdType (Name id, _, _)
+      when has_discharged_tag (string_of_id id) -> id
+    | _ -> top_id in
+  let top_gen = mkclr clr, cpattern_of_id top_id in
+  tclTHEN (introid top_id) (maintac deps top_gen ist) gl
+
+let with_defective_a maintac deps clr ist gl =
+  let sigma = sig_sig gl in
+  let top_id =
+    match EConstr.kind_of_type sigma (without_ctx pf_concl gl) with
+    | ProdType (Name id, _, _)
+      when has_discharged_tag (string_of_id id) -> id
+    | _ -> top_id in
+  let top_gen = mkclr clr, cpattern_of_id top_id in
+  tclTHEN_a (tac_ctx (introid top_id)) (maintac deps top_gen ist) gl
+
+let with_dgens (gensl, clr) maintac ist = match gensl with
+  | [deps; []] -> with_defective maintac deps clr ist
+  | [deps; gen :: gens] ->
+    tclTHEN (genstac (gens, clr) ist) (maintac deps gen ist)
+  | [gen :: gens] -> tclTHEN (genstac (gens, clr) ist) (maintac [] gen ist)
+  | _ -> with_defective maintac [] clr ist
+
+let () = Hook.set Ssrcommon.with_dgens_hook with_dgens
+
+let viewmovetac_aux ?(next=ref []) clear name_ref (_, vl as v) _ gen ist gl =
+  let cl, c, clr, gl, gen_pat =
+    let gl, ctx = pull_ctx gl in
+    let _, gen_pat, a, b, c, ucst, gl = pf_interp_gen_aux ist gl false gen in
+    a, b ,c, push_ctx ctx (pf_merge_uc ucst gl), gen_pat in
+  let clr = if clear then clr else [] in
+  name_ref := (match id_of_pattern gen_pat with Some id -> id | _ -> top_id);
+  let clr = if clear then clr else [] in
+  if vl = [] then tac_ctx (genclrtac cl [c] clr) gl
+  else
+    let _, _, gl =
+      pfa_with_view ist ~next v cl c
+        (fun cl c -> tac_ctx (genclrtac cl [c] clr)) clr gl in
+      gl
+
+let move_top_with_view ~next c r v =
+  with_defective_a (viewmovetac_aux ~next c r v) [] []
 
 type block_names = (int * EConstr.types array) option
 
@@ -261,42 +274,32 @@ let (introstac : ?ist:Tacinterp.interp_sign -> ssripats -> Proof_type.tactic),
   let rec ipattac ?ist ~next p : tac_ctx tac_a = fun gl ->
 (*     pp(lazy(str"ipattac: " ++ pr_ipat p)); *)
     match p with
-    | IpatSeed _ -> CErrors.anomaly(str"IpatSeed is to be used for parsing only")
-    | IpatWild ->
+    | IPatAnon Drop ->
         let id, gl = with_ctx new_wild_id gl in
         introid_a id gl
-    | IpatTmpId ->
+    | IPatAnon All -> tac_ctx intro_all gl
+    | IPatAnon Temporary ->
         let (id, orig), gl = with_ctx new_tmp_id gl in
         introid_a ~orig id gl
-    | IpatCase(`Regular iorpat) ->
+    | IPatCase(iorpat) ->
         tclIORPAT ?ist (with_top (ssrscasetac false)) iorpat gl
-    | IpatCase(`Block (before,(id_side),after)) ->
-        let ind = ref None in
-        tclTHEN_i_max
-          (with_top (ssrscasetac ~ind false))
-          (block_intro ?ist ~ind id_side
-            (List.map (ipatstac ?ist) before)
-            (List.map (ipatstac ?ist)  after)) gl
-    | IpatInj iorpat ->
+    | IPatInj iorpat ->
         tclIORPAT ?ist (with_top (ssrscasetac true)) iorpat gl
-    | IpatRw (occ, dir) ->
+    | IPatRewrite (occ, dir) ->
         with_top (ipat_rewrite occ dir) gl
-    | IpatId id -> introid_a id gl
-    | IpatNewHidden idl -> tac_ctx (ssrmkabstac idl) gl
-    | IpatSimpl (clr, sim) ->
-        tclTHEN_a (delayed_clear false !next clr) (tac_ctx (simpltac sim)) gl
-    | IpatAll -> tac_ctx intro_all gl
-    | IpatAnon -> intro_anon_a gl
-    | IpatNoop -> tac_ctx tclIDTAC gl
-    | IpatFastMode ->
-        let gl, ctx = pull_ctx gl in
-        let gl = push_ctx { ctx with speed = `Fast } gl in
-        tac_ctx tclIDTAC gl
-    | IpatView v ->
+    | IPatId (id_mod,id) -> (* FIXME id_mod *) introid_a id gl
+    | IPatNewHidden idl -> tac_ctx (ssrmkabstac idl) gl
+    | IPatSimpl sim ->
+        tac_ctx (simpltac sim) gl
+    | IPatClear clr ->
+        delayed_clear false !next clr gl
+    | IPatAnon One -> intro_anon_a gl
+    | IPatNoop -> tac_ctx tclIDTAC gl
+    | IPatView v ->
         let ist =
           match ist with Some x -> x | _ -> anomaly "ipat: view with no ist" in
         let next_keeps =
-          match !next with (IpatCase _ | IpatRw _)::_ -> false | _ -> true in
+          match !next with (IPatCase _ | IPatRewrite _)::_ -> false | _ -> true in
         let top_id = ref top_id in
         tclTHENLIST_a [
           speed_to_next_NDP;
@@ -307,54 +310,6 @@ let (introstac : ?ist:Tacinterp.interp_sign -> ssripats -> Proof_type.tactic),
                delayed_clear true !next [SsrHyp (dummy_loc,!top_id)] gl
              else tac_ctx tclIDTAC gl)]
         gl
-             
-  and block_intro ?ist ~ind prefix_side before after nth max gl =
-    let nparams, ktypes =
-      match !ind with
-      | Some x -> x
-      | None -> CErrors.anomaly (str "block_intro with no ind info") in
-    let n_before = List.length before in
-    let n_after = List.length after in
-    let n_ks = Array.length ktypes in
-    if max <> n_before + n_after + n_ks then
-      let n_gls = max in
-      let pr_only n1 n2 = if n1 < n2 then str "only " else mt () in
-      let pr_nb n1 n2 name =
-        pr_only n1 n2 ++ int n1 ++ str (" "^String.plural n1 name) in
-      errorstrm (pr_nb (n_before + n_ks + n_after) n_gls "intro pattern"
-        ++ spc () ++ str "for "
-        ++ pr_nb n_gls (n_before + n_ks + n_after) "subgoal")
-    else
-    let ipat_of_name name =
-      match prefix_side, name with
-      | `Anon, _ -> IpatAnon
-      | `Wild, _ -> IpatWild
-      | _, Anonymous -> IpatAnon
-      | `Id(prefix,side), Name id ->
-          let id = Id.to_string id in
-          match side with
-          | `Pre -> IpatId (Id.of_string (Id.to_string prefix ^ id))
-          | `Post -> IpatId (Id.of_string (id ^ Id.to_string prefix)) in
-    let rec ipat_of_ty sigma n t =
-      match EConstr.kind_of_type sigma t with
-      | CastType(t,_) ->  ipat_of_ty sigma n t
-      | ProdType(name,_,tgt) | LetInType(name,_,_,tgt) ->
-          (if n<= 0 then [ipat_of_name name] else []) @
-          ipat_of_ty sigma (n-1) tgt
-      | AtomicType _ | SortType _ -> [] in
-    if nth <= n_before then
-      List.nth before (nth-1) gl
-    else if nth > n_before && nth <= n_before + n_ks then
-      let ktype = ktypes.(nth - 1 - n_before) in
-      let ipats = ipat_of_ty (sig_sig gl) nparams ktype in
-(*
-      pp(lazy(str"=> "++pr_ipats ipats++str" on "++
-        pr_constr (without_ctx pf_concl gl)));
-*)
-      let gl = let gl,ctx = pull_ctx gl in push_ctx {ctx with speed=`Slow} gl in
-      ipatstac ?ist ipats gl
-    else
-      List.nth after (nth - 1 - n_before - n_ks) gl
 
   and tclIORPAT ?ist tac = function
   | [[]] -> tac
@@ -373,17 +328,11 @@ let (introstac : ?ist:Tacinterp.interp_sign -> ssripats -> Proof_type.tactic),
   in
 
   let rec split_itacs ?ist ~ind tac' = function
-    | (IpatSimpl _ as spat) :: ipats' -> (* FIXME block *)
+    | (IPatSimpl _ as spat) :: ipats' -> (* FIXME block *)
         let tac = ipattac ?ist ~next:(ref ipats') spat in
         split_itacs ?ist ~ind (tclTHEN_a tac' tac) ipats'
-    | IpatCase (`Regular iorpat) :: ipats' -> 
+    | IPatCase iorpat :: ipats' -> 
         tclIORPAT ?ist tac' iorpat, ipats'
-    | IpatCase (`Block(before,id_side,after)) :: ipats' ->
-        tclTHEN_i_max tac'
-          (block_intro ?ist ~ind id_side
-            (List.map (ipatstac ?ist) before)
-            (List.map (ipatstac ?ist)  after)),
-        ipats'
     | ipats' -> tac', ipats' in
 
   let combine_tacs tac eqtac ipats ?ist ~ind gl =
@@ -415,6 +364,57 @@ let (introstac : ?ist:Tacinterp.interp_sign -> ssripats -> Proof_type.tactic),
   introstac, tclEQINTROS, tclINTROSviewtac
 ;;
 
+(* Intro patterns processing for elim tactic*)
+let elim_intro_tac ipats ?ist what eqid ssrelim is_rec clr gl =
+  (* Utils of local interest only *)
+  let iD s ?t gl = let t = match t with None -> pf_concl gl | Some x -> x in
+                   ppdebug(lazy Pp.(str s ++ pr_econstr t)); Tacticals.tclIDTAC gl in
+  let protectC, gl = pf_mkSsrConst "protect_term" gl in
+  let eq, gl = pf_fresh_global (Coqlib.build_coq_eq ()) gl in
+  let eq = EConstr.of_constr eq in
+  let fire_subst gl t = Reductionops.nf_evar (project gl) t in
+  let intro_eq = 
+    match eqid with 
+    | Some (IPatId (mod_id,ipat)) (* FIXME mod_id *) when not is_rec -> 
+       let rec intro_eq gl = match EConstr.kind_of_type (project gl) (pf_concl gl) with
+         | ProdType (_, src, tgt) -> 
+            (match EConstr.kind_of_type (project gl) src with
+             | AtomicType (hd, _) when EConstr.eq_constr (project gl) hd protectC -> 
+                Tacticals.tclTHENLIST [unprotecttac; introid ipat] gl
+             | _ -> Tacticals.tclTHENLIST [ iD "IA"; Ssrcommon.intro_anon; intro_eq] gl)
+         |_ -> errorstrm (Pp.str "Too many names in intro pattern") in
+       intro_eq
+    | Some (IPatId (mod_id,ipat))(* FIXME mod_id *) -> 
+       let name gl = mk_anon_id "K" gl in
+       let intro_lhs gl = 
+         let elim_name = match clr, what with
+           | [SsrHyp(_, x)], _ -> x
+           | _, `EConstr(_,_,t) when EConstr.isVar (project gl) t -> EConstr.destVar (project gl) t
+           | _ -> name gl in
+         if is_name_in_ipats elim_name ipats then introid (name gl) gl
+         else introid elim_name gl
+       in
+       let rec gen_eq_tac gl =
+         let concl = pf_concl gl in
+         let ctx, last = EConstr.decompose_prod_assum (project gl) concl in
+         let args = match EConstr.kind_of_type (project gl) last with
+           | AtomicType (hd, args) -> assert(EConstr.eq_constr (project gl) hd protectC); args
+           | _ -> assert false in
+         let case = args.(Array.length args-1) in
+         if not(EConstr.Vars.closed0 (project gl) case) then Tacticals.tclTHEN Ssrcommon.intro_anon gen_eq_tac gl
+         else
+           let gl, case_ty = pfe_type_of gl case in 
+           let refl = EConstr.mkApp (eq, [|EConstr.Vars.lift 1 case_ty; EConstr.mkRel 1; EConstr.Vars.lift 1 case|]) in
+           let new_concl = fire_subst gl
+                                      EConstr.(mkProd (Name (name gl), case_ty, mkArrow refl (Vars.lift 2 concl))) in 
+           let erefl, gl = mkRefl case_ty case gl in
+           let erefl = fire_subst gl erefl in
+           apply_type new_concl [case;erefl] gl in
+       Tacticals.tclTHENLIST [gen_eq_tac; intro_lhs; introid ipat]
+    | _ -> Tacticals.tclIDTAC in
+  let unprot = if eqid <> None && is_rec then unprotecttac else Tacticals.tclIDTAC in
+  tclEQINTROS ?ist ssrelim (Tacticals.tclTHENLIST [intro_eq; unprot]) ipats gl
+
 (* General case *)
 let tclINTROS ist t ip = tclEQINTROS ~ist (t ist) tclIDTAC ip
 
@@ -433,5 +433,86 @@ let ssrintros_sep =
     | _ -> spc
 
 (* }}} *)
+
+let viewmovetac ?next v deps gen ist gl = 
+ with_fresh_ctx
+   (tclTHEN_a
+     (viewmovetac_aux ?next true (ref top_id) v deps gen ist)
+      clear_wilds_and_tmp_and_delayed_ids)
+     gl
+
+let mkCoqEq gl =
+  let sigma = project gl in
+  let sigma = Sigma.Unsafe.of_evar_map sigma in
+  let Sigma (eq, sigma, _) = EConstr.fresh_global (pf_env gl) sigma (build_coq_eq_data()).eq in
+  let sigma = Sigma.to_evar_map sigma in
+  let gl = { gl with sigma } in
+  eq, gl
+
+let mkEq dir cl c t n gl =
+  let open EConstr in
+  let eqargs = [|t; c; c|] in eqargs.(dir_org dir) <- mkRel n;
+  let eq, gl = mkCoqEq gl in
+  let refl, gl = mkRefl t c gl in
+  mkArrow (mkApp (eq, eqargs)) (EConstr.Vars.lift 1 cl), refl, gl
+
+let pushmoveeqtac cl c gl =
+  let open EConstr in
+  let x, t, cl1 = destProd (project gl) cl in
+  let cl2, eqc, gl = mkEq R2L cl1 c t 1 gl in
+  apply_type (mkProd (x, t, cl2)) [c; eqc] gl
+
+let pushcaseeqtac cl gl =
+  let open EConstr in
+  let cl1, args = destApp (project gl) cl in
+  let n = Array.length args in
+  let dc, cl2 = decompose_lam_n_assum (project gl) n cl1 in
+  assert(List.length dc = n); (* was decompose_lam_n *)
+  let _, _, t = Context.Rel.Declaration.to_tuple (List.nth dc (n - 1)) in
+  let cl3, eqc, gl = mkEq R2L cl2 args.(0) t n gl in
+  let gl, clty = pfe_type_of gl cl in
+  let prot, gl = mkProt clty cl3 gl in
+  let cl4 = mkApp (it_mkLambda_or_LetIn prot dc, args) in
+  let gl, _ = pf_e_type_of gl cl4 in
+  tclTHEN (apply_type cl4 [eqc])
+    (Proofview.V82.of_tactic (convert_concl cl4)) gl
+
+let pushelimeqtac gl =
+  let open EConstr in
+  let _, args = destApp (project gl) (Tacmach.pf_concl gl) in
+  let x, t, _ = destLambda (project gl) args.(1) in
+  let cl1 = mkApp (args.(1), Array.sub args 2 (Array.length args - 2)) in
+  let cl2, eqc, gl = mkEq L2R cl1 args.(2) t 1 gl in
+  tclTHEN (apply_type (mkProd (x, t, cl2)) [args.(2); eqc])
+    (Proofview.V82.of_tactic intro) gl
+
+let eqmovetac _ gen ist gl =
+  let cl, c, _, gl = pf_interp_gen ist gl false gen in pushmoveeqtac cl c gl
+
+let movehnftac gl = match EConstr.kind (project gl) (pf_concl gl) with
+  | Prod _ | LetIn _ -> tclIDTAC gl
+  | _ -> new_tac hnf_in_concl gl
+
+let rec eqmoveipats eqpat = function
+  | (IPatSimpl _ as ipat) :: ipats -> ipat :: eqmoveipats eqpat ipats
+  | (IPatClear _ as ipat) :: ipats -> ipat :: eqmoveipats eqpat ipats
+  | (IPatAnon All :: _ | []) as ipats -> IPatAnon One :: eqpat :: ipats
+   | ipat :: ipats -> ipat :: eqpat :: ipats
+
+let ssrmovetac ist = function
+  | _::_ as view, (_, (dgens, ipats)) ->
+    let next = ref ipats in
+    let dgentac = with_dgens dgens (viewmovetac ~next (true, view)) ist in
+    tclTHEN dgentac (fun gl -> introstac ~ist !next gl)
+  | _, (Some pat, (dgens, ipats)) ->
+    let dgentac = with_dgens dgens eqmovetac ist in
+    tclTHEN dgentac (introstac ~ist (eqmoveipats pat ipats))
+  | _, (_, (([gens], clr), ipats)) ->
+    let gentac = genstac (gens, clr) ist in
+    tclTHEN gentac (introstac ~ist ipats)
+  | _, (_, ((_, clr), ipats)) ->
+    tclTHENLIST [movehnftac; cleartac clr; introstac ~ist ipats]
+
+
 
 (* vim: set filetype=ocaml foldmethod=marker: *)

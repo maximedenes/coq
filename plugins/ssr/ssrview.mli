@@ -2,6 +2,10 @@ open Ssrast
 open Ssrcommon
 open Ltac_plugin
 
+val viewtab : Glob_term.glob_constr list array
+val add_view_hints : Glob_term.glob_constr list -> int -> unit
+val glob_view_hints : Constrexpr.constr_expr list -> Glob_term.glob_constr list
+
 val pfa_with_view :
            ist ->
            ?next:ssripats ref ->

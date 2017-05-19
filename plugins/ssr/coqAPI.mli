@@ -5,6 +5,8 @@ open Reductionops
 open EConstr
 open Ltac_plugin
 
+type term
+
 val decompose_assum : env -> evar_map -> EConstr.t -> EConstr.rel_declaration * EConstr.t
 
 val tclNIY : string -> unit Proofview.tactic

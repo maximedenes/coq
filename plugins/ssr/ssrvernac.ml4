@@ -24,6 +24,7 @@ open Ppconstr
 open Printer
 open Util
 open Extraargs
+open Ssrprinters
 open Ssrcommon
 open Ssrparser
 DECLARE PLUGIN "ssreflect_plugin"
@@ -507,6 +508,8 @@ let pr_viewpos = function
 
 let pr_ssrviewpos _ _ _ = pr_viewpos
 
+let mapviewpos f n k = if n < 3 then f n else for i = 0 to k - 1 do f i done
+
 ARGUMENT EXTEND ssrviewpos TYPED AS int PRINTED BY pr_ssrviewpos
   | [ "for" "move" "/" ] -> [ 0 ]
   | [ "for" "apply" "/" ] -> [ 1 ]
@@ -521,58 +524,19 @@ ARGUMENT EXTEND ssrviewposspc TYPED AS ssrviewpos PRINTED BY pr_ssrviewposspc
   | [ ssrviewpos(i) ] -> [ i ]
 END
 
-(* The table and its display command *)
-
-let viewtab : glob_constr list array = Array.make 3 []
-
-let _ =
-  let init () = Array.fill viewtab 0 3 [] in
-  let freeze _ = Array.copy viewtab in
-  let unfreeze vt = Array.blit vt 0 viewtab 0 3 in
-  Summary.declare_summary "ssrview"
-    { Summary.freeze_function   = freeze;
-      Summary.unfreeze_function = unfreeze;
-      Summary.init_function     = init }
-
-let mapviewpos f n k = if n < 3 then f n else for i = 0 to k - 1 do f i done
-
 let print_view_hints i =
   let pp_viewname = str "Hint View" ++ pr_viewpos i ++ str " " in
-  let pp_hints = pr_list spc pr_rawhintref viewtab.(i) in
+  let pp_hints = pr_list spc pr_rawhintref Ssrview.viewtab.(i) in
   Feedback.msg_info  (pp_viewname ++ hov 0 pp_hints ++ Pp.cut ())
 
 VERNAC COMMAND EXTEND PrintView CLASSIFIED AS QUERY
 | [ "Print" "Hint" "View" ssrviewpos(i) ] -> [ mapviewpos print_view_hints i 3 ]
 END
 
-(* Populating the table *)
-
-let cache_viewhint (_, (i, lvh)) =
-  let mem_raw h = List.exists (Glob_ops.glob_constr_eq h) in
-  let add_hint h hdb = if mem_raw h hdb then hdb else h :: hdb in
-  viewtab.(i) <- List.fold_right add_hint lvh viewtab.(i)
-
-let subst_viewhint ( subst, (i, lvh as ilvh)) =
-  let lvh' = List.smartmap (Detyping.subst_glob_constr subst) lvh in
-  if lvh' == lvh then ilvh else i, lvh'
-      
-let classify_viewhint x = Libobject.Substitute x
-
-let in_viewhint =
-  Libobject.declare_object {(Libobject.default_object "VIEW_HINTS") with
-       Libobject.open_function = (fun i o -> if i = 1 then cache_viewhint o);
-       Libobject.cache_function = cache_viewhint;
-       Libobject.subst_function = subst_viewhint;
-       Libobject.classify_function = classify_viewhint }
-
-let glob_view_hints lvh =
-  List.map (Constrintern.intern_constr (Global.env ())) lvh
-
-let add_view_hints lvh i = Lib.add_anonymous_leaf (in_viewhint (i, lvh))
 
 VERNAC COMMAND EXTEND HintView CLASSIFIED AS SIDEFF
   |  [ "Hint" "View" ssrviewposspc(n) ne_ssrhintref_list(lvh) ] ->
-     [ mapviewpos (add_view_hints (glob_view_hints lvh)) n 2 ]
+     [ mapviewpos (Ssrview.add_view_hints (Ssrview.glob_view_hints lvh)) n 2 ]
 END
 
 (* }}} *)

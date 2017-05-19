@@ -1,13 +1,15 @@
 Ssrast
-Ssrparser
+Ssrprinters
 Ssrcommon
-Ssrvernac
-Ssripats
+Ssrelim
 Ssrview
+Ssrequality
+Ssripats
 Ssrfwd
-Ssreflect
 
 CoqAPI
+Ssrparser
+Ssrvernac
+Ssreflect
 Ssrutils
-Ssripat
-G_ssr
+

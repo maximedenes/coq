@@ -1,0 +1,33 @@
+open Ssrmatching_plugin
+
+val ssrelim :
+  ?ind:(int * EConstr.types array) option ref ->
+  ?is_case:bool ->
+  ?ist:Ltac_plugin.Tacinterp.interp_sign ->
+  ((Ssrast.ssrhyps option * Ssrast.ssrocc) *
+     Ssrmatching.cpattern)
+    list ->
+  ([< `EConstr of
+        Ssrast.ssrhyp list * Ssrmatching.occ *
+          EConstr.constr &
+          'b
+   | `EGen of
+       (Ssrast.ssrhyp list option *
+          Ssrmatching.occ) *
+         Ssrmatching.cpattern ]
+   as 'a) ->
+  ?elim:EConstr.constr ->
+  Ssrast.ssripat option ->
+  (?ist:Ltac_plugin.Tacinterp.interp_sign ->
+   'a ->
+   Ssrast.ssripat option ->
+   (Proof_type.goal Evd.sigma -> Proof_type.goal list Evd.sigma) ->
+   bool -> Ssrast.ssrhyp list -> Proof_type.tactic) ->
+  Proof_type.goal Tacmach.sigma -> Proof_type.goal list Evd.sigma
+
+val elimtac :
+  EConstr.constr ->
+  Proof_type.goal Tacmach.sigma -> Proof_type.goal list Evd.sigma
+val casetac :
+  EConstr.constr ->
+  Proof_type.goal Tacmach.sigma -> Proof_type.goal list Evd.sigma

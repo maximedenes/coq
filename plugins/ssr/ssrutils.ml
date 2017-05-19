@@ -103,6 +103,6 @@ let rename_hd_prod name =
 
 let gentac id new_name =
  let gen = ((None,Some(false,[])),cpattern_of_id id) in
- let ist = Geninterp.({ lfun = Id.Map.empty; extra = TacStore.empty }) in
- Proofview.V82.tactic (Ssreflect.gentac ist gen)
+ let ist = Geninterp.({ lfun = Id.Map.empty; extra = Tacinterp.TacStore.empty }) in
+ Proofview.V82.tactic (Ssrcommon.gentac ist gen)
  <*> rename_hd_prod new_name

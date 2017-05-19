@@ -49,6 +49,10 @@ open Locusops
 
 open Tok
 
+open Ssrprinters
+open Ssrcommon
+open Ssrequality
+
 DECLARE PLUGIN "ssreflect_plugin"
 (* Defining grammar rules with "xx" in it automatically declares keywords too,
  * we thus save the lexer to restore it at the end of the file *)
@@ -135,31 +139,12 @@ let pr_spc () = str " "
 let pr_bar () = Pp.cut() ++ str "|"
 let pr_list = prlist_with_sep
 let dummy_loc = Loc.ghost
-let errorstrm x = CErrors.user_err ~hdr:"ssreflect" x
-let loc_error loc msg = CErrors.user_err ~loc ~hdr:"ssreflect" msg
-let anomaly s = CErrors.anomaly (str s)
-
 
 (**************************** ssrhyp **************************************) 
 
-(** Bound assumption argument *)
-
-(* The Ltac API does have a type for assumptions but it is level-dependent *)
-(* and therefore impractical to use for complex arguments, so we substitute *)
-(* our own to have a uniform representation. Also, we refuse to intern     *)
-(* idents that match global/section constants, since this would lead to    *)
-(* fragile Ltac scripts.                                                   *)
-
-let hyp_id (SsrHyp (_, id)) = id
-let pr_hyp (SsrHyp (_, id)) = pr_id id
 let pr_ssrhyp _ _ _ = pr_hyp
 
 let wit_ssrhyprep = add_genarg "ssrhyprep" pr_hyp
-
-let hyp_err loc msg id =
-  CErrors.user_err ~loc  ~hdr:"ssrhyp" (str msg ++ pr_id id)
-
-let not_section_id id = not (Termops.is_section_variable id)
 
 let intern_hyp ist (SsrHyp (loc, id) as hyp) =
   let _ = Tacintern.intern_genarg ist (in_gen (rawwit wit_var) (loc, id)) in
@@ -213,21 +198,6 @@ END
 
 let pr_hyps = pr_list pr_spc pr_hyp
 let pr_ssrhyps _ _ _ = pr_hyps
-let hyps_ids = List.map hyp_id
-
-let rec check_hyps_uniq ids = function
-  | SsrHyp (loc, id) :: _ when List.mem id ids ->
-    hyp_err loc "Duplicate assumption " id
-  | SsrHyp (_, id) :: hyps -> check_hyps_uniq (id :: ids) hyps
-  | [] -> ()
-
-let check_hyp_exists hyps (SsrHyp(_, id)) =
-  try ignore(Context.Named.lookup id hyps)
-  with Not_found -> errorstrm (str"No assumption is named " ++ pr_id id)
-
-let test_hypname_exists hyps id =
-  try ignore(Context.Named.lookup id hyps); true
-  with Not_found -> false
 
 let interp_hyps ist gl ghyps =
   let hyps = List.map snd (List.map (interp_hyp ist gl) ghyps) in
@@ -245,8 +215,6 @@ let pr_dir = function L2R -> str "->" | R2L -> str "<-"
 let pr_rwdir = function L2R -> mt() | R2L -> str "-"
 
 let wit_ssrdir = add_genarg "ssrdir" pr_dir
-
-let dir_org = function L2R -> 1 | R2L -> 2
 
 let pr_dir_side = function L2R -> str "LHS" | R2L -> str "RHS"
 let inv_dir = function L2R -> R2L | R2L -> L2R
@@ -436,11 +404,6 @@ END
 (* force dependent elimination -- see ndefectelimtac below.               *)
 
 
-let pr_occ = function
-  | Some (true, occ) -> str "{-" ++ pr_list pr_spc int occ ++ str "}"
-  | Some (false, occ) -> str "{+" ++ pr_list pr_spc int occ ++ str "}"
-  | None -> str "{}"
-
 let pr_ssrocc _ _ _ = pr_occ
 
 open Pcoq.Prim
@@ -452,7 +415,6 @@ ARGUMENT EXTEND ssrocc TYPED AS (bool * int list) option PRINTED BY pr_ssrocc
 | [ "+" natural_list(occ) ]     -> [ Some (false, occ) ]
 END
 
-let allocc = Some(false,[])
 
 (* modality *)
 
@@ -471,10 +433,6 @@ END
 
 (** Rewrite multiplier: !n ?n *)
 
-
-let notimes = 0
-let nomult = 1, Once
-
 let pr_mult (n, m) =
   if n > 0 && m <> Once then int n ++ pr_mmod m else pr_mmod m
 
@@ -492,12 +450,6 @@ END
 
 (** Discharge occ switch (combined occurrence / clear switch *)
 
-
-let mkocc occ = None, occ
-let noclr = mkocc None
-let mkclr clr  = Some clr, None
-let nodocc = mkclr []
-
 let pr_docc = function
   | None, occ -> pr_occ occ
   | Some clr, _ -> pr_clear mt clr
@@ -511,12 +463,6 @@ END
 
 (* kinds of terms *)
 
-(* type ssrtermkind = InParens | WithAt | NoFlag | Cpattern *)
-let xInParens = '('
-let xWithAt = '@'
-let xNoFlag = ' '
-let xCpattern = 'x'
-
 let input_ssrtermkind strm = match Util.stream_nth 0 strm with
   | Tok.KEYWORD "(" -> xInParens
   | Tok.KEYWORD "@" -> xWithAt
@@ -528,57 +474,7 @@ let ssrtermkind = Pcoq.Gram.Entry.of_parser "ssrtermkind" input_ssrtermkind
 
 (** Terms parsing. ********************************************************)
 
-let glob_constr ist genv = function
-  | _, Some ce ->
-    let vars = Id.Map.fold (fun x _ accu -> Id.Set.add x accu) ist.Tacinterp.lfun Id.Set.empty in
-    let ltacvars = {
-      Constrintern.empty_ltac_sign with Constrintern.ltac_vars = vars } in
-    Constrintern.intern_gen Pretyping.WithoutTypeConstraint ~ltacvars genv ce
-  | rc, None -> rc
-
 let interp_constr = interp_wit wit_constr
-
-let interp_open_constr ist gl gc =
-  let (sigma, (c, _)) = Tacinterp.interp_open_constr_with_bindings ist (pf_env gl) (project gl) (gc, Misctypes.NoBindings) in
-  (project gl, (sigma, c))
-
-let mkRHole = Glob_term.GHole (dummy_loc, Evar_kinds.InternalHole, Misctypes.IntroAnonymous, None)
-
-let mk_term k c = k, (mkRHole, Some c)
-let mk_lterm c = mk_term xNoFlag c
-
-
-
-(* Term printing utilities functions for deciding bracketing.  *)
-let pr_paren prx x = hov 1 (str "(" ++ prx x ++ str ")")
-(* String lexing utilities *)
-let skip_wschars s =
-  let rec loop i = match s.[i] with '\n'..' ' -> loop (i + 1) | _ -> i in loop
-(* We also guard characters that might interfere with the ssreflect   *)
-(* tactic syntax.                                                     *)
-let guard_term ch1 s i = match s.[i] with
-  | '(' -> false
-  | '{' | '/' | '=' -> true
-  | _ -> ch1 = xInParens
-(* We also guard characters that might interfere with the ssreflect   *)
-(* tactic syntax.                                                     *)
-let pr_guarded guard prc c =
-  pp_with Format.str_formatter (prc c);
-  let s = Format.flush_str_formatter () ^ "$" in
-  if guard s (skip_wschars s 0) then pr_paren prc c else prc c
-
-let prl_constr_expr = Ppconstr.pr_lconstr_expr
-let pr_glob_constr c = Printer.pr_glob_constr_env (Global.env ()) c
-let prl_glob_constr c = Printer.pr_lglob_constr_env (Global.env ()) c
-let prl_glob_constr_and_expr = function
-  | _, Some c -> prl_constr_expr c
-  | c, None -> Printer.pr_lglob_constr c
-let pr_glob_constr_and_expr = function
-  | _, Some c -> Ppconstr.pr_constr_expr c
-  | c, None -> pr_glob_constr c
-let pr_term (k, c) = pr_guarded (guard_term k) pr_glob_constr_and_expr c
-let prl_term (k, c) = pr_guarded (guard_term k) prl_glob_constr_and_expr c
-
 
 (* Because we allow wildcards in term references, we need to stage the *)
 (* interpretation of terms so that it occurs at the right time during  *)
@@ -590,9 +486,6 @@ let prl_term (k, c) = pr_guarded (guard_term k) prl_glob_constr_and_expr c
 
 (* terms *)
 let pr_ssrterm _ _ _ = pr_term
-let pf_intern_term ist gl (_, c) = glob_constr ist (pf_env gl) c
-let intern_term ist env (_, c) = glob_constr ist env c
-let interp_term ist gl (_, c) = snd (interp_open_constr ist gl c)
 let force_term ist gl (_, c) = interp_constr ist gl c
 let glob_ssrterm gs = function
   | k, (_, Some c) -> k, Tacintern.intern_constr gs c
@@ -649,21 +542,21 @@ let remove_loc = snd
 
 let ipat_of_intro_pattern p = Misctypes.(
   let rec ipat_of_intro_pattern = function
-    | IntroNaming (IntroIdentifier id) -> IpatId id
-    | IntroAction IntroWildcard -> IpatWild
+    | IntroNaming (IntroIdentifier id) -> IPatId (None, id)
+    | IntroAction IntroWildcard -> IPatAnon Drop
     | IntroAction (IntroOrAndPattern (IntroOrPattern iorpat)) ->
-      IpatCase 
-       (`Regular (List.map (List.map ipat_of_intro_pattern) 
- 	 (List.map (List.map remove_loc) iorpat)))
+      IPatCase 
+       (List.map (List.map ipat_of_intro_pattern) 
+ 	 (List.map (List.map remove_loc) iorpat))
     | IntroAction (IntroOrAndPattern (IntroAndPattern iandpat)) ->
-      IpatCase 
-       (`Regular [List.map ipat_of_intro_pattern (List.map remove_loc iandpat)])
-    | IntroNaming IntroAnonymous -> IpatAnon
-    | IntroAction (IntroRewrite b) -> IpatRw (allocc, if b then L2R else R2L)
-    | IntroNaming (IntroFresh id) -> IpatAnon
+      IPatCase 
+       [List.map ipat_of_intro_pattern (List.map remove_loc iandpat)]
+    | IntroNaming IntroAnonymous -> IPatAnon One
+    | IntroAction (IntroRewrite b) -> IPatRewrite (allocc, if b then L2R else R2L)
+    | IntroNaming (IntroFresh id) -> IPatAnon One
     | IntroAction (IntroApplyOn _) -> (* to do *) CErrors.error "TO DO"
     | IntroAction (IntroInjection ips) ->
-        IpatInj [List.map ipat_of_intro_pattern (List.map remove_loc ips)]
+        IPatInj [List.map ipat_of_intro_pattern (List.map remove_loc ips)]
     | IntroForthcoming _ ->
         (* Unable to determine which kind of ipat interp_introid could
          * return [HH] *)
@@ -674,28 +567,22 @@ let ipat_of_intro_pattern p = Misctypes.(
 
 let rec pr_ipat p = Misctypes.(
   match p with
-  | IpatId id -> pr_id id
-  | IpatSimpl (clr, sim) -> pr_clear mt clr ++ pr_simpl sim
-  | IpatCase (`Regular iorpat) -> hov 1 (str "[" ++ pr_iorpat iorpat ++ str "]")
-  | IpatCase (`Block(before,seed,after)) ->
-       hov 1 (str "[" ++ pr_iorpat before
-                      ++ pr_seed before seed
-                      ++ pr_iorpat after ++ str "]")
-  | IpatSeed s -> pr_seed [] s
-  | IpatInj iorpat -> hov 1 (str "[=" ++ pr_iorpat iorpat ++ str "]")
-  | IpatRw (occ, dir) -> pr_occ occ ++ pr_dir dir
-  | IpatAll -> str "*"
-  | IpatWild -> str "_"
-  | IpatAnon -> str "?"
-  | IpatView v -> pr_view v
-  | IpatNoop -> str "-"
-  | IpatNewHidden l -> str "[:" ++ pr_list spc pr_id l ++ str "]"
-  | IpatFastMode -> str ">"
-  | IpatTmpId -> str "+"
+  | IPatId (id_mod, id) -> (* FIXME id_mod *) pr_id id
+  | IPatSimpl sim -> pr_simpl sim
+  | IPatClear clr -> pr_clear mt clr
+  | IPatCase iorpat -> hov 1 (str "[" ++ pr_iorpat iorpat ++ str "]")
+  | IPatInj iorpat -> hov 1 (str "[=" ++ pr_iorpat iorpat ++ str "]")
+  | IPatRewrite (occ, dir) -> pr_occ occ ++ pr_dir dir
+  | IPatAnon All -> str "*"
+  | IPatAnon Drop -> str "_"
+  | IPatAnon One -> str "?"
+  | IPatView v -> pr_view v
+  | IPatNoop -> str "-"
+  | IPatNewHidden l -> str "[:" ++ pr_list spc pr_id l ++ str "]"
+  | IPatAnon Temporary -> str "+"
 )
-and pr_space_notFM = function IpatFastMode :: _ -> str"" | _ -> str" "
 and pr_iorpat iorpat = pr_list pr_bar pr_ipats iorpat
-and pr_ipats ipats = pr_space_notFM ipats ++ pr_list spc pr_ipat ipats
+and pr_ipats ipats = pr_list spc pr_ipat ipats
 and pr_seed before seed =
   (if before <> [] then str"|" else str"") ++
   match seed with
@@ -711,11 +598,9 @@ let pr_ssriorpat _ _ _ = pr_iorpat
 
 let intern_ipat ist ipat =
   let rec check_pat = function
-  | IpatSimpl (clr, _) -> ignore (List.map (intern_hyp ist) clr)
-  | IpatCase (`Regular iorpat) -> List.iter (List.iter check_pat) iorpat
-  | IpatCase (`Block (before,_,after)) ->
-       List.iter (List.iter check_pat) (before @ after)
-  | IpatInj iorpat -> List.iter (List.iter check_pat) iorpat
+  | IPatClear clr -> ignore (List.map (intern_hyp ist) clr)
+  | IPatCase iorpat -> List.iter (List.iter check_pat) iorpat
+  | IPatInj iorpat -> List.iter (List.iter check_pat) iorpat
   | _ -> () in
   check_pat ipat; ipat
 
@@ -748,6 +633,7 @@ let rec add_intro_pattern_hyps (loc, ipat) hyps = Misctypes.(
       of ipat interp_introid could return [HH] *) assert false
 )
 
+(* MD: what does this do? *)
 let rec interp_ipat ist gl = Misctypes.(
   let ltacvar id = Id.Map.mem id ist.Tacinterp.lfun in
   let interp_seed = function
@@ -757,25 +643,19 @@ let rec interp_ipat ist gl = Misctypes.(
         | IntroNaming (IntroIdentifier id) -> `Id(id,side)
         | _ -> `Id(Id.of_string "_",`Pre) in
   let rec interp = function
-  | IpatId id when ltacvar id ->
-    ipat_of_intro_pattern (interp_introid ist gl id)
-  | IpatSimpl (clr, sim) ->
+  | IPatId (mod_id, id) when ltacvar id ->
+    ipat_of_intro_pattern (interp_introid ist gl id) (* FIXME mod_id *)
+  | IPatClear clr ->
     let add_hyps (SsrHyp (loc, id) as hyp) hyps =
       if not (ltacvar id) then hyp :: hyps else
       add_intro_pattern_hyps (loc, (interp_introid ist gl id)) hyps in
     let clr' = List.fold_right add_hyps clr [] in
-    check_hyps_uniq [] clr'; IpatSimpl (clr', sim)
-  | IpatCase(`Regular iorpat) ->
-      IpatCase(`Regular(List.map (List.map interp) iorpat))
-  | IpatCase(`Block (before,seed,after)) ->
-      let before = List.map (List.map interp) before in
-      let seed = interp_seed seed in
-      let after = List.map (List.map interp) after in
-      IpatCase(`Block (before,seed,after))
-  | IpatSeed s -> IpatSeed (interp_seed s)
-  | IpatInj iorpat -> IpatInj (List.map (List.map interp) iorpat)
-  | IpatNewHidden l ->
-      IpatNewHidden
+    check_hyps_uniq [] clr'; IPatClear clr'
+  | IPatCase(iorpat) ->
+      IPatCase(List.map (List.map interp) iorpat)
+  | IPatInj iorpat -> IPatInj (List.map (List.map interp) iorpat)
+  | IPatNewHidden l ->
+      IPatNewHidden
         (List.map (function
            | IntroNaming (IntroIdentifier id) -> id
            | _ -> assert false)
@@ -786,57 +666,59 @@ let rec interp_ipat ist gl = Misctypes.(
 
 let interp_ipats ist gl l = project gl, List.map (interp_ipat ist gl) l
 
-let pushIpatRw = function
-  | pats :: orpat -> (IpatRw (allocc, L2R) :: pats) :: orpat
+let pushIPatRewrite = function
+  | pats :: orpat -> (IPatRewrite (allocc, L2R) :: pats) :: orpat
   | [] -> []
 
-let pushIpatNoop = function
-  | pats :: orpat -> (IpatNoop :: pats) :: orpat
+let pushIPatNoop = function
+  | pats :: orpat -> (IPatNoop :: pats) :: orpat
   | [] -> []
 
 ARGUMENT EXTEND ssripat TYPED AS ssripatrep list PRINTED BY pr_ssripats
   INTERPRETED BY interp_ipats
   GLOBALIZED BY intern_ipats
-  | [ "_" ] -> [ [IpatWild] ]
-  | [ "*" ] -> [ [IpatAll] ]
-  | [ "^" "*" ] -> [ [IpatFastMode] ]
-  | [ "^" "_" ] -> [ [IpatSeed `Wild] ]
-  | [ "^_" ] -> [ [IpatSeed `Wild] ]
-  | [ "^" "?" ] -> [ [IpatSeed `Anon] ]
-  | [ "^?" ] -> [ [IpatSeed `Anon] ]
-  | [ "^" ident(id) ] -> [ [IpatSeed (`Id(id,`Pre))] ]
-  | [ "^" "~" ident(id) ] -> [ [IpatSeed (`Id(id,`Post))] ]
-  | [ "^~" ident(id) ] -> [ [IpatSeed (`Id(id,`Post))] ]
-  | [ ident(id) ] -> [ [IpatId id] ]
-  | [ "?" ] -> [ [IpatAnon] ]
-  | [ "+" ] -> [ [IpatTmpId] ]
-  | [ ssrsimpl_ne(sim) ] -> [ [IpatSimpl ([], sim)] ]
+  | [ "_" ] -> [ [IPatAnon Drop] ]
+  | [ "*" ] -> [ [IPatAnon All] ]
+             (*
+  | [ "^" "*" ] -> [ [IPatFastMode] ]
+  | [ "^" "_" ] -> [ [IPatSeed `Wild] ]
+  | [ "^_" ] -> [ [IPatSeed `Wild] ]
+  | [ "^" "?" ] -> [ [IPatSeed `Anon] ]
+  | [ "^?" ] -> [ [IPatSeed `Anon] ]
+  | [ "^" ident(id) ] -> [ [IPatSeed (`Id(id,`Pre))] ]
+  | [ "^" "~" ident(id) ] -> [ [IPatSeed (`Id(id,`Post))] ]
+  | [ "^~" ident(id) ] -> [ [IPatSeed (`Id(id,`Post))] ]
+              *)
+  | [ ident(id) ] -> [ [IPatId (None, id)] ]
+  | [ "?" ] -> [ [IPatAnon One] ]
+  | [ "+" ] -> [ [IPatAnon Temporary] ]
+  | [ ssrsimpl_ne(sim) ] -> [ [IPatSimpl sim] ]
   | [ ssrdocc(occ) "->" ] -> [ match occ with
-      | None, occ -> [IpatRw (occ, L2R)]
-      | Some clr, _ -> [IpatSimpl (clr, Nop); IpatRw (allocc, L2R)]]
+      | None, occ -> [IPatRewrite (occ, L2R)]
+      | Some clr, _ -> [IPatClear clr; IPatRewrite (allocc, L2R)]]
   | [ ssrdocc(occ) "<-" ] -> [ match occ with
-      | None, occ ->  [IpatRw (occ, R2L)]
-      | Some clr, _ -> [IpatSimpl (clr, Nop); IpatRw (allocc, R2L)]]
+      | None, occ ->  [IPatRewrite (occ, R2L)]
+      | Some clr, _ -> [IPatClear clr; IPatRewrite (allocc, R2L)]]
   | [ ssrdocc(occ) ] -> [ match occ with
-      | Some cl, _ -> check_hyps_uniq [] cl; [IpatSimpl (cl, Nop)]
+      | Some cl, _ -> check_hyps_uniq [] cl; [IPatClear cl]
       | _ -> loc_error loc (str"Only identifiers are allowed here")]
-  | [ "->" ] -> [ [IpatRw (allocc, L2R)] ]
-  | [ "<-" ] -> [ [IpatRw (allocc, R2L)] ]
-  | [ "-" ] -> [ [IpatNoop] ]
-  | [ "-/" "=" ] -> [ [IpatNoop;IpatSimpl([],Simpl ~-1)] ]
-  | [ "-/=" ] -> [ [IpatNoop;IpatSimpl([],Simpl ~-1)] ]
-  | [ "-/" "/" ] -> [ [IpatNoop;IpatSimpl([],Cut ~-1)] ]
-  | [ "-//" ] -> [ [IpatNoop;IpatSimpl([],Cut ~-1)] ]
-  | [ "-/" integer(n) "/" ] -> [ [IpatNoop;IpatSimpl([],Cut n)] ]
-  | [ "-/" "/=" ] -> [ [IpatNoop;IpatSimpl([],SimplCut (~-1,~-1))] ]
-  | [ "-//" "=" ] -> [ [IpatNoop;IpatSimpl([],SimplCut (~-1,~-1))] ]
-  | [ "-//=" ] -> [ [IpatNoop;IpatSimpl([],SimplCut (~-1,~-1))] ]
-  | [ "-/" integer(n) "/=" ] -> [ [IpatNoop;IpatSimpl([],SimplCut (n,~-1))] ]
+  | [ "->" ] -> [ [IPatRewrite (allocc, L2R)] ]
+  | [ "<-" ] -> [ [IPatRewrite (allocc, R2L)] ]
+  | [ "-" ] -> [ [IPatNoop] ]
+  | [ "-/" "=" ] -> [ [IPatNoop;IPatSimpl(Simpl ~-1)] ]
+  | [ "-/=" ] -> [ [IPatNoop;IPatSimpl(Simpl ~-1)] ]
+  | [ "-/" "/" ] -> [ [IPatNoop;IPatSimpl(Cut ~-1)] ]
+  | [ "-//" ] -> [ [IPatNoop;IPatSimpl(Cut ~-1)] ]
+  | [ "-/" integer(n) "/" ] -> [ [IPatNoop;IPatSimpl(Cut n)] ]
+  | [ "-/" "/=" ] -> [ [IPatNoop;IPatSimpl(SimplCut (~-1,~-1))] ]
+  | [ "-//" "=" ] -> [ [IPatNoop;IPatSimpl(SimplCut (~-1,~-1))] ]
+  | [ "-//=" ] -> [ [IPatNoop;IPatSimpl(SimplCut (~-1,~-1))] ]
+  | [ "-/" integer(n) "/=" ] -> [ [IPatNoop;IPatSimpl(SimplCut (n,~-1))] ]
   | [ "-/" integer(n) "/" integer (m) "=" ] ->
-      [ [IpatNoop;IpatSimpl([],SimplCut(n,m))] ]
-  | [ ssrview(v) ] -> [ [IpatView v] ]
-  | [ "[" ":" ident_list(idl) "]" ] -> [ [IpatNewHidden idl] ]
-  | [ "[:" ident_list(idl) "]" ] -> [ [IpatNewHidden idl] ]
+      [ [IPatNoop;IPatSimpl(SimplCut(n,m))] ]
+  | [ ssrview(v) ] -> [ [IPatView v] ]
+  | [ "[" ":" ident_list(idl) "]" ] -> [ [IPatNewHidden idl] ]
+  | [ "[:" ident_list(idl) "]" ] -> [ [IPatNewHidden idl] ]
 END
 
 ARGUMENT EXTEND ssripats TYPED AS ssripat PRINTED BY pr_ssripats
@@ -846,9 +728,9 @@ END
 
 ARGUMENT EXTEND ssriorpat TYPED AS ssripat list PRINTED BY pr_ssriorpat
 | [ ssripats(pats) "|" ssriorpat(orpat) ] -> [ pats :: orpat ]
-| [ ssripats(pats) "|-" ">" ssriorpat(orpat) ] -> [ pats :: pushIpatRw orpat ]
-| [ ssripats(pats) "|-" ssriorpat(orpat) ] -> [ pats :: pushIpatNoop orpat ]
-| [ ssripats(pats) "|->" ssriorpat(orpat) ] -> [ pats :: pushIpatRw orpat ]
+| [ ssripats(pats) "|-" ">" ssriorpat(orpat) ] -> [ pats :: pushIPatRewrite orpat ]
+| [ ssripats(pats) "|-" ssriorpat(orpat) ] -> [ pats :: pushIPatNoop orpat ]
+| [ ssripats(pats) "|->" ssriorpat(orpat) ] -> [ pats :: pushIPatRewrite orpat ]
 | [ ssripats(pats) "||" ssriorpat(orpat) ] -> [ pats :: [] :: orpat ]
 | [ ssripats(pats) "|||" ssriorpat(orpat) ] -> [ pats :: [] :: [] :: orpat ]
 | [ ssripats(pats) "||||" ssriorpat(orpat) ] -> [ [pats; []; []; []] @ orpat ]
@@ -866,13 +748,14 @@ let reject_ssrhid strm =
 let test_nohidden = Pcoq.Gram.Entry.of_parser "test_ssrhid" reject_ssrhid
 
 ARGUMENT EXTEND ssrcpat TYPED AS ssripatrep PRINTED BY pr_ssripat
-  | [ "YouShouldNotTypeThis" ssriorpat(x) ] -> [ IpatCase(`Regular x) ]
+  | [ "YouShouldNotTypeThis" ssriorpat(x) ] -> [ IPatCase(x) ]
 END
 
+(*
 let understand_case_type ior =
   let rec aux before = function
     | [] -> `Regular (List.rev before)
-    | [IpatSeed seed] :: rest -> `Block(List.rev before, seed, rest)
+    | [IPatSeed seed] :: rest -> `Block(List.rev before, seed, rest)
     | ips :: rest -> aux (ips :: before) rest
   in
     aux [] ior
@@ -880,16 +763,16 @@ let understand_case_type ior =
 let rec check_no_inner_seed loc seen = function
   | [] -> ()
   | x :: xs ->
-     let in_x = List.exists (function IpatSeed _ -> true | _ -> false) x in
+     let in_x = List.exists (function IPatSeed _ -> true | _ -> false) x in
      if seen && in_x then
         CErrors.user_err ~loc ~hdr:"ssreflect"
             (strbrk "Only one block ipat per elimination is allowed")
      else if List.length x < 2 ||
         List.for_all (function
-          | IpatSeed _ -> false
-          | IpatInj l | IpatCase (`Regular l) ->
+          | IPatSeed _ -> false
+          | IPatInj l | IPatCase (`Regular l) ->
               check_no_inner_seed loc false l; true
-          | IpatCase (`Block(before,_,after)) ->
+          | IPatCase (`Block(before,_,after)) ->
               check_no_inner_seed loc false before;
               check_no_inner_seed loc false after; true
           | _ -> true) x
@@ -897,17 +780,19 @@ let rec check_no_inner_seed loc seen = function
      else CErrors.user_err ~loc ~hdr:"ssreflect"
             (strbrk "Mixing block and regular ipat is forbidden")
 ;;
+ *)
 
 Pcoq.(
 GEXTEND Gram
   GLOBAL: ssrcpat;
   ssrcpat: [
    [ test_nohidden; "["; iorpat = ssriorpat; "]" ->
-      check_no_inner_seed !@loc false iorpat;
-      IpatCase (understand_case_type iorpat)
+(*      check_no_inner_seed !@loc false iorpat;
+      IPatCase (understand_case_type iorpat) *)
+      IPatCase iorpat
    | test_nohidden; "[="; iorpat = ssriorpat; "]" ->
-      check_no_inner_seed !@loc false iorpat;
-      IpatInj iorpat ]];
+(*      check_no_inner_seed !@loc false iorpat; *)
+      IPatInj iorpat ]];
 END
 );;
 
@@ -924,28 +809,29 @@ ARGUMENT EXTEND ssripats_ne TYPED AS ssripat PRINTED BY pr_ssripats
 
 (* subsets of patterns *)
 
+(* TODO: review what this function does, it looks suspicious *)
 let check_ssrhpats loc w_binders ipats =
   let err_loc s = CErrors.user_err ~loc ~hdr:"ssreflect" s in
   let clr, ipats =
     let rec aux clr = function
-      | IpatSimpl (cl, Nop) :: tl -> aux (clr @ cl) tl
-      | IpatSimpl (cl, sim) :: tl -> clr @ cl, IpatSimpl ([], sim) :: tl
+      | IPatClear cl :: tl -> aux (clr @ cl) tl
+(*      | IPatSimpl (cl, sim) :: tl -> clr @ cl, IPatSimpl ([], sim) :: tl *)
       | tl -> clr, tl
     in aux [] ipats in
   let simpl, ipats = 
     match List.rev ipats with
-    | IpatSimpl ([],_) as s :: tl -> [s], List.rev tl
+    | IPatSimpl _ as s :: tl -> [s], List.rev tl
     | _ -> [],  ipats in
   if simpl <> [] && not w_binders then
     err_loc (str "No s-item allowed here: " ++ pr_ipats simpl);
   let ipat, binders =
     let rec loop ipat = function
       | [] -> ipat, []
-      | ( IpatId _| IpatAnon| IpatCase _| IpatRw _ as i) :: tl -> 
+      | ( IPatId _| IPatAnon _| IPatCase _| IPatRewrite _ as i) :: tl -> 
         if w_binders then
           if simpl <> [] && tl <> [] then 
             err_loc(str"binders XOR s-item allowed here: "++pr_ipats(tl@simpl))
-          else if not (List.for_all (function IpatId _ -> true | _ -> false) tl)
+          else if not (List.for_all (function IPatId _ -> true | _ -> false) tl)
           then err_loc (str "Only binders allowed here: " ++ pr_ipats tl)
           else ipat @ [i], tl
         else
@@ -981,8 +867,8 @@ TYPED AS ((ssrclear * ssripats) * ssripats) * ssripats PRINTED BY pr_ssrhpats
 END
 
 ARGUMENT EXTEND ssrrpat TYPED AS ssripatrep PRINTED BY pr_ssripat
-  | [ "->" ] -> [ IpatRw (allocc, L2R) ]
-  | [ "<-" ] -> [ IpatRw (allocc, R2L) ]
+  | [ "->" ] -> [ IPatRewrite (allocc, L2R) ]
+  | [ "<-" ] -> [ IPatRewrite (allocc, R2L) ]
 END
 
 type ssrintros = ssripats
@@ -994,8 +880,8 @@ let pr_ssrintros _ _ _ = pr_intros mt
 ARGUMENT EXTEND ssrintros_ne TYPED AS ssripat
  PRINTED BY pr_ssrintros
   | [ "=>" ssripats_ne(pats) ] -> [ pats ]
-  | [ "=>" ">" ssripats_ne(pats) ] -> [ IpatFastMode :: pats ]
-  | [ "=>>" ssripats_ne(pats) ] -> [ IpatFastMode :: pats ]
+(*  | [ "=>" ">" ssripats_ne(pats) ] -> [ IPatFastMode :: pats ]
+  | [ "=>>" ssripats_ne(pats) ] -> [ IPatFastMode :: pats ] *)
 END
 
 ARGUMENT EXTEND ssrintros TYPED AS ssrintros_ne PRINTED BY pr_ssrintros
@@ -1554,7 +1440,7 @@ ARGUMENT EXTEND ssrhavefwd TYPED AS ssrfwd * ssrhint PRINTED BY pr_ssrhavefwd
 END
 
 let intro_id_to_binder = List.map (function 
-  | IpatId id ->
+  | IPatId (mod_id, id) -> (* FIXME mod_id *)
       let xloc, _ as x = bvar_lname (mkCVar dummy_loc id) in
       (FwdPose, [BFvar]),
         CLambdaN (dummy_loc, [[x], Default Explicit, mkCHole xloc],
@@ -1564,9 +1450,9 @@ let intro_id_to_binder = List.map (function
 let binder_to_intro_id = List.map (function
   | (FwdPose, [BFvar]), CLambdaN (_,[ids,_,_],_)
   | (FwdPose, [BFdecl _]), CLambdaN (_,[ids,_,_],_) ->
-      List.map (function (_, Name id) -> IpatId id | _ -> IpatAnon) ids
-  | (FwdPose, [BFdef]), CLetIn (_,(_,Name id),_,_,_) -> [IpatId id]
-  | (FwdPose, [BFdef]), CLetIn (_,(_,Anonymous),_,_,_) -> [IpatAnon]
+      List.map (function (_, Name id) -> IPatId (None, id) | _ -> IPatAnon One) ids
+  | (FwdPose, [BFdef]), CLetIn (_,(_,Name id),_,_,_) -> [IPatId (None, id)]
+  | (FwdPose, [BFdef]), CLetIn (_,(_,Anonymous),_,_,_) -> [IPatAnon One]
   | _ -> anomaly "ssrbinder is not a binder")
 
 let pr_ssrhavefwdwbinders _ _ prt (tr,((hpats, (fwd, hint)))) =

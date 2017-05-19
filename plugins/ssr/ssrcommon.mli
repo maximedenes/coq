@@ -2,15 +2,24 @@
 
 open Names
 open Ltac_plugin
+open Constrexpr
 open Ssrast
+
+
+val allocc : ssrocc
+
+(******************************** hyps ************************************)
+
+val hyp_id : ssrhyp -> Id.t
+val hyps_ids : ssrhyps -> Id.t list
+val check_hyp_exists : ('a, 'b) Context.Named.pt -> ssrhyp -> unit
+val test_hypname_exists : ('a, 'b) Context.Named.pt -> Id.t -> bool
+val check_hyps_uniq : Id.t list -> ssrhyps -> unit
+val not_section_id : Id.t -> bool
+val hyp_err : Loc.t -> string -> Id.t -> 'a
+
 (******************************** misc ************************************)
 
-val pr_id : Id.t -> Pp.std_ppcmds
-val pr_name : Name.t -> Pp.std_ppcmds
-val pr_spc : unit -> Pp.std_ppcmds
-val pr_bar : unit -> Pp.std_ppcmds
-val pr_list : 
-  (unit -> Pp.std_ppcmds) -> ('a -> Pp.std_ppcmds) -> 'a list -> Pp.std_ppcmds
 val dummy_loc : loc
 val errorstrm : Pp.std_ppcmds -> 'a
 val loc_error : loc -> Pp.std_ppcmds -> 'a
@@ -63,11 +72,10 @@ val tac_on_all :
   (goal * tac_ctx) list sigma -> tac_ctx tac_a -> (goal * tac_ctx) list sigma
 (************************ ssr tactic arguments ******************************)
 open Genarg
-open Ssrparser
 
 
 (*********************** Misc helpers *****************************)
-
+val mkRHole : Glob_term.glob_constr
 val mkRHoles : int -> Glob_term.glob_constr list
 val isRHoles : Glob_term.glob_constr list -> bool
 val mkRApp : Glob_term.glob_constr -> Glob_term.glob_constr list -> Glob_term.glob_constr
@@ -80,6 +88,42 @@ val mkRArrow : Glob_term.glob_constr ->  Glob_term.glob_constr ->  Glob_term.glo
 val mkRConstruct : Names.constructor -> Glob_term.glob_constr
 val mkRInd : Names.inductive -> Glob_term.glob_constr
 val mkRLambda : Name.t -> Glob_term.glob_constr ->  Glob_term.glob_constr ->  Glob_term.glob_constr
+val mkRnat : int -> Glob_term.glob_constr
+
+
+val mkCHole : Loc.t -> constr_expr
+val mkCHoles : Loc.t -> int -> constr_expr list
+val mkCVar : Loc.t -> Id.t -> constr_expr
+val mkCCast : Loc.t -> constr_expr ->  constr_expr ->  constr_expr
+val mkCType : Loc.t -> constr_expr
+val mkCProp : Loc.t -> constr_expr
+val mkCArrow : Loc.t -> constr_expr ->  constr_expr ->  constr_expr
+val mkCLambda : Loc.t -> Name.t -> constr_expr ->  constr_expr ->  constr_expr
+
+
+val intern_term : 
+  Tacinterp.interp_sign -> Environ.env ->
+    ssrterm -> Glob_term.glob_constr
+
+val pf_intern_term :
+  Tacinterp.interp_sign -> Proof_type.goal Tacmach.sigma ->
+    ssrterm -> Glob_term.glob_constr
+
+val interp_term :
+  Tacinterp.interp_sign -> Proof_type.goal Tacmach.sigma ->
+    ssrterm -> Evd.evar_map * EConstr.t
+
+val interp_refine :
+  Tacinterp.interp_sign -> Proof_type.goal Tacmach.sigma ->
+    Glob_term.glob_constr -> Evd.evar_map * (Evd.evar_map * EConstr.constr)
+
+val interp_open_constr :
+  Tacinterp.interp_sign -> Proof_type.goal Tacmach.sigma ->
+    Tacexpr.glob_constr_and_expr -> Evd.evar_map * (Evd.evar_map * EConstr.t)
+
+val pf_e_type_of :
+  Proof_type.goal Evd.sigma ->
+  EConstr.constr -> Proof_type.goal Tacmach.sigma * EConstr.types
 
 val splay_open_constr : 
            Proof_type.goal Tacmach.sigma ->
@@ -92,6 +136,10 @@ val interp_view_nbimps :
 val interp_nbargs :
            Tacinterp.interp_sign ->
            Proof_type.goal Evd.sigma -> Glob_term.glob_constr -> int
+
+
+val mk_term : ssrtermkind -> 'b -> ssrtermkind * (Glob_term.glob_constr * 'b option)
+val mk_lterm : 'a -> ssrtermkind * (Glob_term.glob_constr * 'a option)
 
 val is_internal_name : string -> bool
 val add_internal_name : (string -> bool) -> unit
@@ -174,9 +222,30 @@ val ssrevaltac : Tacinterp.interp_sign -> Tacinterp.Value.t -> Proofview.V82.tac
 
 val convert_concl_no_check : EConstr.t -> unit Proofview.tactic
 val convert_concl : EConstr.t -> unit Proofview.tactic
+
+val red_safe :
+  Reductionops.reduction_function ->
+  Environ.env -> Evd.evar_map -> EConstr.t -> EConstr.t
+
+val red_product_skip_id :
+  Environ.env -> Evd.evar_map -> EConstr.t -> EConstr.t
+
 val ssrautoprop_tac :
            (Constr.existential_key Evd.sigma -> Constr.existential_key list Evd.sigma) ref
+
+val mkProt :
+  EConstr.t ->
+  EConstr.t ->
+  Proof_type.goal Evd.sigma ->
+  EConstr.t * Proof_type.goal Tacmach.sigma
+
 val mkEtaApp : EConstr.t -> int -> int -> EConstr.t
+
+val mkRefl :
+  EConstr.t ->
+  EConstr.t ->
+  Proof_type.goal Evd.sigma -> EConstr.t * Proof_type.goal Evd.sigma
+
 val discharge_hyp :
            Names.Id.t * (Names.Id.t * string) ->
            Proof_type.goal Tacmach.sigma -> Evar.t list Evd.sigma
@@ -263,20 +332,36 @@ type move_top_with_view =
 val move_top_with_view : move_top_with_view Hook.t
 val move_top_with_view_tac : move_top_with_view Hook.value
 
-val simpl : (ssrsimpl -> tactic) Hook.t
-val simpltac : (ssrsimpl -> tactic) Hook.value
-
-val gen : 
-           (Geninterp.interp_sign ->
-            (Ssrast.ssrdocc) *
-            Ssrmatching_plugin.Ssrmatching.cpattern -> Proof_type.tactic)
- Hook.t
 val gentac : 
-           (Geninterp.interp_sign ->
-            (Ssrast.ssrdocc) *
-            Ssrmatching_plugin.Ssrmatching.cpattern -> Proof_type.tactic)
+  (Geninterp.interp_sign ->
+   (Ssrast.ssrdocc) *
+     Ssrmatching_plugin.Ssrmatching.cpattern -> Proof_type.tactic)
 
- Hook.value
+val genstac :
+  ((Ssrast.ssrhyp list option * Ssrmatching_plugin.Ssrmatching.occ) *
+     Ssrmatching_plugin.Ssrmatching.cpattern)
+    list * Ssrast.ssrhyp list ->
+  Tacinterp.interp_sign -> Proof_type.tactic
+
+val pf_interp_gen :
+  Tacinterp.interp_sign ->
+  Proof_type.goal Tacmach.sigma ->
+  bool ->
+  (Ssrast.ssrhyp list option * Ssrmatching_plugin.Ssrmatching.occ) *
+    Ssrmatching_plugin.Ssrmatching.cpattern ->
+  EConstr.t * EConstr.t * Ssrast.ssrhyp list *
+    Proof_type.goal Tacmach.sigma
+
+val pf_interp_gen_aux :
+  Tacinterp.interp_sign ->
+  Proof_type.goal Tacmach.sigma ->
+  bool ->
+  (Ssrast.ssrhyp list option * Ssrmatching_plugin.Ssrmatching.occ) *
+    Ssrmatching_plugin.Ssrmatching.cpattern ->
+  bool * Ssrmatching_plugin.Ssrmatching.pattern * EConstr.t *
+    EConstr.t * Ssrast.ssrhyp list * Evd.evar_universe_context *
+      Proof_type.goal Tacmach.sigma
+
 val is_name_in_ipats :
            Id.t -> ssripats -> bool
 
@@ -288,6 +373,31 @@ Ssrast.ssrclear ->
 Tacinterp.interp_sign -> Proof_type.tactic
 val with_dgens_hook : with_dgens Hook.t
 val with_dgens : with_dgens Hook.value
+
+type profiler = { 
+  profile : 'a 'b. ('a -> 'b) -> 'a -> 'b;
+  reset : unit -> unit;
+  print : unit -> unit }
+
+val mk_profiler : string -> profiler
+
+(** Basic tactics *)
+
+val introid : ?orig:name ref -> Id.t -> v82tac
+val intro_anon : v82tac
+val intro_all : v82tac
+
+val interp_clr :
+  Evd.evar_map -> ssrhyps option * (ssrtermkind * EConstr.t) -> ssrhyps
+
+val genclrtac :
+  EConstr.constr ->
+  EConstr.constr list -> Ssrast.ssrhyp list -> Proof_type.tactic
+val cleartac : ssrhyps -> v82tac
+
+val tclMULT : int * ssrmmod -> Proof_type.tactic -> Proof_type.tactic
+
+val unprotecttac : Proof_type.goal Evd.sigma -> Proof_type.goal list Evd.sigma
 
 (*
 TODO:
