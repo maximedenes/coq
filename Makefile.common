@@ -62,7 +62,7 @@ PLUGINDIRS:=\
   setoid_ring 	extraction 	fourier \
   cc 		funind 		firstorder 	derive \
   rtauto 	nsatz           syntax          btauto \
-  ssrmatching	ltac		ssr             ssr/ssr1
+  ssrmatching	ltac		ssr
 
 SRCDIRS:=\
   $(CORESRCDIRS)  \

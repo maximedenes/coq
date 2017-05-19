@@ -640,44 +640,6 @@ let tclPERM perm tac gls =
   let sigma, subgll = Refiner.unpackage subgls in
   let subgll' = perm subgll in
   Refiner.repackage sigma subgll'
-(*
-let tclPERM perm tac gls =
-  let mkpft n g r =
-    {Proof_type.open_subgoals = n; Proof_type.goal = g; Proof_type.ref = r} in
-  let mkleaf g = mkpft 0 g None in
-  let mkprpft n g pr a = mkpft n g (Some (Proof_type.Prim pr, a)) in
-  let mkrpft n g c = mkprpft n g (Proof_type.Refine c) in
-  let mkipft n g =
-    let mki pft (id, _, _ as d) =
-      let g' = {g with evar_concl = mkNamedProd_or_LetIn d g.evar_concl} in
-      mkprpft n g' (Proof_type.Intro id) [pft] in
-    List.fold_left mki in
-  let gl = Refiner.sig_it gls in
-  let mkhyp subgl =
-    let rec chop_section = function
-    | (x, _, _ as d) :: e when not_section_id x -> d :: chop_section e
-    | _ -> [] in
-    let lhyps = Environ.named_context_of_val subgl.evar_hyps in
-    mk_perm_id (), subgl, chop_section lhyps in
-  let mkpfvar (hyp, subgl, lhyps) =
-    let mkarg args (lhyp, body, _) =
-      if body = None then mkVar lhyp :: args else args in
-    mkrpft 0 subgl (applist (mkVar hyp, List.fold_left mkarg [] lhyps)) [] in
-  let mkpfleaf (_, subgl, lhyps) = mkipft 1 gl (mkleaf subgl) lhyps in
-  let mkmeta _ = Evarutil.mk_new_meta () in
-  let mkhypdecl (hyp, subgl, lhyps) =
-    hyp, None, it_mkNamedProd_or_LetIn subgl.evar_concl lhyps in
-  let subgls, v as res0 = tac gls in
-  let sigma, subgll = Refiner.unpackage subgls in
-  let n = List.length subgll in if n = 0 then res0 else
-  let hyps = List.map mkhyp subgll in
-  let hyp_decls = List.map mkhypdecl (List.rev (perm hyps)) in
-  let c = applist (mkmeta (), List.map mkmeta subgll) in
-  let pft0 = mkipft 0 gl (v (List.map mkpfvar hyps)) hyp_decls in
-  let pft1 = mkrpft n gl c (pft0 :: List.map mkpfleaf (perm hyps)) in
-  let subgll', v' = Refiner.frontier pft1 in
-  Refiner.repackage sigma subgll', v'
-*)
 
 let tclREV tac gl = tclPERM List.rev tac gl
 
@@ -1058,8 +1020,6 @@ END
 
 (** The "exact" tactic *)
 
-let mk_exactarg views dgens = mk_applyarg views dgens []
-
 ARGUMENT EXTEND ssrexactarg TYPED AS ssrapplyarg PRINTED BY pr_ssraarg
 | [ ":" ssragen(gen) ssragens(dgens) ] ->
   [ mk_exactarg [] (cons_gen gen dgens) ]
@@ -1069,10 +1029,6 @@ ARGUMENT EXTEND ssrexactarg TYPED AS ssrapplyarg PRINTED BY pr_ssraarg
   [ mk_exactarg [] ([], clr) ]
 END
 
-let vmexacttac pf =
-  Proofview.Goal.nf_enter { enter = begin fun gl ->
-  exact_no_check (EConstr.mkCast (pf, VMcast, Tacmach.New.pf_concl gl))
-  end }
 
 TACTIC EXTEND ssrexact
 | [ "exact" ssrexactarg(arg) ] -> [ Proofview.V82.tactic (tclBY (ssrapplytac ist arg)) ]
