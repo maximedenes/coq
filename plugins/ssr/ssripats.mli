@@ -69,3 +69,14 @@ val ssrcasetac :
        (((Ssrast.ssrdocc * Ssrmatching.cpattern) list list * Ssrast.ssrclear) *
           Ssrast.ssripats)) ->
   Proof_type.tactic
+
+val ssrapplytac :
+  Tacinterp.interp_sign ->
+  Ssrast.ssrterm list *
+    ('a *
+       ((((Ssrast.ssrhyps option * Ssrmatching_plugin.Ssrmatching.occ) *
+            (Ssrast.ssrtermkind * Tacexpr.glob_constr_and_expr))
+           list list * Ssrast.ssrhyps) *
+          Ssrast.ssripats)) ->
+  Proof_type.tactic
+

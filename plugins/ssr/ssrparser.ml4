@@ -97,22 +97,6 @@ let add_genarg tag pr =
   Pptactic.declare_extra_genarg_pprule wit gen_pr gen_pr gen_pr;
   wit
 
-let of_ftactic ftac gl =
-  let r = ref None in
-  let tac = Ftactic.run ftac (fun ans -> r := Some ans; Proofview.tclUNIT ()) in
-  let tac = Proofview.V82.of_tactic tac in
-  let { sigma = sigma } = tac gl in
-  let ans = match !r with
-  | None -> assert false (** If the tactic failed we should not reach this point *)
-  | Some ans -> ans
-  in
-  (sigma, ans)
-
-let interp_wit wit ist gl x = 
-  let globarg = in_gen (glbwit wit) x in
-  let arg = Tacinterp.interp_genarg ist globarg in
-  let (sigma, arg) = of_ftactic arg gl in
-  sigma, Tacinterp.Value.cast (topwit wit) arg
 (** Primitive parsing to avoid syntax conflicts with basic tactics. *)
 
 let accept_before_syms syms strm =
@@ -150,11 +134,6 @@ let intern_hyp ist (SsrHyp (loc, id) as hyp) =
   let _ = Tacintern.intern_genarg ist (in_gen (rawwit wit_var) (loc, id)) in
   if not_section_id id then hyp else
   hyp_err loc "Can't clear section hypothesis " id
-
-let interp_hyp ist gl (SsrHyp (loc, id)) =
-  let s, id' = interp_wit wit_var ist gl (loc, id) in
-  if not_section_id id' then s, SsrHyp (loc, id') else
-  hyp_err loc "Can't clear section hypothesis " id'
 
 open Pcoq.Prim
 
@@ -198,10 +177,6 @@ END
 
 let pr_hyps = pr_list pr_spc pr_hyp
 let pr_ssrhyps _ _ _ = pr_hyps
-
-let interp_hyps ist gl ghyps =
-  let hyps = List.map snd (List.map (interp_hyp ist gl) ghyps) in
-  check_hyps_uniq [] hyps; Tacmach.project gl, hyps
 
 ARGUMENT EXTEND ssrhyps TYPED AS ssrhyp list PRINTED BY pr_ssrhyps
                         INTERPRETED BY interp_hyps

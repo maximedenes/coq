@@ -113,6 +113,12 @@ val interp_term :
   Tacinterp.interp_sign -> Proof_type.goal Tacmach.sigma ->
     ssrterm -> Evd.evar_map * EConstr.t
 
+val interp_wit :
+  ('a, 'b, 'c) genarg_type -> ist -> goal sigma -> 'b -> evar_map * 'c
+
+val interp_hyp : ist -> goal sigma -> ssrhyp -> evar_map * ssrhyp
+val interp_hyps : ist -> goal sigma -> ssrhyps -> evar_map * ssrhyps
+
 val interp_refine :
   Tacinterp.interp_sign -> Proof_type.goal Tacmach.sigma ->
     Glob_term.glob_constr -> Evd.evar_map * (Evd.evar_map * EConstr.constr)

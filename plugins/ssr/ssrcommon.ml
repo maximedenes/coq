@@ -246,6 +246,32 @@ let interp_open_constr ist gl gc =
 
 let interp_term ist gl (_, c) = snd (interp_open_constr ist gl c)
 
+let of_ftactic ftac gl =
+  let r = ref None in
+  let tac = Ftactic.run ftac (fun ans -> r := Some ans; Proofview.tclUNIT ()) in
+  let tac = Proofview.V82.of_tactic tac in
+  let { sigma = sigma } = tac gl in
+  let ans = match !r with
+  | None -> assert false (** If the tactic failed we should not reach this point *)
+  | Some ans -> ans
+  in
+  (sigma, ans)
+
+let interp_wit wit ist gl x = 
+  let globarg = in_gen (glbwit wit) x in
+  let arg = Tacinterp.interp_genarg ist globarg in
+  let (sigma, arg) = of_ftactic arg gl in
+  sigma, Tacinterp.Value.cast (topwit wit) arg
+
+let interp_hyp ist gl (SsrHyp (loc, id)) =
+  let s, id' = interp_wit wit_var ist gl (loc, id) in
+  if not_section_id id' then s, SsrHyp (loc, id') else
+  hyp_err loc "Can't clear section hypothesis " id'
+
+let interp_hyps ist gl ghyps =
+  let hyps = List.map snd (List.map (interp_hyp ist gl) ghyps) in
+  check_hyps_uniq [] hyps; Tacmach.project gl, hyps
+
 let mkRHole = Glob_term.GHole (dummy_loc, Evar_kinds.InternalHole, Misctypes.IntroAnonymous, None)
 
 let mk_term k c = k, (mkRHole, Some c)

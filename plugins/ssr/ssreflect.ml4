@@ -77,6 +77,7 @@ open Ssrmatching
 open Ssrast
 open Ssrprinters
 open Ssrcommon
+open Ssrbwd
 open Ssrequality
 open Ssrelim
 open Ssrparser
@@ -233,8 +234,6 @@ let tacltop = (5,Ppextend.E)
 
 let pf_pr_constr gl = pr_constr_env (pf_env gl)
 
-let pf_pr_glob_constr gl = pr_glob_constr_env (pf_env gl)
-
 (* debug *)
 
 let pf_msg gl =
@@ -374,7 +373,6 @@ let ssrtac_expr = ssrtac_atom
 (* fun gl -> let lfun = [tacarg_id, val_interp ist gl gtac] in
   interp_tac_gen lfun [] ist.debug tacarg_expr gl *)
 
-let pf_match = pf_apply (fun e s c t -> understand_tcc e s ~expected_type:t c)
 
 
 (* }}} *)
@@ -775,17 +773,6 @@ END
 
 let has_occ ((_, occ), _) = occ <> None
 
-let char_to_kind = function
-  | '(' -> xInParens
-  | '@' -> xWithAt
-  | ' ' -> xNoFlag
-  | 'x' -> xCpattern
-  | _ -> assert false
-
-(* Shoud go to ssrmatching *)
-let tag_of_cpattern x =
-  char_to_kind (tag_of_cpattern x)
-
 (** Generalization (discharge) sequence *)
 
 (* A discharge sequence is represented as a list of up to two   *)
@@ -1062,96 +1049,7 @@ PRINTED BY pr_ssraarg
   [ mk_applyarg view (cons_gen gen dgens) intros ]
 | [ ssrview(view) ssrclear(clr) ssrintros(intros) ] ->
   [ mk_applyarg view ([], clr) intros ]
-END
-
-let interp_agen ist gl ((goclr, _), (k, gc as c)) (clr, rcs) =
-(* ppdebug(lazy(str"sigma@interp_agen=" ++ pr_evar_map None (project gl))); *)
-  let k = char_to_kind k in
-  let rc = pf_intern_term ist gl c in
-  let rcs' = rc :: rcs in
-  match goclr with
-  | None -> clr, rcs'
-  | Some ghyps ->
-    let clr' = snd (interp_hyps ist gl ghyps) @ clr in
-    if k <> xNoFlag then clr', rcs' else
-    match rc with
-    | GVar (loc, id) when not_section_id id -> SsrHyp (loc, id) :: clr', rcs'
-    | GRef (loc, VarRef id, _) when not_section_id id ->
-        SsrHyp (loc, id) :: clr', rcs'
-    | _ -> clr', rcs'
-
-let interp_agens ist gl gagens =
-  match List.fold_right (interp_agen ist gl) gagens ([], []) with
-  | clr, rlemma :: args ->
-    let n = interp_nbargs ist gl rlemma - List.length args in
-    let rec loop i =
-      if i > n then
-         errorstrm (str "Cannot apply lemma " ++ pf_pr_glob_constr gl rlemma)
-      else
-        try interp_refine ist gl (mkRApp rlemma (mkRHoles i @ args))
-        with _ -> loop (i + 1) in
-    clr, loop 0
-  | _ -> assert false
-
-let apply_rconstr ?ist t gl =
-(* ppdebug(lazy(str"sigma@apply_rconstr=" ++ pr_evar_map None (project gl))); *)
-  let n = match ist, t with
-    | None, (GVar (_, id) | GRef (_, VarRef id,_)) -> pf_nbargs gl (EConstr.mkVar id)
-    | Some ist, _ -> interp_nbargs ist gl t
-    | _ -> anomaly "apply_rconstr without ist and not RVar" in
-  let mkRlemma i = mkRApp t (mkRHoles i) in
-  let cl = pf_concl gl in
-  let rec loop i =
-    if i > n then
-      errorstrm (str"Cannot apply lemma "++pf_pr_glob_constr gl t)
-    else try pf_match gl (mkRlemma i) (OfType cl) with _ -> loop (i + 1) in
-  refine_with (loop 0) gl
-
-let mkRAppView ist gl rv gv =
-  let nb_view_imps = interp_view_nbimps ist gl rv in
-  mkRApp rv (mkRHoles (abs nb_view_imps))
-
-let prof_apply_interp_with = mk_profiler "ssrapplytac.interp_with";;
-
-let refine_interp_apply_view i ist gl gv =
-  let pair i = List.map (fun x -> i, x) in
-  let rv = pf_intern_term ist gl gv in
-  let v = mkRAppView ist gl rv gv in
-  let interp_with (i, hint) =
-    interp_refine ist gl (mkRApp hint (v :: mkRHoles i)) in
-  let interp_with x = prof_apply_interp_with.profile interp_with x in
-  let rec loop = function
-  | [] -> (try apply_rconstr ~ist rv gl with _ -> view_error "apply" gv)
-  | h :: hs -> (try refine_with (snd (interp_with h)) gl with _ -> loop hs) in
-  loop (pair i Ssrview.viewtab.(i) @
-        if i = 2 then pair 1 Ssrview.viewtab.(1) else [])
-
-let apply_top_tac gl =
-  tclTHENLIST [introid top_id; apply_rconstr (mkRVar top_id); Proofview.V82.of_tactic (clear [top_id])] gl
-    
-let inner_ssrapplytac gviews ggenl gclr ist gl =
- let _, clr = interp_hyps ist gl gclr in
- let vtac gv i gl' = refine_interp_apply_view i ist gl' gv in
- let ggenl, tclGENTAC =
-   if gviews <> [] && ggenl <> [] then
-     let ggenl= List.map (fun (x,g) -> x, cpattern_of_term g) (List.hd ggenl) in
-     [], tclTHEN (genstac (ggenl,[]) ist)
-   else ggenl, tclTHEN tclIDTAC in
- tclGENTAC (fun gl ->
-  match gviews, ggenl with
-  | v :: tl, [] ->
-    let dbl = if List.length tl = 1 then 2 else 1 in
-    tclTHEN
-      (List.fold_left (fun acc v -> tclTHENLAST acc (vtac v dbl)) (vtac v 1) tl)
-      (cleartac clr) gl
-  | [], [agens] ->
-    let clr', (sigma, lemma) = interp_agens ist gl agens in
-    let gl = pf_merge_uc_of sigma gl in
-    tclTHENLIST [cleartac clr; refine_with ~beta:true lemma; cleartac clr'] gl
-  | _, _ -> tclTHEN apply_top_tac (cleartac clr) gl) gl
-
-let ssrapplytac ist (views, (_, ((gens, clr), intros))) =
-  tclINTROS ist (inner_ssrapplytac views gens clr) intros
+    END
 
 TACTIC EXTEND ssrapply
 | [ "apply" ssrapplyarg(arg) ] -> [ Proofview.V82.tactic (ssrapplytac ist arg) ]

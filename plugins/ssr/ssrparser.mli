@@ -20,8 +20,6 @@ open Proof_type
 open Evd
 open Refiner
 val add_genarg : string -> ('a -> Pp.std_ppcmds) -> 'a Genarg.uniform_genarg_type
-val interp_wit :
-  ('a, 'b, 'c) genarg_type -> ist -> goal sigma -> 'b -> evar_map * 'c
 
 
 (************************** Parsing helpers *********************************)
@@ -35,7 +33,6 @@ val accept_before_syms_or_ids : string list -> string list -> Tok.t Stream.t -> 
 val ssrhyp : ssrhyp Pcoq.Gram.entry
 val wit_ssrhyp : ssrhyp uniform_genarg_type
 val intern_hyp : gist -> ssrhyp -> ssrhyp
-val interp_hyp : ist -> goal sigma -> ssrhyp -> evar_map * ssrhyp
 
 (* Variant of the above *)
 val ssrhoi_id : ssrhyp_or_id Pcoq.Gram.entry
@@ -49,7 +46,6 @@ val hoi_id : ssrhyp_or_id -> Id.t
 (* Variant of the above *)
 val ssrhyps : ssrhyps Pcoq.Gram.entry
 val wit_ssrhyps : ssrhyps uniform_genarg_type
-val interp_hyps : ist -> goal sigma -> ssrhyps -> evar_map * ssrhyps
 
 val pr_hyps : ssrhyps -> Pp.std_ppcmds
 

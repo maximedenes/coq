@@ -56,6 +56,7 @@ open Ssrcommon
 open Ssrequality
 open Ssrview
 open Ssrelim
+open Ssrbwd
 
 module RelDecl = Context.Rel.Declaration
 module NamedDecl = Context.Named.Declaration
@@ -526,6 +527,9 @@ let ssrcasetac ist (view, (eqid, (dgens, ipats))) =
       ssrelim ~is_case:true ~ist deps (`EConstr (clr,occ, vc)) eqid (elim_intro_tac ipats) gl
   in
   with_dgens dgens (ndefectcasetac view eqid ipats) ist
+
+let ssrapplytac ist (views, (_, ((gens, clr), intros))) =
+  tclINTROS ist (inner_ssrapplytac views gens clr) intros
 
 
 (* vim: set filetype=ocaml foldmethod=marker: *)
