@@ -81,8 +81,6 @@ DECLARE PLUGIN "ssreflect_plugin"
  * we thus save the lexer to restore it at the end of the file *)
 let frozen_lexer = CLexer.get_keyword_state () ;;
 
-
-
 let tacltop = (5,Ppextend.E)
 
 let pr_ssrtacarg _ _ prt = prt tacltop
@@ -632,12 +630,6 @@ let rec add_intro_pattern_hyps (loc, ipat) hyps = Misctypes.(
 (* MD: what does this do? *)
 let rec interp_ipat ist gl = Misctypes.(
   let ltacvar id = Id.Map.mem id ist.Tacinterp.lfun in
-  let interp_seed = function
-    | (`Anon | `Wild) as x -> x
-    | `Id(id,side) ->
-        match interp_introid ist gl id with
-        | IntroNaming (IntroIdentifier id) -> `Id(id,side)
-        | _ -> `Id(Id.of_string "_",`Pre) in
   let rec interp = function
   | IPatId (mod_id, id) when ltacvar id ->
     ipat_of_intro_pattern (interp_introid ist gl id) (* FIXME mod_id *)

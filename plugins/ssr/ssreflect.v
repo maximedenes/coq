@@ -3,7 +3,6 @@
 Require Import Bool. (* For bool_scope delimiter 'bool'. *)
 Require Import ssrmatching.
 Declare ML Module "ssreflect_plugin".
-Set SsrAstVersion.
 
 (******************************************************************************)
 (* This file is the Gallina part of the ssreflect plugin implementation.      *)
