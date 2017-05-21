@@ -17,6 +17,15 @@ val test_hypname_exists : ('a, 'b) Context.Named.pt -> Id.t -> bool
 val check_hyps_uniq : Id.t list -> ssrhyps -> unit
 val not_section_id : Id.t -> bool
 val hyp_err : Loc.t -> string -> Id.t -> 'a
+val hoik : (ssrhyp -> 'a) -> ssrhyp_or_id -> 'a
+val hoi_id : ssrhyp_or_id -> Id.t
+
+(******************************* hints ***********************************)
+
+val mk_hint : 'a -> 'a ssrhint 
+val mk_orhint : 'a -> bool * 'a
+val nullhint : bool * 'a list
+val nohint : 'a ssrhint
 
 (******************************** misc ************************************)
 
@@ -392,11 +401,19 @@ val tclMULT : int * ssrmmod -> Proof_type.tactic -> Proof_type.tactic
 
 val unprotecttac : Proof_type.goal Evd.sigma -> Proof_type.goal list Evd.sigma
 
-(*
-TODO:
-move_top_with_view
-gentac_ref
-tclEQINTROSviewtac_ref
-*)
+val abs_wgen :
+  bool ->
+  Tacinterp.interp_sign ->
+  (Names.Id.t -> Names.Id.t) ->
+  'a *
+    ((Ssrast.ssrhyp_or_id * string) *
+       Ssrmatching_plugin.Ssrmatching.cpattern option)
+      option ->
+  Proof_type.goal Tacmach.sigma * EConstr.t list * EConstr.t ->
+  Proof_type.goal Tacmach.sigma * EConstr.t list * EConstr.t
+
+val clr_of_wgen :
+  ssrhyps * ((ssrhyp_or_id * 'a) * 'b option) option ->
+  Proofview.V82.tac list -> Proofview.V82.tac list
 
 

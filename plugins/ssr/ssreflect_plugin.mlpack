@@ -1,6 +1,7 @@
 Ssrast
 Ssrprinters
 Ssrcommon
+Ssrtacticals
 Ssrelim
 Ssrview
 Ssrbwd
@@ -12,5 +13,4 @@ CoqAPI
 Ssrparser
 Ssrvernac
 Ssreflect
-Ssrutils
 

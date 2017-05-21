@@ -41,7 +41,6 @@ val wit_ssrhoi_hyp : ssrhyp_or_id uniform_genarg_type
 val wit_ssrhoi_id : ssrhyp_or_id uniform_genarg_type
 
 val pr_hoi : ssrhyp_or_id -> Pp.std_ppcmds
-val hoi_id : ssrhyp_or_id -> Id.t
 
 (* Variant of the above *)
 val ssrhyps : ssrhyps Pcoq.Gram.entry
@@ -206,8 +205,6 @@ val wit_ssrhint :
 val pr_hint :
            (int * Ppextend.parenRelation -> 'a -> Pp.std_ppcmds) ->
            'a ssrhint -> Pp.std_ppcmds
-val mk_hint : 'a -> 'a ssrhint 
-val nohint : 'a ssrhint
 
 val ssrclauses : clauses Pcoq.Gram.entry
 val wit_ssrclauses : clauses uniform_genarg_type

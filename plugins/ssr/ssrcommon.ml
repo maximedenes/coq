@@ -62,6 +62,14 @@ let test_hypname_exists hyps id =
   try ignore(Context.Named.lookup id hyps); true
   with Not_found -> false
 
+let hoik f = function Hyp x -> f x | Id x -> f x
+let hoi_id = hoik hyp_id
+
+let mk_hint tac = false, [Some tac]
+let mk_orhint tacs = true, tacs
+let nullhint = true, []
+let nohint = false, []
+
 type 'a tac_a = (goal * 'a) sigma -> (goal * 'a) list sigma
 
 let push_ctx  a gl = re_sig (sig_it gl, a) (project gl)
@@ -1313,5 +1321,55 @@ let unprotecttac gl =
            CClosure.RedFlags.fFIX;
            CClosure.RedFlags.fCOFIX]), DEFAULTcast) hyploc))
     allHypsAndConcl gl
+
+let abs_wgen keep_let ist f gen (gl,args,c) =
+  let sigma, env = project gl, pf_env gl in
+  let evar_closed t p =
+    if occur_existential sigma t then
+      CErrors.user_err ~loc:(loc_of_cpattern p) ~hdr:"ssreflect"
+        (pr_constr_pat (EConstr.Unsafe.to_constr t) ++
+        str" contains holes and matches no subterm of the goal") in
+  match gen with
+  | _, Some ((x, mode), None) when mode = "@" || (mode = " " && keep_let) ->
+     let x = hoi_id x in
+     let decl = Tacmach.pf_get_hyp gl x in
+     gl,
+     (if NamedDecl.is_local_def decl then args else EConstr.mkVar x :: args),
+     EConstr.mkProd_or_LetIn (decl |> NamedDecl.to_rel_decl |> RelDecl.set_name (Name (f x)))
+                     (EConstr.Vars.subst_var x c)
+  | _, Some ((x, _), None) ->
+     let x = hoi_id x in
+     gl, EConstr.mkVar x :: args, EConstr.mkProd (Name (f x),Tacmach.pf_get_hyp_typ gl x, EConstr.Vars.subst_var x c)
+  | _, Some ((x, "@"), Some p) -> 
+     let x = hoi_id x in
+     let cp = interp_cpattern ist gl p None in
+     let (t, ucst), c =
+       try fill_occ_pattern ~raise_NoMatch:true env sigma (EConstr.Unsafe.to_constr c) cp None 1
+       with NoMatch -> redex_of_pattern env cp, (EConstr.Unsafe.to_constr c) in
+     let c = EConstr.of_constr c in
+     let t = EConstr.of_constr t in
+     evar_closed t p;
+     let ut = red_product_skip_id env sigma t in
+     let gl, ty = pfe_type_of gl t in
+     pf_merge_uc ucst gl, args, EConstr.mkLetIn(Name (f x), ut, ty, c)
+  | _, Some ((x, _), Some p) ->
+     let x = hoi_id x in
+     let cp = interp_cpattern ist gl p None in
+     let (t, ucst), c =
+       try fill_occ_pattern ~raise_NoMatch:true env sigma (EConstr.Unsafe.to_constr c) cp None 1
+       with NoMatch -> redex_of_pattern env cp, (EConstr.Unsafe.to_constr c) in
+     let c = EConstr.of_constr c in
+     let t = EConstr.of_constr t in
+     evar_closed t p;
+     let gl, ty = pfe_type_of gl t in
+     pf_merge_uc ucst gl, t :: args, EConstr.mkProd(Name (f x), ty, c)
+  | _ -> gl, args, c
+
+let clr_of_wgen gen clrs = match gen with
+  | clr, Some ((x, _), None) ->
+     let x = hoi_id x in
+     cleartac clr :: cleartac [SsrHyp(Loc.ghost,x)] :: clrs
+  | clr, _ -> cleartac clr :: clrs
+
 
 (* vim: set filetype=ocaml foldmethod=marker: *)

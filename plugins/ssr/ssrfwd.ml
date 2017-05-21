@@ -1,4 +1,7 @@
 open Names
+open Termops
+open EConstr
+open Sigma.Notations
 
 open Ssrmatching_plugin.Ssrmatching
 open Ltac_plugin
@@ -6,6 +9,10 @@ open Tacmach
 
 open Ssrprinters
 open Ssrcommon
+open Ssrtacticals
+
+module NamedDecl = Context.Named.Declaration
+module RelDecl = Context.Rel.Declaration
 
 (** 8. Forward chaining tactics (pose, set, have, suffice, wlog) *)
 (** Defined identifier *)
@@ -104,17 +111,6 @@ open Ssrast
 open Ssripats
 
 let eval_tclarg ist tac = ssrevaltac ist tac
-
-let hinttac ist is_by (is_or, atacs) =
-  let dtac = if is_by then donetac ~-1 else Tacticals.tclIDTAC in
-  let mktac = function
-  | Some atac -> Tacticals.tclTHEN (ssrevaltac ist atac) dtac
-  | _ -> dtac in
-  match List.map mktac atacs with
-  | [] -> if is_or then dtac else Tacticals.tclIDTAC
-  | [tac] -> tac
-  | tacs -> Tacticals.tclFIRST tacs
-
 
 let ssrhaveNOtcresolution = Summary.ref ~name:"SSR:havenotcresolution" false
 
@@ -325,3 +321,100 @@ let ssrabstract ist gens (*last*) gl =
         (List.tl (List.hd gens))) in
   Tacticals.tclTHEN (with_dgens gens main ist) (introback ist gens) gl
 
+
+let destProd_or_LetIn sigma c =
+  match EConstr.kind sigma c with
+  | Prod (n,ty,c) -> RelDecl.LocalAssum (n, ty), c
+  | LetIn (n,bo,ty,c) -> RelDecl.LocalDef (n, bo, ty), c
+  | _ -> raise DestKO
+
+let wlogtac ist (((clr0, pats),_),_) (gens, ((_, ct))) hint suff ghave gl =
+  let mkabs gen = abs_wgen false ist (fun x -> x) gen in
+  let mkclr gen clrs = clr_of_wgen gen clrs in
+  let mkpats = function
+  | _, Some ((x, _), _) -> fun pats -> IPatId (None, hoi_id x) :: pats
+  | _ -> fun x -> x in
+  let ct = match ct with
+  | (a, (b, Some (CCast (_, _, CastConv cty)))) -> a, (b, Some cty)
+  | (a, (GCast (_, _, CastConv cty), None)) -> a, (cty, None)
+  | _ -> anomaly "wlog: ssr cast hole deleted by typecheck" in
+  let cut_implies_goal = not (suff || ghave <> `NoGen) in
+  let c, args, ct, gl =
+    let gens = List.filter (function _, Some _ -> true | _ -> false) gens in
+    let concl = pf_concl gl in
+    let c = EConstr.mkProp in
+    let c = if cut_implies_goal then EConstr.mkArrow c concl else c in
+    let gl, args, c = List.fold_right mkabs gens (gl,[],c) in
+    let env, _ =
+      List.fold_left (fun (env, c) _ ->
+        let rd, c = destProd_or_LetIn (project gl) c in
+        EConstr.push_rel rd env, c) (pf_env gl, c) gens in
+    let sigma = project gl in
+    let sigma = Sigma.Unsafe.of_evar_map sigma in
+    let Sigma (ev, sigma, _) = Evarutil.new_evar env sigma EConstr.mkProp in
+    let sigma = Sigma.to_evar_map sigma in
+    let k, _ = EConstr.destEvar sigma ev in
+    let fake_gl = {Evd.it = k; Evd.sigma = sigma} in
+    let _, ct, _, uc = pf_interp_ty ist fake_gl ct in
+    let rec var2rel c g s = match EConstr.kind sigma c, g with
+      | Prod(Anonymous,_,c), [] -> EConstr.mkProd(Anonymous, EConstr.Vars.subst_vars s ct, c)
+      | Sort _, [] -> EConstr.Vars.subst_vars s ct
+      | LetIn(Name id as n,b,ty,c), _::g -> EConstr.mkLetIn (n,b,ty,var2rel c g (id::s))
+      | Prod(Name id as n,ty,c), _::g -> EConstr.mkProd (n,ty,var2rel c g (id::s))
+      | _ -> CErrors.anomaly(str"SSR: wlog: var2rel: " ++ pr_econstr c) in
+    let c = var2rel c gens [] in
+    let rec pired c = function
+      | [] -> c
+      | t::ts as args -> match EConstr.kind sigma c with
+         | Prod(_,_,c) -> pired (EConstr.Vars.subst1 t c) ts
+         | LetIn(id,b,ty,c) -> EConstr.mkLetIn (id,b,ty,pired c args)
+         | _ -> CErrors.anomaly(str"SSR: wlog: pired: " ++ pr_econstr c) in
+    c, args, pired c args, pf_merge_uc uc gl in
+  let tacipat pats = introstac ~ist pats in
+  let tacigens = 
+    Tacticals.tclTHEN
+      (Tacticals.tclTHENLIST(List.rev(List.fold_right mkclr gens [cleartac clr0])))
+      (introstac ~ist (List.fold_right mkpats gens [])) in
+  let hinttac = hinttac ist true hint in
+  let cut_kind, fst_goal_tac, snd_goal_tac =
+    match suff, ghave with
+    | true, `NoGen -> "ssr_wlog", Tacticals.tclTHEN hinttac (tacipat pats), tacigens
+    | false, `NoGen -> "ssr_wlog", hinttac, Tacticals.tclTHEN tacigens (tacipat pats)
+    | true, `Gen _ -> assert false
+    | false, `Gen id ->
+      if gens = [] then errorstrm(str"gen have requires some generalizations");
+      let clear0 = cleartac clr0 in
+      let id, name_general_hyp, cleanup, pats = match id, pats with
+      | None, (IPatId (mod_id,id) as ip)::pats -> (* FIXME mod_id *) Some id, tacipat [ip], clear0, pats
+      | None, _ -> None, Tacticals.tclIDTAC, clear0, pats
+      | Some (Some id),_ -> Some id, introid id, clear0, pats
+      | Some _,_ ->
+          let id = mk_anon_id "tmp" gl in
+          Some id, introid id, Tacticals.tclTHEN clear0 (Proofview.V82.of_tactic (Tactics.clear [id])), pats in
+      let tac_specialize = match id with
+      | None -> Tacticals.tclIDTAC
+      | Some id ->
+        if pats = [] then Tacticals.tclIDTAC else
+        let args = Array.of_list args in
+        ppdebug(lazy(str"specialized="++pr_econstr EConstr.(mkApp (mkVar id,args))));
+        ppdebug(lazy(str"specialized_ty="++pr_econstr ct));
+        Tacticals.tclTHENS (basecuttac "ssr_have" ct)
+          [Proofview.V82.of_tactic (Tactics.apply EConstr.(mkApp (mkVar id,args))); Tacticals.tclIDTAC] in
+      "ssr_have",
+      (if hint = nohint then tacigens else hinttac),
+      Tacticals.tclTHENLIST [name_general_hyp; tac_specialize; tacipat pats; cleanup]
+  in
+  Tacticals.tclTHENS (basecuttac cut_kind c) [fst_goal_tac; snd_goal_tac] gl
+
+(** The "suffice" tactic *)
+
+let sufftac ist ((((clr, pats),binders),simpl), ((_, c), hint)) =
+  let htac = Tacticals.tclTHEN (introstac ~ist pats) (hinttac ist true hint) in
+  let c = match c with
+  | (a, (b, Some (CCast (_, _, CastConv cty)))) -> a, (b, Some cty)
+  | (a, (GCast (_, _, CastConv cty), None)) -> a, (cty, None)
+  | _ -> anomaly "suff: ssr cast hole deleted by typecheck" in
+  let ctac gl =
+    let _,ty,_,uc = pf_interp_ty ist gl c in let gl = pf_merge_uc uc gl in
+    basecuttac "ssr_suff" ty gl in
+  Tacticals.tclTHENS ctac [htac; Tacticals.tclTHEN (cleartac clr) (introstac ~ist (binders@simpl))]
