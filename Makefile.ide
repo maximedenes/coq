@@ -216,25 +216,11 @@ $(COQIDEAPP)/Contents/Resources/lib: $(COQIDEAPP)/Contents/Resources/immodules $
 #	 sed -e "s!/.*\(/pango/1.8.0/modules/.*.so\)!@executable_path/../Resources/lib\1!"; } \
 #	> $@/pango/1.8.0/modules.cache
 
-	for i in $$(otool -L $(COQIDEINAPP) |sed -n -e "\@$(GTKLIBS)@ s/[^/]*\(\/[^ ]*\) .*$$/\1/p"); \
-	    do cp $$i $@/; \
-	    ide/MacOS/relatify_with-respect-to_.sh $@/$$(basename $$i) $(GTKLIBS) $@; \
-	done
+	macpack -d ../Resources/lib $(COQIDEINAPP)
 	for i in $@/../loaders/*.so $@/../immodules/*.so; \
 	    do \
-		for j in $$(otool -L $$i | sed -n -e "\@$(GTKLIBS)@ s/[^/]*\(\/[^ ]*\) .*$$/\1/p"); \
-		do cp $$j $@/; ide/MacOS/relatify_with-respect-to_.sh $@/$$(basename $$j) $(GTKLIBS) $@; done; \
-		ide/MacOS/relatify_with-respect-to_.sh $$i $(GTKLIBS) $@; \
+	      macpack -d ../lib $$i; \
 	    done
-	EXTRAWORK=1; \
-	while [ $${EXTRAWORK} -eq 1 ]; \
-	do EXTRAWORK=0; \
-	    for i in $@/*.dylib; \
-	    do for j in $$(otool -L $$i | sed -n -e "\@$(GTKLIBS)@ s/[^/]*\(\/[^ ]*\) .*$$/\1/p"); \
-		do EXTRAWORK=1; cp $$j $@/; ide/MacOS/relatify_with-respect-to_.sh $@/$$(basename $$j) $(GTKLIBS) $@; done; \
-	    done; \
-	done
-	ide/MacOS/relatify_with-respect-to_.sh $(COQIDEINAPP) $(GTKLIBS) $@
 
 $(COQIDEAPP)/Contents/Resources:$(COQIDEAPP)/Contents/Resources/etc $(COQIDEAPP)/Contents/Resources/share
 	$(INSTALLLIB) ide/MacOS/*.icns $@

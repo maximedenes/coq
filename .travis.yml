@@ -146,9 +146,10 @@ matrix:
       - EXTRA_OPAM="lablgtk-extras"
       before_install:
       - brew update
-      - brew install opam gtk+ expat gtksourceview libxml2 gdk-pixbuf
-      - wget https://git.gnome.org/browse/gtk-osx/plain/gtk-osx-build-setup.sh
-      - sh gtk-osx-build-setup.sh
+      - brew install opam gtk+ expat gtksourceview libxml2 gdk-pixbuf python3
+      - pip3 install macpack
+      #- wget https://git.gnome.org/browse/gtk-osx/plain/gtk-osx-build-setup.sh
+      #- sh gtk-osx-build-setup.sh
       #- ~/.local/bin/jhbuild bootstrap
       #- ~/.local/bin/jhbuild build meta-gtk-osx-bootstrap meta-gtk-osx-core
 
