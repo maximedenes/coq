@@ -142,7 +142,7 @@ matrix:
       - NATIVE_COMP="no"
       - EXTRA_CONF="-coqide opt"
       - OUTDIR="_install"
-      - COQ_DEST="-prefix "${OUTDIR}
+      - COQ_DEST="-prefix _install"
       - EXTRA_OPAM="lablgtk-extras"
       before_install:
       - brew update
