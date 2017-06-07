@@ -1,0 +1,20 @@
+{
+    "package": {
+        "name": "coq",
+        "repo": "coq",
+        "subject": "maximedenes",
+    },
+
+    "version": {
+        "name": "8.7.dev"
+    },
+
+    "files":
+        [
+        {"includePattern": "_dmg/(CoqIDE_.*)", "uploadPattern": "$1",
+         "matrixParams": {
+             "override": 1 }
+        }
+        ],
+    "publish": true
+}

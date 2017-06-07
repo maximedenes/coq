@@ -1,21 +1,12 @@
 dist: trusty
-
-# Travis builds are slower using sudo: false (the container-based
-# infrastructure) as of March 2017; see
-# https://github.com/coq/coq/pull/467 for some discussion.
 sudo: required
-
-# Until Ocaml becomes a language, we set a known one.
 language: c
-
 cache:
   apt: true
   directories:
-  - $HOME/.opam
-
+  - "$HOME/.opam"
 before_cache:
-  - rm -rf ~/.opam/log/
-
+- rm -rf ~/.opam/log/
 addons:
   apt:
     sources:
@@ -24,16 +15,13 @@ addons:
     - opam
     - aspcud
     - gcc-multilib
-
 env:
   global:
   - NJOBS=2
-  # system is == 4.02.3
   - COMPILER="system"
   - CAMLP5_VER="6.14"
   - NATIVE_COMP="yes"
   - COQ_DEST="-local"
-  # Main test suites
   matrix:
   - TEST_TARGET="test-suite" COMPILER="4.02.3+32bit"
   - TEST_TARGET="validate"                           TW="travis_wait"
@@ -55,163 +43,128 @@ env:
   - TEST_TARGET="ci-sf"
   - TEST_TARGET="ci-unimath"
   - TEST_TARGET="ci-vst"
-  # Not ready yet for 8.7
-  # - TEST_TARGET="ci-cpdt"
-  # - TEST_TARGET="ci-metacoq"
-  # - TEST_TARGET="ci-tlc"
-
 matrix:
-
   allow_failures:
   - env: TEST_TARGET="ci-geocoq"
-
   include:
-    # Full Coq test-suite with two compilers
-    - env:
-      - TEST_TARGET="test-suite"
-      - EXTRA_CONF="-coqide opt -with-doc yes"
-      - EXTRA_OPAM="lablgtk-extras hevea"
-      addons:
-        apt:
-          sources:
-          - avsm
-          packages: &extra-packages
-          - opam
-          - aspcud
-          - libgtk2.0-dev
-          - libgtksourceview2.0-dev
-          - texlive-latex-base
-          - texlive-latex-recommended
-          - texlive-latex-extra
-          - texlive-math-extra
-          - texlive-fonts-recommended
-          - texlive-fonts-extra
-          - latex-xcolor
-          - ghostscript
-          - transfig
-          - imagemagick
-          - tipa
-
-    - env:
-      - TEST_TARGET="test-suite"
-      - COMPILER="4.04.1"
-      - CAMLP5_VER="6.17"
-      - EXTRA_CONF="-coqide opt -with-doc yes"
-      - EXTRA_OPAM="lablgtk-extras hevea"
-      addons:
-        apt:
-          sources:
-          - avsm
-          packages: *extra-packages
-
-    # Ocaml warnings with two compilers
-    - env:
-      - TEST_TARGET="coqocaml"
-      - EXTRA_CONF="-coqide opt -warn-error"
-      - EXTRA_OPAM="lablgtk-extras hevea"
-      # dummy target
-      - BUILD_TARGET="clean"
-      addons:
-        apt:
-          sources:
-          - avsm
-          packages: &coqide-packages
-          - opam
-          - aspcud
-          - libgtk2.0-dev
-          - libgtksourceview2.0-dev
-
-    - env:
-      - TEST_TARGET="coqocaml"
-      - COMPILER="4.04.1"
-      - CAMLP5_VER="6.17"
-      - EXTRA_CONF="-coqide opt -warn-error"
-      - EXTRA_OPAM="lablgtk-extras hevea"
-      # dummy target
-      - BUILD_TARGET="clean"
-      addons:
-        apt:
-          sources:
-          - avsm
-          packages: *coqide-packages
-    - os: osx
-      env:
-      - TEST_TARGET=""
-      - COMPILER="system"
-      - CAMLP5_VER="6.17"
-      - NATIVE_COMP="no"
-      - EXTRA_CONF="-coqide opt"
-      - OUTDIR="_install"
-      - COQ_DEST="-prefix _install"
-      - EXTRA_OPAM="lablgtk-extras"
-      before_install:
-      - brew update
-      - brew install opam gtk+ expat gtksourceview libxml2 gdk-pixbuf python3
-      - pip3 install macpack
-      #- wget https://git.gnome.org/browse/gtk-osx/plain/gtk-osx-build-setup.sh
-      #- sh gtk-osx-build-setup.sh
-      #- ~/.local/bin/jhbuild bootstrap
-      #- ~/.local/bin/jhbuild build meta-gtk-osx-bootstrap meta-gtk-osx-core
-
-      #after_install:
-      #- ~/.local/bin/jhbuild run opam install lablgtk-extras
-
-      before_deploy:
-      - DMGDIR="_dmg"
-      - VERSION=$(sed -n -e '/^let coq_version/ s/^[^"]*"\([^"]*\)"$/\1/p' configure.ml)
-      - APP=bin/CoqIDE_${VERSION}.app
-      # Create a .app file with CoqIDE
-      - make -j ${NJOBS} ${APP}
-      # Add Coq to the .app file
-      - make OLDROOT=${OUTDIR} COQINSTALLPREFIX=${APP}/Contents/Resources/ install-coq install-ide-toploop
-      # Sign the .app file
-      - codesign -f -s - ${APP}
-
-      # Create the dmg bundle
-      - mkdir -p ${DMGDIR}
-      - ln -sf /Applications ${DMGDIR}/Applications
-      - cp -r ${APP} ${DMGDIR}
-
-      # Temporary countermeasure to hdiutil error 5341
-      # - head -c9703424 /dev/urandom > $DMGDIR/.padding
-
-      - hdiutil create -imagekey zlib-level=9 -volname CoqIDE_${VERSION} -srcfolder ${DMGDIR} -ov -format UDZO CoqIDE_${VERSION}.dmg
-
-      deploy:
-        skip_cleanup: true
-        on:
-          all_branches: true
-
-
-
+  - env:
+    - TEST_TARGET="test-suite"
+    - EXTRA_CONF="-coqide opt -with-doc yes"
+    - EXTRA_OPAM="lablgtk-extras hevea"
+    addons:
+      apt:
+        sources:
+        - avsm
+        packages: &1
+        - opam
+        - aspcud
+        - libgtk2.0-dev
+        - libgtksourceview2.0-dev
+        - texlive-latex-base
+        - texlive-latex-recommended
+        - texlive-latex-extra
+        - texlive-math-extra
+        - texlive-fonts-recommended
+        - texlive-fonts-extra
+        - latex-xcolor
+        - ghostscript
+        - transfig
+        - imagemagick
+        - tipa
+  - env:
+    - TEST_TARGET="test-suite"
+    - COMPILER="4.04.1"
+    - CAMLP5_VER="6.17"
+    - EXTRA_CONF="-coqide opt -with-doc yes"
+    - EXTRA_OPAM="lablgtk-extras hevea"
+    addons:
+      apt:
+        sources:
+        - avsm
+        packages: *1
+  - env:
+    - TEST_TARGET="coqocaml"
+    - EXTRA_CONF="-coqide opt -warn-error"
+    - EXTRA_OPAM="lablgtk-extras hevea"
+    - BUILD_TARGET="clean"
+    addons:
+      apt:
+        sources:
+        - avsm
+        packages: &2
+        - opam
+        - aspcud
+        - libgtk2.0-dev
+        - libgtksourceview2.0-dev
+  - env:
+    - TEST_TARGET="coqocaml"
+    - COMPILER="4.04.1"
+    - CAMLP5_VER="6.17"
+    - EXTRA_CONF="-coqide opt -warn-error"
+    - EXTRA_OPAM="lablgtk-extras hevea"
+    - BUILD_TARGET="clean"
+    addons:
+      apt:
+        sources:
+        - avsm
+        packages: *2
+  - os: osx
+    env:
+    - TEST_TARGET=""
+    - COMPILER="system"
+    - CAMLP5_VER="6.17"
+    - NATIVE_COMP="no"
+    - EXTRA_CONF="-coqide opt"
+    - OUTDIR="_install"
+    - COQ_DEST="-prefix _install"
+    - EXTRA_OPAM="lablgtk-extras"
+    before_install:
+    - brew update
+    - brew install opam gtk+ expat gtksourceview libxml2 gdk-pixbuf python3
+    - pip3 install macpack
+    before_deploy:
+    - DMGDIR="_dmg"
+    - VERSION=$(sed -n -e '/^let coq_version/ s/^[^"]*"\([^"]*\)"$/\1/p' configure.ml)
+    - APP=bin/CoqIDE_${VERSION}.app
+    - make -j ${NJOBS} ${APP}
+    - make OLDROOT=${OUTDIR} COQINSTALLPREFIX=${APP}/Contents/Resources/ install-coq
+      install-ide-toploop
+    - codesign -f -s - ${APP}
+    - mkdir -p ${DMGDIR}
+    - ln -sf /Applications ${DMGDIR}/Applications
+    - cp -r ${APP} ${DMGDIR}
+    - hdiutil create -imagekey zlib-level=9 -volname CoqIDE_${VERSION} -srcfolder
+      ${DMGDIR} -ov -format UDZO CoqIDE_${VERSION}.dmg
+    deploy:
+      provider: bintray
+      user: maximedenes
+      key:
+        secure: "ul0A2TtKukg69VUWeK6ZUG4PqFu9S7YTBu85Stdn9xTQnNo7qxvdiG3HZEkmXehw9Su4UljZ+e1KcOhl7gaRKUbXoxvCDf9sRBKSqABpB3jZzj18t5t2DdqSNB/9FTMBPRiaxyZw0COEH8DHHkTtaDw6nmSvkN8E+8F91TX2ACC2bt1NX9Xr7D1ND48W0bRVb2tw6WUjh56buGAQIxkgJxjNhRVmAl8sVV3PzSh25Ew+e8CJhXoKxnbqQkpYF44yUKxBHAFL02sR8SpGCKaMebMeTKRuI3WLxaq00tNrPgGJoh90FZm1CIO+QS//dqc7XLfq3U1I3pacXhRwPqpjtPiAvVG2GbcIpiMid6KPiofRqJaYsowca2y67TOa7iatd68luwJq9UQeKbQgqXS0ynUYjuG7AlYXJIonyea63HYUyxRviMS+mrme3I38hBL9eqF/qzD1wVJtgoNfelm+aX07mJ/mcJNV5C/1/+B3fAnAD2J4NPQ+lAoCmPRxvrd+kMq0fhCUV4cI4I1L4XttpAr4gxUgUwHGLQ95xblQTv+zvrFYBjndzJFF7GX5m9MUdW1RaGmDNvN7JMA8l7xq4WZdy3oB7zPZb+uHKkjqM97P4n8G7NAI7aiBNAf46dxPBGM6XAdldqkfTGkdwBYkULRq1dS2FWK6OnnFVGenFv0="
+      skip_cleanup: true
+      on:
+        all_branches: true
 install:
 - opam init -j ${NJOBS} --compiler=${COMPILER} -n -y
 - eval $(opam config env)
 - opam config list
 - opam install -j ${NJOBS} -y camlp5.${CAMLP5_VER} ocamlfind ${EXTRA_OPAM}
 - opam list
-
 script:
-
 - set -e
 - echo 'Configuring Coq...' && echo -en 'travis_fold:start:coq.config\\r'
-- ./configure ${COQ_DEST} -usecamlp5 -native-compiler ${NATIVE_COMP} ${EXTRA_CONF}
+- "./configure ${COQ_DEST} -usecamlp5 -native-compiler ${NATIVE_COMP} ${EXTRA_CONF}"
 - echo -en 'travis_fold:end:coq.config\\r'
-
 - echo 'Building Coq...' && echo -en 'travis_fold:start:coq.build\\r'
 - make -j ${NJOBS}
 - echo -en 'travis_fold:end:coq.build\\r'
-
 - echo 'Running tests...' && echo -en 'travis_fold:start:coq.test\\r'
-- ${TW} make -j ${NJOBS} ${TEST_TARGET}
+- "${TW} make -j ${NJOBS} ${TEST_TARGET}"
 - echo -en 'travis_fold:end:coq.test\\r'
 - set +e
-
-# Testing Gitter webhook
 notifications:
   webhooks:
     urls:
-      - https://webhooks.gitter.im/e/3cdabdec318214c7cd63
-    on_success: change  # options: [always|never|change] default: always
-    on_failure: always  # options: [always|never|change] default: always
-    on_start: never     # options: [always|never|change] default: always
+    - https://webhooks.gitter.im/e/3cdabdec318214c7cd63
+    on_success: change
+    on_failure: always
+    on_start: never
