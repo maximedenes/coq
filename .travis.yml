@@ -135,7 +135,7 @@ matrix:
     - cp -r ${APP} ${DMGDIR}
     - mkdir -p _build
     - hdiutil create -imagekey zlib-level=9 -volname CoqIDE_${VERSION} -srcfolder
-      ${DMGDIR} -ov -format UDZO build/CoqIDE_${VERSION}.dmg
+      ${DMGDIR} -ov -format UDZO _build/CoqIDE_${VERSION}.dmg
     deploy:
       provider: bintray
       user: maximedenes
