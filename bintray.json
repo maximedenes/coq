@@ -11,7 +11,7 @@
 
     "files":
         [
-        {"includePattern": "(build/CoqIDE_.*\.dmg)", "uploadPattern": "$1",
+        {"includePattern": "(_build/CoqIDE_.*\.dmg)", "uploadPattern": "$1",
          "matrixParams": {
              "override": 1 }
         }
