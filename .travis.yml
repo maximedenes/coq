@@ -138,6 +138,7 @@ matrix:
     deploy:
       provider: bintray
       user: maximedenes
+      file: bintray.json
       key:
         secure: "ul0A2TtKukg69VUWeK6ZUG4PqFu9S7YTBu85Stdn9xTQnNo7qxvdiG3HZEkmXehw9Su4UljZ+e1KcOhl7gaRKUbXoxvCDf9sRBKSqABpB3jZzj18t5t2DdqSNB/9FTMBPRiaxyZw0COEH8DHHkTtaDw6nmSvkN8E+8F91TX2ACC2bt1NX9Xr7D1ND48W0bRVb2tw6WUjh56buGAQIxkgJxjNhRVmAl8sVV3PzSh25Ew+e8CJhXoKxnbqQkpYF44yUKxBHAFL02sR8SpGCKaMebMeTKRuI3WLxaq00tNrPgGJoh90FZm1CIO+QS//dqc7XLfq3U1I3pacXhRwPqpjtPiAvVG2GbcIpiMid6KPiofRqJaYsowca2y67TOa7iatd68luwJq9UQeKbQgqXS0ynUYjuG7AlYXJIonyea63HYUyxRviMS+mrme3I38hBL9eqF/qzD1wVJtgoNfelm+aX07mJ/mcJNV5C/1/+B3fAnAD2J4NPQ+lAoCmPRxvrd+kMq0fhCUV4cI4I1L4XttpAr4gxUgUwHGLQ95xblQTv+zvrFYBjndzJFF7GX5m9MUdW1RaGmDNvN7JMA8l7xq4WZdy3oB7zPZb+uHKkjqM97P4n8G7NAI7aiBNAf46dxPBGM6XAdldqkfTGkdwBYkULRq1dS2FWK6OnnFVGenFv0="
       skip_cleanup: true
