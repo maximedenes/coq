@@ -44,11 +44,6 @@ if [ $TRAVIS_PULL_REQUEST == "498" ] || [ $TRAVIS_BRANCH == "outsource-bignums" 
     Corn_CI_GITURL=https://github.com/letouzey/corn.git
 fi
 
-if [ $TRAVIS_PULL_REQUEST == "220" ] || [ $TRAVIS_BRANCH == "less_init_plugins" ]; then
-    CompCert_CI_BRANCH=less_init_plugins
-    CompCert_CI_GITURL=https://github.com/letouzey/CompCert.git
-    VST_CI_BRANCH=less_init_plugins
-    VST_CI_GITURL=https://github.com/letouzey/VST.git
-    fiat_crypto_CI_BRANCH=less_init_plugins
-    fiat_crypto_CI_GITURL=https://github.com/letouzey/fiat-crypto.git
+if [ $TRAVIS_PULL_REQUEST = "784" ] || [ $TRAVIS_BRANCH == "dpdgraph" ]; then
+    coq_dpdgraph_CI_GITURL=https://github.com/SkySkimmer/coq-dpdgraph.git
 fi
