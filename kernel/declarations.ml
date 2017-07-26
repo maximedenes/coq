@@ -95,6 +95,7 @@ type constant_body = {
 
 (** {6 Representation of mutual inductive types in the kernel } *)
 
+(** MD: isn't there two ways of representing usual rec args? Are they equivalent? *)
 type recarg =
   | Norec
   | Mrec of inductive

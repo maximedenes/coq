@@ -25,13 +25,13 @@
 (************************************************************************)
 module Coq_config :
 sig
-  val exec_extension : string
+  val exec_extension : string (** !DOC *)
 end
 
 (************************************************************************)
 (* Modules from kernel/                                                 *)
 (************************************************************************)
-module Names :
+module Names : (** !DOC *)
 sig
 
   open Util
@@ -226,7 +226,7 @@ sig
 
   type variable = Id.t
 
-  type 'a tableKey =
+  type 'a tableKey = (** XX: Why is this here? *)
     | ConstKey of 'a
     | VarKey of Id.t
     | RelKey of Int.t
@@ -297,7 +297,9 @@ sig
   val make_con : ModPath.t -> DirPath.t -> Label.t -> Constant.t
   [@@ocaml.deprecated "alias of API.Names.Constant.make3"]
 
-  val debug_pr_con : Constant.t -> Pp.std_ppcmds
+  val debug_pr_con : Constant.t -> Pp.std_ppcmds (** MD: this (debug functions)
+  could probably go away if we could install the type equations along with
+  top_printers *)
 
   val debug_pr_mind : MutInd.t -> Pp.std_ppcmds
 
@@ -316,7 +318,7 @@ sig
 
 end
 
-module Univ :
+module Univ : (** !DOC *)
 sig
 
   module Level :
@@ -357,7 +359,7 @@ sig
 
   type constraint_type = Lt | Le | Eq
 
-  type univ_constraint = universe_level * constraint_type * universe_level
+  type univ_constraint
 
   module Constraint : sig
     include Set.S with type elt = univ_constraint
@@ -434,19 +436,19 @@ sig
   val pr_constraints : (Level.t -> Pp.std_ppcmds) -> Constraint.t -> Pp.std_ppcmds
 end
 
-module UGraph :
+module UGraph : (** !DOC *)
 sig
   type t
   val pr_universes : (Univ.Level.t -> Pp.std_ppcmds) -> t -> Pp.std_ppcmds
 end
 
-module Esubst :
+module Esubst : (** !DOC *)
 sig
   type 'a subs
   val subs_id : int -> 'a subs
 end
 
-module Sorts :
+module Sorts : (** !DOC *)
 sig
   type contents = Pos | Null
   type t =
@@ -459,7 +461,7 @@ sig
   val family : t -> family
 end
 
-module Evar :
+module Evar : (** !DOC *)
 sig
   (** Unique identifier of some {i evar} *)
   type t
@@ -475,7 +477,7 @@ sig
 
 end
 
-module Constr :
+module Constr : (** !DOC *)
 sig
   open Names
 
@@ -589,7 +591,7 @@ sig
 
 end
 
-module Context :
+module Context : (** !DOC *)
 sig
   module Rel :
   sig
@@ -792,7 +794,7 @@ sig
   end
 end
 
-module Vars :
+module Vars : (** !DOC if PMP says yes *)
 sig
   type substl = Constr.t list
 
@@ -814,7 +816,7 @@ sig
   val substnl : substl -> int -> Constr.t -> Constr.t
 end
 
-module Term :
+module Term : (** !DOC *)
 sig
 
   type sorts_family = Sorts.family = InProp | InSet | InType
@@ -1016,7 +1018,7 @@ sig
   val compare_constr : (constr -> constr -> bool) -> constr -> constr -> bool
 end
 
-module Mod_subst :
+module Mod_subst : (** !DOC *)
 sig
   type delta_resolver
   type substitution
@@ -1037,7 +1039,7 @@ sig
   val debug_pr_delta : delta_resolver -> Pp.std_ppcmds
 end
 
-module Opaqueproof :
+module Opaqueproof : (** !DOC *)
 sig
   type opaquetab
   type opaque
@@ -1047,8 +1049,7 @@ end
 
 module Cbytecodes :
 sig
-  type tag = int
-  type reloc_table = (tag * int) array
+  type reloc_table
 end
 
 module Cemitcodes :
@@ -1056,7 +1057,7 @@ sig
   type to_patch_substituted
 end
 
-module Decl_kinds :
+module Decl_kinds : (** !DOC *)
 sig
   type polymorphic = bool
   type cumulative_inductive_flag = bool
@@ -1166,20 +1167,14 @@ sig
 
   open Names
 
-  type recarg =
-    | Norec
-    | Mrec of Names.inductive
-    | Imbr of Names.inductive
+  type recarg
   type wf_paths = recarg Rtree.t
   type inline = int option
   type constant_def =
                     | Undef of inline
                     | Def of Constr.t Mod_subst.substituted
                     | OpaqueDef of Opaqueproof.opaque
-  type template_arity = {
-    template_param_levels : Univ.Level.t option list;
-    template_level : Univ.Universe.t;
-  }
+  type template_arity
 
   type ('a, 'b) declaration_arity =
     | RegularArity of 'a
