@@ -1111,7 +1111,7 @@ sig
   type definition_kind = locality * polymorphic * definition_object_kind
 end
 
-module Retroknowledge :
+module Retroknowledge : (** !NODOC for now, should be move out of Ltac plugin *)
 sig
   type action
   type nat_field =
@@ -1157,12 +1157,12 @@ sig
     | KInt31 of string * int31_field
 end
 
-module Conv_oracle :
+module Conv_oracle : (** !DOC *)
 sig
   type level
 end
 
-module Declarations :
+module Declarations : (** !DOC *)
 sig
 
   open Names
@@ -1294,14 +1294,14 @@ sig
                             | SFBmodtype of module_type_body
 end
 
-module Declareops :
+module Declareops : (** !DOC *)
 sig
   val constant_has_body : Declarations.constant_body -> bool
   val is_opaque : Declarations.constant_body -> bool
   val eq_recarg : Declarations.recarg -> Declarations.recarg -> bool
 end
 
-module Entries :
+module Entries : (** !DOC *)
 sig
 
   open Names
@@ -1367,7 +1367,7 @@ sig
   type module_type_entry = module_params_entry * module_struct_entry
 end
 
-module Environ :
+module Environ : (** !DOC *)
 sig
   type env
   type named_context_val
@@ -1410,14 +1410,14 @@ sig
   val push_context_set : ?strict:bool -> Univ.ContextSet.t -> env -> env
 end
 
-module CClosure :
+module CClosure : (** !DOC *)
 sig
 
   type table_key = Names.Constant.t Univ.puniverses Names.tableKey
 
   type fconstr
 
-  type fterm =
+  type fterm = (* This should probably be made abstract *)
     | FRel of int
     | FAtom of Constr.t (** Metas and Sorts *)
     | FCast of fconstr * Constr.cast_kind * fconstr
@@ -1478,7 +1478,7 @@ sig
   val term_of_fconstr : fconstr -> Constr.t
 end
 
-module Reduction :
+module Reduction : (** !DOC *)
 sig
   exception NotConvertible
   type conv_pb =
@@ -1500,7 +1500,7 @@ sig
   val conv : Constr.t extended_conversion_function
 end
 
-module Type_errors :
+module Type_errors : (** !DOC *)
 sig
 
   open Names
@@ -1558,7 +1558,7 @@ sig
   exception TypeError of Environ.env * type_error
 end
 
-module Modops :
+module Modops : (** !DOC good luck *)
 sig
   val destr_nofunctor : ('ty,'a) Declarations.functorize -> 'a
   val add_structure :
@@ -1567,7 +1567,7 @@ sig
   val add_module_type : Names.ModPath.t -> Declarations.module_type_body -> Environ.env -> Environ.env
 end
 
-module Inductive :
+module Inductive : (** !DOC *)
 sig
   type mind_specif = Declarations.mutual_inductive_body * Declarations.one_inductive_body
   val type_of_inductive : Environ.env -> mind_specif Univ.puniverses -> Term.types
@@ -1576,14 +1576,14 @@ sig
   val find_inductive  : Environ.env -> Term.types -> Term.pinductive * Constr.t list
 end
 
-module Typeops :
+module Typeops : (** !DOC *)
 sig
   val infer_type : Environ.env -> Term.types -> Environ.unsafe_type_judgment
   val type_of_constant_type : Environ.env -> Declarations.constant_type -> Term.types
   val type_of_constant_in : Environ.env -> Term.pconstant -> Term.types
 end
 
-module Mod_typing :
+module Mod_typing : (** !DOC *)
 sig
   type 'alg translation =
     Declarations.module_signature * 'alg * Mod_subst.delta_resolver * Univ.ContextSet.t
@@ -1595,10 +1595,11 @@ sig
     Declarations.module_alg_expr translation
 end
 
-module Safe_typing :
+module Safe_typing : (** !NODOC *)
 sig
   type private_constants
   val mk_pure_proof : Constr.t -> private_constants Entries.proof_output
+    (** What is the point of this function? proof_output is not opaque *)
 end
 
 (************************************************************************)
@@ -1609,8 +1610,10 @@ end
 (* Modules from intf/                                                   *)
 (************************************************************************)
 
-module Misctypes :
+module Misctypes : (** !NODOC *)
 sig
+  
+  (** Should be labels *)
   type evars_flag = bool
   type clear_flag = bool option
   type advanced_flag = bool
@@ -1706,7 +1709,7 @@ sig
 
 end
 
-module Locus :
+module Locus : (** !NODOC for now *)
 sig
   type 'a occurrences_gen =
   | AllOccurrences
@@ -1735,13 +1738,13 @@ end
 (* Modules from library/                                                *)
 (************************************************************************)
 
-module Univops :
+module Univops : (** !DOC *)
 sig
   val universes_of_constr : Term.constr -> Univ.universe_set
   val restrict_universe_context : Univ.universe_context_set -> Univ.universe_set -> Univ.universe_context_set
 end
 
-module Nameops :
+module Nameops : (** !DOC *)
 sig
   val atompart_of_id : Names.Id.t -> string
 
@@ -1766,7 +1769,7 @@ sig
   end
 end
 
-module Libnames :
+module Libnames : (** !DOC, good luck *)
 sig
 
   open Util
@@ -1813,7 +1816,7 @@ sig
   module Spmap  : CSig.MapS with type key = full_path
 end
 
-module Globnames :
+module Globnames : (** !DOC *)
 sig
 
   open Util
@@ -1866,7 +1869,7 @@ sig
   val is_global : global_reference -> Constr.t -> bool
 end
 
-module Libobject :
+module Libobject : (** !DOC *)
 sig
   type obj
   type 'a substitutivity =
@@ -1890,7 +1893,7 @@ sig
   val object_tag : obj -> string
 end
 
-module Summary :
+module Summary : (** !DOC *)
 sig
 
   type frozen
@@ -1912,7 +1915,7 @@ sig
   end
 end
 
-module Nametab :
+module Nametab : (** !DOC *)
 sig
   exception GlobalizationError of Libnames.qualid
 
@@ -1943,7 +1946,7 @@ sig
   val locate_constant : Libnames.qualid -> Names.Constant.t
 end
 
-module Global :
+module Global : (** !DOC *)
 sig
   val env : unit -> Environ.env
   val lookup_mind : Names.MutInd.t -> Declarations.mutual_inductive_body
@@ -1969,7 +1972,7 @@ sig
   val add_constraints : Univ.Constraint.t -> unit
 end
 
-module Lib : sig
+module Lib : sig (** !DOC *)
   type is_type = bool
   type export = bool option
   type node =
@@ -2003,24 +2006,24 @@ sig
 
 end
 
-module Library :
+module Library : (** No idea what this does, we should figure out *)
 sig
   val library_is_loaded : Names.DirPath.t -> bool
   val loaded_libraries : unit -> Names.DirPath.t list
 end
 
-module States :
+module States : (** !DOC *)
 sig
   val with_state_protection_on_exception : ('a -> 'b) -> 'a -> 'b
   val with_state_protection : ('a -> 'b) -> 'a -> 'b
 end
 
-module Kindops :
+module Kindops : (** !DOC read Goethe first *)
 sig
   val logical_kind_of_goal_kind : Decl_kinds.goal_object_kind -> Decl_kinds.logical_kind
 end
 
-module Goptions :
+module Goptions : (** !DOC *)
 sig
   type option_name = string list
   type 'a option_sig =
@@ -2043,7 +2046,7 @@ sig
   val set_bool_option_value : option_name -> bool -> unit
 end
 
-module Keys :
+module Keys : (** !NODOC *)
 sig
   type key
   val constr_key : ('a -> ('a, 't, 'u, 'i) Constr.kind_of_term) -> 'a -> key option
@@ -2051,7 +2054,7 @@ sig
   val pr_keys : (Globnames.global_reference -> Pp.std_ppcmds) -> Pp.std_ppcmds
 end
 
-module Coqlib :
+module Coqlib : (** !DOC but Emilio is rewriting it, sync with him *)
 sig
 
   type coq_eq_data = { eq   : Globnames.global_reference;
@@ -2113,7 +2116,7 @@ end
 (* Modules from engine/                                                 *)
 (************************************************************************)
 
-module Universes :
+module Universes : (** !DOC but wait for PMP changes *)
 sig
   type universe_binders
   type universe_opt_subst
@@ -2136,7 +2139,7 @@ sig
   type universe_constraints = Constraints.t
 end
 
-module UState :
+module UState : (** !DOC but wait for PMP changes *)
 sig
   type t
   val context : t -> Univ.UContext.t
@@ -2150,7 +2153,7 @@ sig
 end
 
 (* XXX: Moved from intf *)
-module Evar_kinds :
+module Evar_kinds : (** !DOC good luck *)
 sig
   type obligation_definition_status =
     | Define of bool
@@ -2176,7 +2179,7 @@ sig
          | SubEvar of Constr.existential_key
 end
 
-module Evd :
+module Evd : (** !DOC *)
 sig
 
   type evar = Constr.existential_key
@@ -2348,7 +2351,7 @@ sig
 end
 
 (* XXX: moved from intf *)
-module Constrexpr :
+module Constrexpr : (** !DOC *)
 sig
 
   type binder_kind =
@@ -2453,7 +2456,7 @@ sig
   type constr_pattern_expr = constr_expr
 end
 
-module Genredexpr :
+module Genredexpr : (** !NODOC *)
 sig
 
   (** The parsing produces initially a list of [red_atom] *)
@@ -2506,7 +2509,7 @@ end
 
 (* XXX: end of moved from intf *)
 
-module EConstr :
+module EConstr : (** !DOC *)
 sig
   type t
   type constr = t
@@ -2675,7 +2678,7 @@ sig
 end
 
 (* XXX: Located manually from intf *)
-module Pattern :
+module Pattern : (** !DOC *)
 sig
 
   type case_info_pattern =
@@ -2712,7 +2715,7 @@ sig
 
 end
 
-module Namegen :
+module Namegen : (** !DOC *)
 sig
   (** *)
 
@@ -2743,7 +2746,7 @@ sig
     Evd.evar_map -> Names.Id.t list -> Names.Name.t list -> EConstr.types -> EConstr.types
 end
 
-module Termops :
+module Termops : (** !DOC *)
 sig
   val it_mkLambda_or_LetIn : Constr.t -> Context.Rel.t -> Constr.t
   val local_occur_var : Evd.evar_map -> Names.Id.t -> EConstr.constr -> bool
@@ -2830,7 +2833,7 @@ sig
   end
 end
 
-module Evarutil :
+module Evarutil : (** !DOC *)
 sig
   val e_new_global : Evd.evar_map ref -> Globnames.global_reference -> EConstr.constr
 
@@ -2882,7 +2885,7 @@ sig
   val evd_comb1 : (Evd.evar_map -> 'b -> Evd.evar_map * 'a) -> Evd.evar_map ref -> 'b -> 'a
 end
 
-module Proofview :
+module Proofview : (** !DOC *)
 sig
   type proofview
   type entry
@@ -2996,7 +2999,7 @@ sig
   end
 end
 
-module Ftactic :
+module Ftactic : (** !DOC good luck *)
 sig
   type +'a focus
   type +'a t = 'a focus Proofview.tactic
@@ -3020,7 +3023,7 @@ sig
   end
 end
 
-module Geninterp :
+module Geninterp : (** !NODOC *)
 sig
   module Val :
   sig
@@ -3064,7 +3067,7 @@ sig
 end
 
 (* XXX: Located manually from intf *)
-module Glob_term :
+module Glob_term : (** !DOC *)
 sig
   type cases_pattern_r =
     | PatVar  of Names.Name.t
@@ -3146,7 +3149,7 @@ sig
 
 end
 
-module Notation_term :
+module Notation_term : (** !DOC *)
 sig
   type scope_name = string
   type notation_var_instance_type =
@@ -3180,7 +3183,7 @@ sig
     notation_constr
 end
 
-module Tactypes :
+module Tactypes : (** !NODOC *)
 sig
   type glob_constr_and_expr = Glob_term.glob_constr * Constrexpr.constr_expr option
   type glob_constr_pattern_and_expr = Names.Id.Set.t * glob_constr_and_expr * Pattern.constr_pattern
@@ -3203,7 +3206,7 @@ end
 (* Modules from pretyping/                                              *)
 (************************************************************************)
 
-module Locusops :
+module Locusops : (** !NODOC *)
 sig
   val clause_with_generic_occurrences : 'a Locus.clause_expr -> bool
   val nowhere : 'a Locus.clause_expr
@@ -3216,7 +3219,7 @@ sig
   val onHyp : 'a -> 'a Locus.clause_expr
 end
 
-module Pretype_errors :
+module Pretype_errors : (** !DOC *)
 sig
   type unification_error
   type subterm_unification_error
@@ -3250,7 +3253,7 @@ sig
   val precatchable_exception : exn -> bool
 end
 
-module Reductionops :
+module Reductionops : (** !DOC *)
 sig
   type local_reduction_function = Evd.evar_map -> EConstr.constr -> EConstr.constr
 
@@ -3298,7 +3301,7 @@ sig
   end
 end
 
-module Inductiveops :
+module Inductiveops : (** !DOC *)
 sig
   type inductive_family
   type inductive_type =
@@ -3332,7 +3335,7 @@ sig
   val type_of_inductive : Environ.env -> Term.pinductive -> Term.types
 end
 
-module Impargs :
+module Impargs : (** !DOC good luck *)
 sig
   type implicit_status
   type implicit_side_condition
@@ -3352,7 +3355,7 @@ sig
   val make_contextual_implicit_args : bool -> unit
 end
 
-module Retyping :  (* reconstruct the type of a term knowing that it was already typechecked *)
+module Retyping :  (** !DOC *) (* reconstruct the type of a term knowing that it was already typechecked *)
 sig
   val get_type_of : ?polyprop:bool -> ?lax:bool -> Environ.env -> Evd.evar_map -> EConstr.constr -> EConstr.types
   val get_sort_family_of : ?polyprop:bool -> Environ.env -> Evd.evar_map -> EConstr.types -> Sorts.family
@@ -3361,19 +3364,19 @@ sig
     ?polyprop:bool -> Environ.env -> Evd.evar_map -> EConstr.types -> Sorts.t
 end
 
-module Find_subterm :
+module Find_subterm : (** Why is the error function the only one used?! *)
 sig
   val error_invalid_occurrence : int list -> 'a
 end
 
-module Evarsolve :
+module Evarsolve : (** !DOC *)
 sig
   val refresh_universes :
     ?status:Evd.rigid -> ?onlyalg:bool -> ?refreshset:bool -> bool option ->
     Environ.env -> Evd.evar_map -> EConstr.types -> Evd.evar_map * EConstr.types
 end
 
-module Recordops :
+module Recordops : (** !DOC *)
 sig
 
   type cs_pattern =
@@ -3396,7 +3399,7 @@ sig
   val find_projection_nparams : Globnames.global_reference -> int
 end
 
-module Evarconv :
+module Evarconv : (** !DOC *)
 sig
   val e_conv : Environ.env -> ?ts:Names.transparent_state -> Evd.evar_map ref -> EConstr.constr -> EConstr.constr -> bool
   val the_conv_x : Environ.env -> ?ts:Names.transparent_state -> EConstr.constr -> EConstr.constr -> Evd.evar_map -> Evd.evar_map
@@ -3404,7 +3407,7 @@ sig
   val solve_unif_constraints_with_heuristics : Environ.env -> ?ts:Names.transparent_state -> Evd.evar_map -> Evd.evar_map
 end
 
-module Typing :
+module Typing : (** !DOC *)
 sig
   val e_sort_of : Environ.env -> Evd.evar_map ref -> EConstr.types -> Sorts.t
 
@@ -3418,14 +3421,14 @@ sig
   val e_type_of : ?refresh:bool -> Environ.env -> Evd.evar_map ref -> EConstr.constr -> EConstr.types
 end
 
-module Miscops :
+module Miscops : (** !DOC *)
 sig
   val map_red_expr_gen : ('a -> 'd) -> ('b -> 'e) -> ('c -> 'f) ->
                          ('a,'b,'c) Genredexpr.red_expr_gen -> ('d,'e,'f) Genredexpr.red_expr_gen
   val map_cast_type : ('a -> 'b) -> 'a Misctypes.cast_type -> 'b Misctypes.cast_type
 end
 
-module Glob_ops :
+module Glob_ops : (** !DOC *)
 sig
   val map_glob_constr_left_to_right : (Glob_term.glob_constr -> Glob_term.glob_constr) -> Glob_term.glob_constr -> Glob_term.glob_constr
   val loc_of_glob_constr : Glob_term.glob_constr -> Loc.t option
@@ -3444,13 +3447,13 @@ sig
 
 end
 
-module Redops :
+module Redops : (** !DOC *)
 sig
   val all_flags : 'a Genredexpr.glob_red_flag
   val make_red_flag : 'a Genredexpr.red_atom list -> 'a Genredexpr.glob_red_flag
 end
 
-module Patternops :
+module Patternops : (** !DOC *)
 sig
   val pattern_of_glob_constr : Glob_term.glob_constr -> Names.Id.t list * Pattern.constr_pattern
   val subst_pattern : Mod_subst.substitution -> Pattern.constr_pattern -> Pattern.constr_pattern
@@ -3460,7 +3463,7 @@ sig
     Pattern.constr_pattern -> Pattern.constr_pattern
 end
 
-module Constr_matching :
+module Constr_matching : (** !DOC *)
 sig
   val special_meta : Constr.metavariable
 
@@ -3481,7 +3484,7 @@ sig
   val matches : Environ.env -> Evd.evar_map -> Pattern.constr_pattern -> EConstr.constr -> Pattern.patvar_map
 end
 
-module Tacred :
+module Tacred : (** !DOC *)
 sig
   val try_red_product : Reductionops.reduction_function
   val simpl : Reductionops.reduction_function
@@ -3500,7 +3503,7 @@ sig
 end
 
 (* XXX: Located manually from intf *)
-module Tok :
+module Tok : (** !NODOC *)
 sig
 
   type t =
@@ -3516,7 +3519,7 @@ sig
 
 end
 
-module CLexer :
+module CLexer : (** !DOC *)
 sig
   val add_keyword : string -> unit
   val remove_keyword : string -> unit
@@ -3533,7 +3536,7 @@ sig
   include Grammar.GLexerType with type te = Tok.t
 end
 
-module Extend :
+module Extend : (** !NODOC *)
 sig
 
   type gram_assoc = NonA | RightA | LeftA
@@ -3620,7 +3623,7 @@ sig
 end
 
 (* XXX: Located manually from intf *)
-module Vernacexpr :
+module Vernacexpr : (** !DOC *)
 sig
   open Misctypes
   open Constrexpr
@@ -3776,7 +3779,8 @@ sig
     | DefaultInline
     | InlineAt of int
 
-  type vernac_expr =
+  type vernac_expr = (** If vernacentries provided entry points, we would not
+  need to expose the AST *)
   | VernacLoad of verbose_flag * string
   | VernacTime of vernac_expr Loc.located
   | VernacRedirect of string * vernac_expr Loc.located
@@ -3920,7 +3924,7 @@ end
 
 (* XXX: end manual intf move *)
 
-module Typeclasses :
+module Typeclasses : (** !DOC *)
 sig
   type typeclass = {
     cl_univs : Univ.AUContext.t;
@@ -3948,7 +3952,7 @@ sig
                      Globnames.global_reference -> instance
 end
 
-module Classops :
+module Classops : (** !DOC *)
 sig
   type coe_index
   type inheritance_path = coe_index list
@@ -3962,7 +3966,7 @@ sig
   val pr_cl_index : cl_index -> Pp.std_ppcmds
 end
 
-module Detyping :
+module Detyping : (** !DOC but sync with Emilio *)
 sig
   val print_universes : bool ref
   val print_evar_arguments : bool ref
@@ -3971,7 +3975,7 @@ sig
   val set_detype_anonymous : (?loc:Loc.t -> int -> Glob_term.glob_constr) -> unit
 end
 
-module Indrec :
+module Indrec : (** !DOC *)
 sig
   type dep_flag = bool
   val lookup_eliminator : Names.inductive -> Sorts.family -> Globnames.global_reference
@@ -3984,7 +3988,7 @@ sig
       Sorts.family -> Evd.evar_map * Constr.t
 end
 
-module Pretyping :
+module Pretyping : (** !DOC *)
 sig
   type typing_constraint =
     | OfType of EConstr.types
@@ -4026,7 +4030,7 @@ sig
     Glob_term.ltac_var_map -> typing_constraint -> Glob_term.glob_constr -> Evd.evar_map * EConstr.constr
 end
 
-module Unification :
+module Unification : (** !NODOC *)
 sig
   type core_unify_flags = {
     modulo_conv_on_closed_terms : Names.transparent_state option;
@@ -4065,7 +4069,7 @@ end
 (* Modules from interp/                                              *)
 (************************************************************************)
 
-module Genintern :
+module Genintern : (** !NODOC *)
 sig
   open Genarg
 
@@ -4100,7 +4104,7 @@ sig
 
 end
 
-module Stdarg :
+module Stdarg : (** !NODOC *)
 sig
   val loc_of_or_by_notation : ('a -> Loc.t option) -> 'a Misctypes.or_by_notation -> Loc.t option
   val wit_unit : unit Genarg.uniform_genarg_type
@@ -4143,7 +4147,7 @@ sig
      EConstr.constr Misctypes.with_bindings Tactypes.delayed_open) Genarg.genarg_type
 end
 
-module Constrexpr_ops :
+module Constrexpr_ops : (** !DOC *)
 sig
   val mkIdentC : Names.Id.t -> Constrexpr.constr_expr
   val mkAppC : Constrexpr.constr_expr * Constrexpr.constr_expr list -> Constrexpr.constr_expr
@@ -4158,7 +4162,7 @@ sig
   val mkCProdN : ?loc:Loc.t -> Constrexpr.local_binder_expr list -> Constrexpr.constr_expr -> Constrexpr.constr_expr
 end
 
-module Notation_ops :
+module Notation_ops : (** !DOC *)
 sig
   val glob_constr_of_notation_constr : ?loc:Loc.t -> Notation_term.notation_constr -> Glob_term.glob_constr
   val glob_constr_of_notation_constr_with_binders : ?loc:Loc.t ->
@@ -4167,7 +4171,7 @@ sig
                                                     'a -> Notation_term.notation_constr -> Glob_term.glob_constr
 end
 
-module Ppextend :
+module Ppextend : (** !NODOC *)
 sig
 
   type precedence = int
@@ -4177,7 +4181,7 @@ sig
 
 end
 
-module Notation :
+module Notation : (** !DOC *)
 sig
   type cases_pattern_status = bool
   type required_module = Libnames.full_path * string list
@@ -4202,14 +4206,14 @@ sig
   val uninterp_prim_token : Glob_term.glob_constr -> Notation_term.scope_name * Constrexpr.prim_token
 end
 
-module Dumpglob :
+module Dumpglob : (** !DOC *)
 sig
   val add_glob : ?loc:Loc.t -> Globnames.global_reference -> unit
   val pause : unit -> unit
   val continue : unit -> unit
 end
 
-module Smartlocate :
+module Smartlocate : (** !DOC *)
 sig
   val locate_global_with_alias : ?head:bool -> Libnames.qualid Loc.located -> Globnames.global_reference
   val global_with_alias : ?head:bool -> Libnames.reference -> Globnames.global_reference
@@ -4218,13 +4222,13 @@ sig
   val smart_global : ?head:bool -> Libnames.reference Misctypes.or_by_notation -> Globnames.global_reference
 end
 
-module Topconstr :
+module Topconstr : (** !DOC *)
 sig
   val replace_vars_constr_expr :
   Names.Id.t Names.Id.Map.t -> Constrexpr.constr_expr -> Constrexpr.constr_expr
 end
 
-module Constrintern :
+module Constrintern : (** !DOC *)
 sig
   type ltac_sign = {
     ltac_vars : Names.Id.Set.t;
@@ -4273,7 +4277,7 @@ sig
   val global_reference : Names.Id.t -> Globnames.global_reference
 end
 
-module Constrextern :
+module Constrextern : (** !DOC *)
 sig
   val extern_glob_constr : Names.Id.Set.t -> Glob_term.glob_constr -> Constrexpr.constr_expr
   val extern_glob_type : Names.Id.Set.t -> Glob_term.glob_constr -> Constrexpr.constr_expr
@@ -4286,7 +4290,7 @@ sig
     (?loc:Loc.t -> Names.Id.Set.t -> Globnames.global_reference -> Libnames.reference) -> unit
 end
 
-module Declare :
+module Declare : (** !DOC *)
 sig
   type internal_flag =
     | UserAutomaticRequest
@@ -4326,7 +4330,7 @@ end
 (* Modules from proofs/                                                 *)
 (************************************************************************)
 
-module Miscprint :
+module Miscprint : (** !NODOC *)
 sig
   val pr_or_and_intro_pattern :
     ('a -> Pp.std_ppcmds) -> 'a Misctypes.or_and_intro_pattern_expr -> Pp.std_ppcmds
@@ -4345,7 +4349,7 @@ sig
 end
 
 (* All items in the Goal modules are deprecated. *)
-module Goal :
+module Goal : (** !NODOC *)
 sig
   type goal = Evar.t
 
@@ -4379,14 +4383,14 @@ sig
   end
 end
 
-module Evar_refiner :
+module Evar_refiner : (** !NODOC *)
 sig
   val w_refine : Evar.t * Evd.evar_info ->
                  Pretyping.glob_constr_ltac_closure -> Evd.evar_map -> Evd.evar_map
 end
 
 
-module Proof_type :
+module Proof_type : (** !NODOC *)
 sig
   type prim_rule =
     | Cut of bool * bool * Names.Id.t * Term.types
@@ -4395,7 +4399,7 @@ sig
   type tactic = Goal.goal Evd.sigma -> Goal.goal list Evd.sigma
 end
 
-module Logic :
+module Logic : (** !NODOC *)
 sig
   type refiner_error =
   | BadType of Constr.t * Constr.t * Constr.t
@@ -4411,13 +4415,13 @@ sig
   val catchable_exception : exn -> bool
 end
 
-module Refine :
+module Refine : (** !DOC *)
 sig
   val refine : typecheck:bool -> (Evd.evar_map -> Evd.evar_map * EConstr.t) -> unit Proofview.tactic
   val solve_constraints : unit Proofview.tactic
 end
 
-module Proof :
+module Proof : (** !DOC except V82 *)
 sig
   type proof
   type 'a focus_kind
@@ -4435,12 +4439,12 @@ sig
   end
 end
 
-module Proof_bullet :
+module Proof_bullet : (** !DOC *)
 sig
   val get_default_goal_selector : unit -> Vernacexpr.goal_selector
 end
 
-module Proof_global :
+module Proof_global : (** !DOC *)
 sig
   type proof_mode = {
       name : string;
@@ -4487,7 +4491,7 @@ sig
   val get_current_proof_name : unit -> Names.Id.t
 end
 
-module Redexpr :
+module Redexpr : (** !DOC *)
 sig
   type red_expr =
     (EConstr.constr, Names.evaluable_global_reference, Pattern.constr_pattern) Genredexpr.red_expr_gen
@@ -4496,7 +4500,7 @@ sig
   val declare_reduction : string -> Reductionops.reduction_function -> unit
 end
 
-module Refiner :
+module Refiner : (** !NODOC *)
 sig
   val project : 'a Evd.sigma -> Evd.evar_map
 
@@ -4519,7 +4523,7 @@ sig
   val tclAT_LEAST_ONCE : Proof_type.tactic -> Proof_type.tactic
 end
 
-module Tacmach :
+module Tacmach : (** !DOC only New *)
 sig
 
   type tactic = Proof_type.tactic
@@ -4598,7 +4602,7 @@ sig
   end
 end
 
-module Pfedit :
+module Pfedit : (** !DOC *)
 sig
   val solve_by_implicit_tactic : unit -> Pretyping.inference_hook option
   val refine_by_tactic : Environ.env -> Evd.evar_map -> EConstr.types -> unit Proofview.tactic ->
@@ -4623,7 +4627,7 @@ sig
 
 end
 
-module Clenv :
+module Clenv : (** !NODOC for now *)
 sig
 
   type hole = {
@@ -4654,7 +4658,7 @@ end
 (* Modules from parsing/                                                *)
 (************************************************************************)
 
-module Pcoq :
+module Pcoq : (** !DOC *)
 sig
 
   open Loc
@@ -4809,7 +4813,7 @@ sig
 
 end
 
-module Egramml :
+module Egramml : (** !NODOC *)
 sig
   open Vernacexpr
 
@@ -4836,7 +4840,7 @@ end
 (* Modules from printing/                                               *)
 (************************************************************************)
 
-module Genprint :
+module Genprint : (** !NODOC *)
 sig
   type 'a printer = 'a -> Pp.std_ppcmds
   val generic_top_print : Genarg.tlevel Genarg.generic_argument printer
@@ -4844,7 +4848,7 @@ sig
                         'raw printer -> 'glb printer -> 'top printer -> unit
 end
 
-module Pputils :
+module Pputils : (** !DOC *)
 sig
   val pr_with_occurrences : ('a -> Pp.std_ppcmds) -> (string -> Pp.std_ppcmds) -> 'a Locus.with_occurrences -> Pp.std_ppcmds
   val pr_red_expr :
@@ -4857,7 +4861,7 @@ sig
   val pr_or_by_notation : ('a -> Pp.std_ppcmds) -> 'a Misctypes.or_by_notation -> Pp.std_ppcmds
 end
 
-module Ppconstr :
+module Ppconstr : (** !DOC *)
 sig
   val pr_name : Names.Name.t -> Pp.std_ppcmds
   [@@ocaml.deprecated "alias of API.Names.Name.print"]
@@ -4876,7 +4880,7 @@ sig
   val pr_glob_sort : Misctypes.glob_sort -> Pp.std_ppcmds
 end
 
-module Printer :
+module Printer : (** !DOC *)
 sig
   val pr_named_context : Environ.env -> Evd.evar_map -> Context.Named.t -> Pp.std_ppcmds
   val pr_rel_context : Environ.env -> Evd.evar_map -> Context.Rel.t -> Pp.std_ppcmds
@@ -4924,7 +4928,7 @@ end
 (* Modules from tactics/                                                *)
 (************************************************************************)
 
-module Tacticals :
+module Tacticals : (** !DOC only New *)
 sig
   open Proof_type
 
@@ -5004,7 +5008,7 @@ sig
   end
 end
 
-module Hipattern :
+module Hipattern : (** !DOC *)
 sig
   exception NoEquationFound
   type 'a matching_function = Evd.evar_map -> EConstr.constr -> 'a option
@@ -5023,7 +5027,7 @@ sig
   val match_with_sigma_type : (EConstr.constr * EConstr.constr list) matching_function
 end
 
-module Ind_tables :
+module Ind_tables : (** !DOC sync with Emilio *)
 sig
   type individual
   type 'a scheme_kind
@@ -5033,7 +5037,7 @@ sig
   val pr_scheme_kind : 'a scheme_kind -> Pp.std_ppcmds
 end
 
-module Elimschemes :
+module Elimschemes : (** !DOC *)
 sig
   val case_scheme_kind_from_prop : Ind_tables.individual Ind_tables.scheme_kind
   val case_dep_scheme_kind_from_type_in_prop : Ind_tables.individual Ind_tables.scheme_kind
@@ -5042,7 +5046,7 @@ sig
   val case_dep_scheme_kind_from_prop : Ind_tables.individual Ind_tables.scheme_kind
 end
 
-module Tactics :
+module Tactics : (** !DOC *)
 sig
   open Proofview
 
@@ -5208,7 +5212,7 @@ sig
   end
 end
 
-module Elim :
+module Elim : (** !DOC *)
 sig
   val h_decompose : Names.inductive list -> EConstr.constr -> unit Proofview.tactic
   val h_double_induction : Misctypes.quantified_hypothesis -> Misctypes.quantified_hypothesis-> unit Proofview.tactic
@@ -5216,7 +5220,7 @@ sig
   val h_decompose_and : EConstr.constr -> unit Proofview.tactic
 end
 
-module Equality :
+module Equality : (** !DOC *)
 sig
   type orientation = bool
   type freeze_evars_flag = bool
@@ -5285,13 +5289,13 @@ sig
   val subst_gen : bool -> Names.Id.t list -> unit Proofview.tactic
 end
 
-module Contradiction :
+module Contradiction : (** !DOC *)
 sig
   val contradiction : EConstr.constr Misctypes.with_bindings option -> unit Proofview.tactic
   val absurd : EConstr.constr -> unit Proofview.tactic
 end
 
-module Inv :
+module Inv : (** !DOC *)
 sig
   val dinv :
     Misctypes.inversion_kind -> EConstr.constr option ->
@@ -5307,7 +5311,7 @@ sig
             Misctypes.quantified_hypothesis -> unit Proofview.tactic
 end
 
-module Leminv :
+module Leminv : (** !DOC *)
 sig
   val lemInv_clause :
     Misctypes.quantified_hypothesis -> EConstr.constr -> Names.Id.t list -> unit Proofview.tactic
@@ -5316,7 +5320,7 @@ sig
     unit
 end
 
-module Hints :
+module Hints : (** !DOC *)
 sig
 
   type raw_hint = EConstr.t * EConstr.types * Univ.universe_context_set
@@ -5404,7 +5408,7 @@ sig
   val pr_hint_db : Hint_db.t -> Pp.std_ppcmds
 end
 
-module Auto :
+module Auto : (** !DOC sync with PMP *)
 sig
   val default_auto : unit Proofview.tactic
   val full_trivial : ?debug:Hints.debug ->
@@ -5422,7 +5426,7 @@ sig
   val default_full_auto : unit Proofview.tactic
 end
 
-module Eauto :
+module Eauto : (** !DOC sync with Théo *)
 sig
   val e_assumption : unit Proofview.tactic
   val e_give_exact : ?flags:Unification.unify_flags -> EConstr.constr -> unit Proofview.tactic
@@ -5436,7 +5440,7 @@ sig
     ?debug:Hints.debug -> bool * int -> Tactypes.delayed_open_constr list -> Hints.hint_db list -> Proof_type.tactic
 end
 
-module Class_tactics :
+module Class_tactics : (** !DOC with Théo *)
 sig
 
   type search_strategy =
@@ -5456,13 +5460,13 @@ sig
   val catchable : exn -> bool
 end
 
-module Eqdecide :
+module Eqdecide : (** !DOC *)
 sig
   val compare : EConstr.constr -> EConstr.constr -> unit Proofview.tactic
   val decideEqualityGoal : unit Proofview.tactic
 end
 
-module Autorewrite :
+module Autorewrite : (** !DOC *)
 sig
   type rew_rule = { rew_lemma: Constr.t;
                     rew_type: Term.types;
@@ -5489,13 +5493,13 @@ end
 (* Modules from vernac/                                                 *)
 (************************************************************************)
 
-module Ppvernac :
+module Ppvernac : (** !DOC *)
 sig
   val pr_vernac : Vernacexpr.vernac_expr -> Pp.std_ppcmds
   val pr_rec_definition : (Vernacexpr.fixpoint_expr * Vernacexpr.decl_notation list) -> Pp.std_ppcmds
 end
 
-module Lemmas :
+module Lemmas : (** !DOC *)
 sig
 
   type 'a declaration_hook
@@ -5513,19 +5517,19 @@ sig
   val get_current_context : unit -> Evd.evar_map * Environ.env
 end
 
-module Himsg :
+module Himsg : (** !DOC *)
 sig
   val explain_refiner_error : Logic.refiner_error -> Pp.std_ppcmds
   val explain_pretype_error : Environ.env -> Evd.evar_map -> Pretype_errors.pretype_error -> Pp.std_ppcmds
 end
 
-module ExplainErr :
+module ExplainErr : (** !DOC *)
 sig
   val process_vernac_interp_error : ?allow_uncaught:bool -> Util.iexn -> Util.iexn
   val register_additional_error_info : (Util.iexn -> Pp.std_ppcmds option Loc.located option) -> unit
 end
 
-module Locality :
+module Locality : (** !DOC *)
 sig
   val make_section_locality : bool option -> bool
   module LocalityFixme : sig
@@ -5534,7 +5538,7 @@ sig
   val make_module_locality : bool option -> bool
 end
 
-module Metasyntax :
+module Metasyntax : (** !NODOC *)
 sig
 
   val add_token_obj : string -> unit
@@ -5544,7 +5548,7 @@ sig
 
 end
 
-module Search :
+module Search : (** !DOC *)
 sig
   type glob_search_about_item =
                               | GlobSearchSubPattern of Pattern.constr_pattern
@@ -5556,7 +5560,7 @@ sig
   val generic_search : int option -> display_function -> unit
 end
 
-module Obligations :
+module Obligations : (** !DOC *)
 sig
   val default_tactic : unit Proofview.tactic ref
   val obligation : int * Names.Id.t option * Constrexpr.constr_expr option ->
@@ -5570,7 +5574,7 @@ sig
   val show_term : Names.Id.t option -> Pp.std_ppcmds
 end
 
-module Command :
+module Command : (** !DOC *)
 sig
   open Names
   open Constrexpr
@@ -5635,7 +5639,7 @@ sig
     Names.MutInd.t
 end
 
-module Classes :
+module Classes : (** !DOC *)
 sig
   val set_typeclass_transparency : Names.evaluable_global_reference -> bool -> bool -> unit
   val new_instance :
@@ -5653,7 +5657,7 @@ sig
     Names.Id.t
 end
 
-module Vernacinterp :
+module Vernacinterp : (** !DOC *)
 sig
   type deprecation = bool
 
@@ -5664,7 +5668,7 @@ sig
 
 end
 
-module Mltop :
+module Mltop : (** !DOC *)
 sig
   val declare_cache_obj : (unit -> unit) -> string -> unit
   val add_known_plugin : (unit -> unit) -> string -> unit
@@ -5672,14 +5676,14 @@ sig
   val module_is_known : string -> bool
 end
 
-module Topfmt :
+module Topfmt : (** !DOC *)
 sig
   val std_ft : Format.formatter ref
   val with_output_to : out_channel -> Format.formatter
   val get_margin : unit -> int option
 end
 
-module Vernacentries :
+module Vernacentries : (** !DOC *)
 sig
   val dump_global : Libnames.reference Misctypes.or_by_notation -> unit
   val interp_redexp_hook : (Environ.env -> Evd.evar_map -> Genredexpr.raw_red_expr ->
@@ -5695,7 +5699,7 @@ end
 (* Modules from stm/                                                    *)
 (************************************************************************)
 
-module Vernac_classifier :
+module Vernac_classifier : (** !DOC *)
 sig
   val declare_vernac_classifier :
     Vernacexpr.extend_name -> (Genarg.raw_generic_argument list -> unit -> Vernacexpr.vernac_classification) -> unit
@@ -5705,7 +5709,7 @@ sig
   val classify_vernac : Vernacexpr.vernac_expr -> Vernacexpr.vernac_classification
 end
 
-module Stm :
+module Stm : (** !DOC *)
 sig
   type state
   val state_of_id :
@@ -5720,7 +5724,7 @@ end
 (* Modules from highparsing/                                            *)
 (************************************************************************)
 
-module G_vernac :
+module G_vernac : (** !DOC *)
 sig
 
   val def_body : Vernacexpr.definition_expr Pcoq.Gram.entry
@@ -5729,7 +5733,7 @@ sig
 
 end
 
-module G_proofs :
+module G_proofs : (** !DOC *)
 sig
 
   val hint : Vernacexpr.hints_expr Pcoq.Gram.entry
