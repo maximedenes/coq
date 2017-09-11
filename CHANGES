@@ -13,6 +13,9 @@ Tactics
   profiling, and "Set NativeCompute Profile Filename" customizes
   the profile filename.
 
+- Tactic "decide equality" now able to manage constructors which
+  contain proofs.
+
 Changes from 8.6.1 to 8.7+beta
 ==============================
 
