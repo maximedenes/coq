@@ -588,7 +588,7 @@ let build_induction_scheme env sigma pind dep kind =
 
 let elimination_suffix = function
   | InProp -> "_ind"
-  | InSet  -> "_rec"
+  | InSet
   | InType -> "_rect"
 
 let case_suffix = "_case"

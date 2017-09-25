@@ -36,7 +36,7 @@ Local Open Scope lazy_bool_scope.
 Local Unset Elimination Schemes.
 
 Module Type InfoTyp.
- Parameter t : Set.
+ Parameter t : Type.
 End InfoTyp.
 
 (** * Ops : the pure functions *)

@@ -35,7 +35,7 @@ Inductive varmap : Type :=
   | Empty_vm : varmap
   | Node_vm : A -> varmap -> varmap -> varmap.
 
-Inductive index : Set :=
+Inductive index : Type :=
   | Left_idx : index -> index
   | Right_idx : index -> index
   | End_idx : index.

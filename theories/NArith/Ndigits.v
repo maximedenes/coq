@@ -476,11 +476,11 @@ Qed.
 Lemma Nless_total :
  forall a a', {Nless a a' = true} + {Nless a' a = true} + {a = a'}.
 Proof.
-  induction a using N.binary_rec; intro a'.
+  induction a using N.binary_rect; intro a'.
   - case_eq (Nless N0 a') ; intros Heqb.
     + left. left. auto.
     + right. rewrite (N0_less_2 a' Heqb). reflexivity.
-  - induction a' as [|a' _|a' _] using N.binary_rec.
+  - induction a' as [|a' _|a' _] using N.binary_rect.
     + case_eq (Nless N0 (N.double a)) ; intros Heqb.
       * left. right. auto.
       * right. exact (N0_less_2 _  Heqb).
@@ -488,7 +488,7 @@ Proof.
       * left. assumption.
       * right. reflexivity.
     + left. left. apply Nless_def_3.
-  - induction a' as [|a' _|a' _] using N.binary_rec.
+  - induction a' as [|a' _|a' _] using N.binary_rect.
     + left. right. destruct a; reflexivity.
     + left. right. apply Nless_def_3.
     + rewrite 2!Nless_def_2. destruct (IHa a') as [ | ->].

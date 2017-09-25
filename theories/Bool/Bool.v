@@ -778,7 +778,7 @@ Qed.
     as popularized by the Ssreflect library. *)
 (*****************************************)
 
-Inductive reflect (P : Prop) : bool -> Set :=
+Inductive reflect (P : Prop) : bool -> Type :=
   | ReflectT : P -> reflect P true
   | ReflectF : ~ P -> reflect P false.
 Hint Constructors reflect : bool.

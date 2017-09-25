@@ -18,7 +18,7 @@ Declare ML Module "string_syntax_plugin".
 
 (** Implementation of string as list of ascii characters *)
 
-Inductive string : Set :=
+Inductive string : Type :=
   | EmptyString : string
   | String : ascii -> string -> string.
 

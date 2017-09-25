@@ -17,11 +17,11 @@ Declare ML Module "nat_syntax_plugin".
 
 (** [Empty_set] is a datatype with no inhabitant *)
 
-Inductive Empty_set : Set :=.
+Inductive Empty_set : Type :=.
 
 (** [unit] is a singleton datatype with sole inhabitant [tt] *)
 
-Inductive unit : Set :=
+Inductive unit : Type :=
     tt : unit.
 
 
@@ -30,7 +30,7 @@ Inductive unit : Set :=
 
 (** [bool] is the datatype of the boolean values [true] and [false] *)
 
-Inductive bool : Set :=
+Inductive bool : Type :=
   | true : bool
   | false : bool.
 
@@ -98,12 +98,6 @@ Proof.
   intros P b H H0; destruct H0 in H; assumption.
 Defined.
 
-Lemma eq_true_rec_r :
-  forall (P : bool -> Set) (b : bool), P b -> eq_true b -> P true.
-Proof.
-  intros P b H H0; destruct H0 in H; assumption.
-Defined.
-
 Lemma eq_true_rect_r :
   forall (P : bool -> Type) (b : bool), P b -> eq_true b -> P true.
 Proof.
@@ -131,7 +125,7 @@ Hint Constructors BoolSpec.
     Numbers in [nat] can be denoted using a decimal notation;
     e.g. [3%nat] abbreviates [S (S (S O))] *)
 
-Inductive nat : Set :=
+Inductive nat : Type :=
   | O : nat
   | S : nat -> nat.
 
@@ -257,7 +251,7 @@ Infix "++" := app (right associativity, at level 60) : list_scope.
 (********************************************************************)
 (** * The comparison datatype *)
 
-Inductive comparison : Set :=
+Inductive comparison : Type :=
   | Eq : comparison
   | Lt : comparison
   | Gt : comparison.

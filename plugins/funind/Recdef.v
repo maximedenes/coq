@@ -37,7 +37,7 @@ Proof.
  apply le_lt_SS, Nat.le_add_r.
 Qed.
 
-Inductive max_type (m n:nat) : Set :=
+Inductive max_type (m n:nat) : Type :=
   cmt : forall v, m <= v -> n <= v -> max_type m n.
 
 Definition max m n : max_type m n.

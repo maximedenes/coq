@@ -14,7 +14,7 @@ Require Export Morphisms Setoid Bool.
 
 (** Rationals are pairs of [Z] and [positive] numbers. *)
 
-Record Q : Set := Qmake {Qnum : Z; Qden : positive}.
+Record Q : Type := Qmake {Qnum : Z; Qden : positive}.
 
 Delimit Scope Q_scope with Q.
 Bind Scope Q_scope with Q.

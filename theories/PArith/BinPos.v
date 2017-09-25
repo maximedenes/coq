@@ -332,8 +332,6 @@ Proof.
   trivial.
 Qed.
 
-Definition peano_rec (P:positive->Set) := peano_rect P.
-
 (** Peano induction *)
 
 Definition peano_ind (P:positive->Prop) := peano_rect P.
@@ -1982,7 +1980,6 @@ Notation PeanoViewUnique := Pos.PeanoViewUnique (compat "8.3").
 Notation Prect := Pos.peano_rect (compat "8.3").
 Notation Prect_succ := Pos.peano_rect_succ (compat "8.3").
 Notation Prect_base := Pos.peano_rect_base (compat "8.3").
-Notation Prec := Pos.peano_rec (compat "8.3").
 Notation Pind := Pos.peano_ind (compat "8.3").
 Notation Pcase := Pos.peano_case (compat "8.3").
 Notation Pmult_1_r := Pos.mul_1_r (compat "8.3").

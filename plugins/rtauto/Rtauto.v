@@ -15,7 +15,7 @@ Declare ML Module "rtauto_plugin".
 
 Ltac clean:=try (simpl;congruence).
 
-Inductive form:Set:=
+Inductive form:Type:=
   Atom : positive -> form
 | Arrow : form -> form -> form
 | Bot
@@ -163,7 +163,7 @@ Qed.
 
 Arguments project [hyps] F [p g] _.
 
-Inductive proof:Set :=
+Inductive proof:Type :=
   Ax : positive -> proof
 | I_Arrow : proof -> proof
 | E_Arrow : positive -> positive -> proof -> proof

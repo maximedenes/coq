@@ -18,7 +18,7 @@ the n-uplet. If [f] is the k-th element of the (n-1)-uplet, [FS f] is the
    Institution: PPS, INRIA 12/2010-01/2012-07/2012
 *)
 
-Inductive t : nat -> Set :=
+Inductive t : nat -> Type :=
 |F1 : forall {n}, t (S n)
 |FS : forall {n}, t n -> t (S n).
 

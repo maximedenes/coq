@@ -13,7 +13,7 @@ Require Import Ndigits.
 
 (** An ultrametric distance over [N] numbers *)
 
-Inductive natinf : Set :=
+Inductive natinf : Type :=
   | infty : natinf
   | ni : nat -> natinf.
 

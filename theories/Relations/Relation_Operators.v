@@ -204,7 +204,7 @@ Local Open Scope list_scope.
 
 Section Lexicographic_Exponentiation.
 
-  Variable A : Set.
+  Variable A : Type.
   Variable leA : A -> A -> Prop.
   Let Nil := nil (A:=A).
   Let List := list A.
@@ -220,7 +220,7 @@ Section Lexicographic_Exponentiation.
     | d_conc (x y:A) (l:List) :
         clos_refl A leA x y -> Desc (l ++ y :: Nil) -> Desc ((l ++ y :: Nil) ++ x :: Nil).
 
-  Definition Pow : Set := sig Desc.
+  Definition Pow : Type := sig Desc.
 
   Definition lex_exp (a b:Pow) : Prop := Ltl (proj1_sig a) (proj1_sig b).
 

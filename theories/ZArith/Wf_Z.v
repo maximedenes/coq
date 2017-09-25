@@ -51,8 +51,8 @@ Proof.
  intros P H x Hx. now destruct (Z_of_nat_complete x Hx) as (n,->).
 Qed.
 
-Lemma Z_of_nat_set :
- forall P:Z -> Set,
+Lemma Z_of_nat_type :
+ forall P:Z -> Type,
    (forall n:nat, P (Z.of_nat n)) -> forall x:Z, 0 <= x -> P x.
 Proof.
  intros P H x Hx. now destruct (Z_of_nat_complete_inf x Hx) as (n,->).
@@ -69,13 +69,13 @@ Proof.
  rewrite Nat2Z.inj_succ. apply Hrec; trivial using Nat2Z.is_nonneg.
 Qed.
 
-Lemma natlike_rec :
- forall P:Z -> Set,
+Lemma natlike_rect :
+ forall P:Z -> Type,
    P 0 ->
    (forall x:Z, 0 <= x -> P x -> P (Z.succ x)) ->
    forall x:Z, 0 <= x -> P x.
 Proof.
- intros P Ho Hrec x Hx; apply Z_of_nat_set; trivial.
+ intros P Ho Hrec x Hx; apply Z_of_nat_type; trivial.
  induction n. exact Ho.
  rewrite Nat2Z.inj_succ. apply Hrec; trivial using Nat2Z.is_nonneg.
 Qed.

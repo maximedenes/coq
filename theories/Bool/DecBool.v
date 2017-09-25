@@ -13,7 +13,7 @@ Definition ifdec (A B:Prop) (C:Type) (H:{A} + {B}) (x y:C) : C :=
 
 
 Theorem ifdec_left :
-  forall (A B:Prop) (C:Set) (H:{A} + {B}),
+  forall (A B:Prop) (C:Type) (H:{A} + {B}),
     ~ B -> forall x y:C, ifdec H x y = x.
 Proof.
   intros; case H; auto.
@@ -21,7 +21,7 @@ Proof.
 Qed.
 
 Theorem ifdec_right :
-  forall (A B:Prop) (C:Set) (H:{A} + {B}),
+  forall (A B:Prop) (C:Type) (H:{A} + {B}),
     ~ A -> forall x y:C, ifdec H x y = y.
 Proof.
   intros; case H; auto.

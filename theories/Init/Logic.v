@@ -357,11 +357,6 @@ Section Logic_lemmas.
     intros A x P H y H0. elim eq_sym with (1 := H0); assumption.
   Defined.
 
-  Definition eq_rec_r :
-    forall (A:Type) (x:A) (P:A -> Set), P x -> forall y:A, y = x -> P y.
-    intros A x P H y H0; elim eq_sym with (1 := H0); assumption.
-  Defined.
-
   Definition eq_rect_r :
     forall (A:Type) (x:A) (P:A -> Type), P x -> forall y:A, y = x -> P y.
     intros A x P H y H0; elim eq_sym with (1 := H0); assumption.

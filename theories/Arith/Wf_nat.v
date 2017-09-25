@@ -60,7 +60,7 @@ the ML-like program for [induction_ltof2] is :
 *)
 
 Theorem induction_ltof1 :
-  forall P:A -> Set,
+  forall P:A -> Type,
     (forall x:A, (forall y:A, ltof y x -> P y) -> P x) -> forall a:A, P a.
 Proof.
   intros P F.
@@ -73,21 +73,21 @@ Proof.
 Defined.
 
 Theorem induction_gtof1 :
-  forall P:A -> Set,
+  forall P:A -> Type,
     (forall x:A, (forall y:A, gtof y x -> P y) -> P x) -> forall a:A, P a.
 Proof.
   exact induction_ltof1.
 Defined.
 
 Theorem induction_ltof2 :
-  forall P:A -> Set,
+  forall P:A -> Type,
     (forall x:A, (forall y:A, ltof y x -> P y) -> P x) -> forall a:A, P a.
 Proof.
   exact (well_founded_induction well_founded_ltof).
 Defined.
 
 Theorem induction_gtof2 :
-  forall P:A -> Set,
+  forall P:A -> Type,
     (forall x:A, (forall y:A, gtof y x -> P y) -> P x) -> forall a:A, P a.
 Proof.
   exact induction_ltof2.
@@ -118,13 +118,13 @@ Proof.
 Defined.
 
 Lemma lt_wf_rec1 :
-  forall n (P:nat -> Set), (forall n, (forall m, m < n -> P m) -> P n) -> P n.
+  forall n (P:nat -> Type), (forall n, (forall m, m < n -> P m) -> P n) -> P n.
 Proof.
   exact (fun p P F => induction_ltof1 nat (fun m => m) P F p).
 Defined.
 
 Lemma lt_wf_rec :
-  forall n (P:nat -> Set), (forall n, (forall m, m < n -> P m) -> P n) -> P n.
+  forall n (P:nat -> Type), (forall n, (forall m, m < n -> P m) -> P n) -> P n.
 Proof.
   exact (fun p P F => induction_ltof2 nat (fun m => m) P F p).
 Defined.
@@ -136,7 +136,7 @@ Proof.
 Qed.
 
 Lemma gt_wf_rec :
-  forall n (P:nat -> Set), (forall n, (forall m, n > m -> P m) -> P n) -> P n.
+  forall n (P:nat -> Type), (forall n, (forall m, n > m -> P m) -> P n) -> P n.
 Proof.
   exact lt_wf_rec.
 Defined.
@@ -146,7 +146,7 @@ Lemma gt_wf_ind :
 Proof lt_wf_ind.
 
 Lemma lt_wf_double_rec :
- forall P:nat -> nat -> Set,
+ forall P:nat -> nat -> Type,
    (forall n m,
      (forall p q, p < n -> P p q) ->
      (forall p, p < m -> P n p) -> P n m) -> forall n m, P n m.
@@ -169,7 +169,7 @@ Hint Resolve lt_wf: arith.
 Hint Resolve well_founded_lt_compat: arith.
 
 Section LT_WF_REL.
-  Variable A : Set.
+  Variable A : Type.
   Variable R : A -> A -> Prop.
 
   (* Relational form of inversion *)
@@ -197,7 +197,7 @@ Section LT_WF_REL.
 End LT_WF_REL.
 
 Lemma well_founded_inv_rel_inv_lt_rel :
-  forall (A:Set) (F:A -> nat -> Prop), well_founded (inv_lt_rel A F).
+  forall (A:Type) (F:A -> nat -> Prop), well_founded (inv_lt_rel A F).
 Proof.
   intros; apply (well_founded_inv_lt_rel_compat A (inv_lt_rel A F) F); trivial.
 Qed.

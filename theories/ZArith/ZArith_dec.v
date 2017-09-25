@@ -28,10 +28,6 @@ Proof.
   destruct (n ?= m); auto.
 Defined.
 
-Lemma Zcompare_rec (P:Set) (n m:Z) :
-  ((n ?= m) = Eq -> P) -> ((n ?= m) = Lt -> P) -> ((n ?= m) = Gt -> P) -> P.
-Proof. apply Zcompare_rect. Defined.
-
 Notation Z_eq_dec := Z.eq_dec (compat "8.3").
 
 Section decidability.
@@ -92,7 +88,7 @@ Section decidability.
   Definition Z_le_lt_eq_dec : x <= y -> {x < y} + {x = y}.
   Proof.
     intro H.
-    apply Zcompare_rec with (n := x) (m := y).
+    apply Zcompare_rect with (n := x) (m := y).
     intro. right. elim (Z.compare_eq_iff x y); auto with arith.
     intro. left. elim (Z.compare_eq_iff x y); auto with arith.
     intro H1. absurd (x > y); auto with arith.

@@ -287,8 +287,7 @@ Section sigT.
              (f : forall p q, Q (eq_sigT u v p q))
     : forall p, Q p.
   Proof. intro p; specialize (f (projT1_eq p) (projT2_eq p)); destruct u, p; exact f. Defined.
-  Definition eq_sigT_rec {A P u v} (Q : u = v :> { a : A & P a } -> Set) := eq_sigT_rect Q.
-  Definition eq_sigT_ind {A P u v} (Q : u = v :> { a : A & P a } -> Prop) := eq_sigT_rec Q.
+  Definition eq_sigT_ind {A P u v} (Q : u = v :> { a : A & P a } -> Prop) := eq_sigT_rect Q.
 
   (** Equivalence of equality of [sigT] involving hProps with equality of the first components *)
   Definition eq_sigT_hprop_iff {A P} (P_hprop : forall (x : A) (p q : P x), p = q)
@@ -357,8 +356,7 @@ Section sig.
              (f : forall p q, Q (eq_sig u v p q))
     : forall p, Q p.
   Proof. intro p; specialize (f (proj1_sig_eq p) (proj2_sig_eq p)); destruct u, p; exact f. Defined.
-  Definition eq_sig_rec {A P u v} (Q : u = v :> { a : A | P a } -> Set) := eq_sig_rect Q.
-  Definition eq_sig_ind {A P u v} (Q : u = v :> { a : A | P a } -> Prop) := eq_sig_rec Q.
+  Definition eq_sig_ind {A P u v} (Q : u = v :> { a : A | P a } -> Prop) := eq_sig_rect Q.
 
   (** Equality of [sig] when the property is an hProp *)
   Definition eq_sig_hprop {A} {P : A -> Prop} (P_hprop : forall (x : A) (p q : P x), p = q)
@@ -475,8 +473,7 @@ Section sigT2.
     specialize (f (projT1_of_sigT2_eq p) (projT2_of_sigT2_eq p) (projT3_eq p)).
     destruct u, p; exact f.
   Defined.
-  Definition eq_sigT2_rec {A P Q u v} (R : u = v :> { a : A & P a & Q a } -> Set) := eq_sigT2_rect R.
-  Definition eq_sigT2_ind {A P Q u v} (R : u = v :> { a : A & P a & Q a } -> Prop) := eq_sigT2_rec R.
+  Definition eq_sigT2_ind {A P Q u v} (R : u = v :> { a : A & P a & Q a } -> Prop) := eq_sigT2_rect R.
 
   (** Equivalence of equality of [sigT2] involving hProps with equality of the first components *)
   Definition eq_sigT2_hprop_iff {A P Q} (Q_hprop : forall (x : A) (p q : Q x), p = q)
@@ -587,8 +584,7 @@ Section sig2.
     specialize (f (proj1_sig_of_sig2_eq p) (proj2_sig_of_sig2_eq p) (proj3_sig_eq p)).
     destruct u, p; exact f.
   Defined.
-  Definition eq_sig2_rec {A P Q u v} (R : u = v :> { a : A | P a & Q a } -> Set) := eq_sig2_rect R.
-  Definition eq_sig2_ind {A P Q u v} (R : u = v :> { a : A | P a & Q a } -> Prop) := eq_sig2_rec R.
+  Definition eq_sig2_ind {A P Q u v} (R : u = v :> { a : A | P a & Q a } -> Prop) := eq_sig2_rect R.
 
   (** Equivalence of equality of [sig2] involving hProps with equality of the first components *)
   Definition eq_sig2_hprop_iff {A} {P Q : A -> Prop} (Q_hprop : forall (x : A) (p q : Q x), p = q)
@@ -622,7 +618,7 @@ End sig2.
 (** [sumbool] is a boolean type equipped with the justification of
     their value *)
 
-Inductive sumbool (A B:Prop) : Set :=
+Inductive sumbool (A B:Prop) : Type :=
   | left : A -> {A} + {B}
   | right : B -> {A} + {B}
  where "{ A } + { B }" := (sumbool A B) : type_scope.
@@ -651,9 +647,9 @@ Arguments inright {A B} _ , A [B] _.
 
 Section Choice_lemmas.
 
-  Variables S S' : Set.
+  Variables S S' : Type.
   Variable R : S -> S' -> Prop.
-  Variable R' : S -> S' -> Set.
+  Variable R' : S -> S' -> Type.
   Variables R1 R2 : S -> Prop.
 
   Lemma Choice :
@@ -685,7 +681,7 @@ End Choice_lemmas.
 
 Section Dependent_choice_lemmas.
 
-  Variables X : Set.
+  Variables X : Type.
   Variable R : X -> X -> Prop.
 
   Lemma dependent_choice :
@@ -721,10 +717,10 @@ Definition except := False_rec. (* for compatibility with previous versions *)
 
 Arguments except [P] _.
 
-Theorem absurd_set : forall (A:Prop) (C:Set), A -> ~ A -> C.
+Theorem absurd_set : forall (A:Prop) (C:Type), A -> ~ A -> C.
 Proof.
   intros A C h1 h2.
-  apply False_rec.
+  apply False_rect.
   apply (h2 h1).
 Defined.
 

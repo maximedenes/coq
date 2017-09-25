@@ -18,7 +18,7 @@ Declare ML Module "z_syntax_plugin".
    Numbers in [positive] can also be denoted using a decimal notation;
    e.g. [6%positive] abbreviates [xO (xI xH)] *)
 
-Inductive positive : Set :=
+Inductive positive : Type :=
   | xI : positive -> positive
   | xO : positive -> positive
   | xH : positive.
@@ -33,7 +33,7 @@ Arguments xI _%positive.
     Numbers in [N] can also be denoted using a decimal notation;
     e.g. [6%N] abbreviates [Npos (xO (xI xH))] *)
 
-Inductive N : Set :=
+Inductive N : Type :=
   | N0 : N
   | Npos : positive -> N.
 
@@ -48,7 +48,7 @@ Arguments Npos _%positive.
     Numbers in [Z] can also be denoted using a decimal notation;
     e.g. [(-6)%Z] abbreviates [Zneg (xO (xI xH))] *)
 
-Inductive Z : Set :=
+Inductive Z : Type :=
   | Z0 : Z
   | Zpos : positive -> Z
   | Zneg : positive -> Z.

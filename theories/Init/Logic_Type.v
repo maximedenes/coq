@@ -54,11 +54,6 @@ Definition identity_ind_r :
  intros A x P H y H0; case identity_sym with (1 := H0); trivial.
 Defined.
 
-Definition identity_rec_r :
-  forall (A:Type) (a:A) (P:A -> Set), P a -> forall y:A, identity y a -> P y.
- intros A x P H y H0; case identity_sym with (1 := H0); trivial.
-Defined.
-
 Definition identity_rect_r :
   forall (A:Type) (a:A) (P:A -> Type), P a -> forall y:A, identity y a -> P y.
  intros A x P H y H0; case identity_sym with (1 := H0); trivial.

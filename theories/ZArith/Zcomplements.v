@@ -47,8 +47,8 @@ Qed.
 (**********************************************************************)
 (** Two more induction principles over [Z]. *)
 
-Theorem Z_lt_abs_rec :
-  forall P:Z -> Set,
+Theorem Z_lt_abs_rect :
+  forall P:Z -> Type,
     (forall n:Z, (forall m:Z, Z.abs m < Z.abs n -> P m) -> P n) ->
     forall n:Z, P n.
 Proof.

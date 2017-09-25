@@ -287,7 +287,7 @@ Section extended_euclid_algorithm.
   (** The specification of Euclid's algorithm is the existence of
       [u], [v] and [d] such that [ua+vb=d] and [(gcd a b d)]. *)
 
-  Inductive Euclid : Set :=
+  Inductive Euclid : Type :=
     Euclid_intro :
     forall u v d:Z, u * a + v * b = d -> Zis_gcd a b d -> Euclid.
 
@@ -838,7 +838,7 @@ Proof.
   intros p m.
   case (Z_lt_dec 1 m); intros H1;
    [ | left; intros; exfalso; omega ].
-  pattern m; apply natlike_rec; auto with zarith.
+  pattern m; apply natlike_rect; auto with zarith.
   left; intros; exfalso; omega.
   intros x Hx IH; destruct IH as [F|E].
   destruct (rel_prime_dec x p) as [Y|N].

@@ -278,7 +278,7 @@ Section power_div_with_rest.
 
   (** Old-style rich specification by proof of existence *)
 
-  Inductive Zdiv_rest_proofs (x:Z) (p:positive) : Set :=
+  Inductive Zdiv_rest_proofs (x:Z) (p:positive) : Type :=
     Zdiv_rest_proof :
     forall q r:Z,
       x = q * two_power_pos p + r ->

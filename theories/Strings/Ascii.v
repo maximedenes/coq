@@ -17,7 +17,7 @@ Declare ML Module "ascii_syntax_plugin".
 
 (** Definition of ascii character as a 8 bits constructor *)
 
-Inductive ascii : Set := Ascii (_ _ _ _ _ _ _ _ : bool).
+Inductive ascii : Type := Ascii (_ _ _ _ _ _ _ _ : bool).
 
 Delimit Scope char_scope with char.
 Bind Scope char_scope with ascii.

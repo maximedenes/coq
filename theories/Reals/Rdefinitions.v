@@ -13,7 +13,7 @@
 Declare ML Module "r_syntax_plugin".
 Require Export ZArith_base.
 
-Parameter R : Set.
+Parameter R : Type.
 
 (* Declare Scope positive_scope with Key R *)
 Delimit Scope R_scope with R.

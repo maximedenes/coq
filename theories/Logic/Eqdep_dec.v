@@ -165,12 +165,6 @@ Proof.
   trivial.
 Qed.
 
-Theorem K_dec_set :
-  forall A:Set,
-    (forall x y:A, {x = y} + {x <> y}) ->
-    forall (x:A) (P:x = x -> Prop), P (eq_refl x) -> forall p:x = x, P p.
-Proof fun A => K_dec_type (A:=A).
-
 (** We deduce the [eq_rect_eq] axiom for (decidable) types *)
 Theorem eq_rect_eq_dec :
   forall A:Type,
@@ -267,11 +261,11 @@ End DecidableEqDep.
 (************************************************************************)
 (** ** Definition of the functor that builds properties of dependent equalities on decidable sets in Set *)
 
-(** The signature of decidable sets in [Set] *)
+(** The signature of decidable sets in [Type] *)
 
 Module Type DecidableSet.
 
-  Parameter U:Set.
+  Parameter U:Type.
   Axiom eq_dec : forall x y:U, {x = y} + {x <> y}.
 
 End DecidableSet.

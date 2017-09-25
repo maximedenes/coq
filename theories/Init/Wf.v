@@ -52,10 +52,10 @@ Section Well_founded.
  Defined.
 
  Theorem well_founded_induction :
-  forall P:A -> Set,
+  forall P:A -> Type,
     (forall x:A, (forall y:A, R y x -> P y) -> P x) -> forall a:A, P a.
  Proof.
-  exact (fun P:A -> Set => well_founded_induction_type P).
+  exact (fun P:A -> Type => well_founded_induction_type P).
  Defined.
 
  Theorem well_founded_ind :

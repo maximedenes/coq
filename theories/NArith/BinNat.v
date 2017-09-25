@@ -109,7 +109,6 @@ Definition binary_rect (P:N -> Type) (f0 : P 0)
  | pos p => positive_rect P' fS2' f2' (fS2 0 f0) p
  end.
 
-Definition binary_rec (P:N -> Set) := binary_rect P.
 Definition binary_ind (P:N -> Prop) := binary_rect P.
 
 (** Peano induction on binary natural numbers *)
@@ -138,19 +137,6 @@ now rewrite Pos.peano_rect_succ.
 Qed.
 
 Definition peano_ind (P : N -> Prop) := peano_rect P.
-
-Definition peano_rec (P : N -> Set) := peano_rect P.
-
-Theorem peano_rec_base P a f : peano_rec P a f 0 = a.
-Proof.
-apply peano_rect_base.
-Qed.
-
-Theorem peano_rec_succ P a f n :
- peano_rec P a f (succ n) = f n (peano_rec P a f n).
-Proof.
-apply peano_rect_succ.
-Qed.
 
 (** Generic induction / recursion *)
 
@@ -994,9 +980,6 @@ Notation Nrect := N.peano_rect (compat "8.3").
 Notation Nrect_base := N.peano_rect_base (compat "8.3").
 Notation Nrect_step := N.peano_rect_succ (compat "8.3").
 Notation Nind := N.peano_ind (compat "8.3").
-Notation Nrec := N.peano_rec (compat "8.3").
-Notation Nrec_base := N.peano_rec_base (compat "8.3").
-Notation Nrec_succ := N.peano_rec_succ (compat "8.3").
 
 Notation Npred_succ := N.pred_succ (compat "8.3").
 Notation Npred_minus := N.pred_sub (compat "8.3").
@@ -1061,6 +1044,6 @@ Lemma Ncompare_antisym n m : CompOpp (n ?= m) = (m ?= n).
 Proof (eq_sym (N.compare_antisym n m)).
 
 Definition N_ind_double a P f0 f2 fS2 := N.binary_ind P f0 f2 fS2 a.
-Definition N_rec_double a P f0 f2 fS2 := N.binary_rec P f0 f2 fS2 a.
+Definition N_rect_double a P f0 f2 fS2 := N.binary_rect P f0 f2 fS2 a.
 
 (** Not kept : Ncompare_n_Sm Nplus_lt_cancel_l *)

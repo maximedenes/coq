@@ -15,7 +15,7 @@ Require Export Bool.
 
 Section Bool_eq_dec.
 
-  Variable A : Set.
+  Variable A : Type.
 
   Variable beq : A -> A -> bool.
 

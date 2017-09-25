@@ -14,7 +14,7 @@ Delimit Scope Int_scope with I.
 
 Module Type Int.
 
-  Parameter t : Set.
+  Parameter t : Type.
 
   Bind Scope Int_scope with t.
 
@@ -708,7 +708,7 @@ Local Notation int := I.t.
    Note that we'll only deal with products for which at least one side
    is [Tint]. *)
 
-Inductive term : Set :=
+Inductive term : Type :=
   | Tint : int -> term
   | Tplus : term -> term -> term
   | Tmult : term -> term -> term
@@ -737,7 +737,7 @@ Notation "[ x ]" := (Tvar x) (at level 0) : romega_scope.
    Taking care of negations and disequations require solving more than a
    goal in parallel. This is a major improvement over previous versions. *)
 
-Inductive proposition : Set :=
+Inductive proposition : Type :=
   (** First, basic equations, disequations, inequations *)
   | EqTerm : term -> term -> proposition
   | NeqTerm : term -> term -> proposition
@@ -1418,7 +1418,7 @@ Qed.
 
 Definition idx := nat. (** Index of an hypothesis in the list *)
 
-Inductive t_omega : Set :=
+Inductive t_omega : Type :=
   | O_BAD_CONSTANT : idx -> t_omega
   | O_NOT_EXACT_DIVIDE : idx -> int -> t_omega
 
@@ -1690,7 +1690,7 @@ Qed.
    This allows in particular to extract one hypothesis from a conjunction.
    NB: negations are now silently traversed. *)
 
-Inductive direction : Set :=
+Inductive direction : Type :=
   | D_left : direction
   | D_right : direction.
 
@@ -1699,7 +1699,7 @@ Inductive direction : Set :=
    The last constructor indicates how to solve the obtained system
    via the use of the trace type of Omega [t_omega] *)
 
-Inductive e_step : Set :=
+Inductive e_step : Type :=
   | E_SPLIT : nat -> list direction -> e_step -> e_step -> e_step
   | E_EXTRACT : nat -> list direction -> e_step -> e_step
   | E_SOLVE : t_omega -> e_step.

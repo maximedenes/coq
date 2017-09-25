@@ -14,7 +14,7 @@ Require Import Eqdep_dec.
 (** [Qc] : A canonical representation of rational numbers.
    based on the setoid representation [Q]. *)
 
-Record Qc : Set := Qcmake { this :> Q ; canon : Qred this = this }.
+Record Qc : Type := Qcmake { this :> Q ; canon : Qred this = this }.
 
 Delimit Scope Qc_scope with Qc.
 Bind Scope Qc_scope with Qc.

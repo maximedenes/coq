@@ -27,7 +27,7 @@ Proof.
 intros. apply Pos.lt_gt, Pos.lt_succ_diag_r.
 Qed.
 
-Fixpoint Lget (A:Set) (n:nat) (l:list A) {struct l}:option A :=
+Fixpoint Lget (A:Type) (n:nat) (l:list A) {struct l}:option A :=
 match l with nil => None
 | x::q =>
 match n with O => Some x
@@ -36,7 +36,7 @@ end end .
 
 Arguments Lget [A] n l.
 
-Lemma map_app : forall (A B:Set) (f:A -> B) l m,
+Lemma map_app : forall (A B:Type) (f:A -> B) l m,
 List.map  f (l ++ m) = List.map  f  l ++ List.map  f  m.
 induction l.
 reflexivity.
@@ -44,14 +44,14 @@ simpl.
 intro m ; apply f_equal;apply IHl.
 Qed.
 
-Lemma length_map : forall (A B:Set) (f:A -> B) l,
+Lemma length_map : forall (A B:Type) (f:A -> B) l,
 length (List.map  f l) = length l.
 induction l.
 reflexivity.
 simpl; apply f_equal;apply IHl.
 Qed.
 
-Lemma Lget_map : forall (A B:Set) (f:A -> B) i l,
+Lemma Lget_map : forall (A B:Type) (f:A -> B) i l,
 Lget i (List.map  f l) =
 match Lget i l with Some a =>
 Some (f a) | None => None end.
@@ -59,7 +59,7 @@ induction i;intros [ | x l ] ;trivial.
 simpl;auto.
 Qed.
 
-Lemma Lget_app : forall (A:Set) (a:A) l i,
+Lemma Lget_app : forall (A:Type) (a:A) l i,
 Lget i (l ++ a :: nil) = if Arith.EqNat.beq_nat i (length l) then Some a else Lget i l.
 Proof.
 induction l;simpl Lget;simpl length.
@@ -69,7 +69,7 @@ reflexivity.
 auto.
 Qed.
 
-Lemma Lget_app_Some : forall (A:Set) l delta i (a: A),
+Lemma Lget_app_Some : forall (A:Type) l delta i (a: A),
 Lget i l = Some a ->
 Lget i (l ++ delta) = Some a.
 induction l;destruct i;simpl;try congruence;auto.
@@ -319,7 +319,7 @@ Arguments In [A] x S F.
 
 Section Map.
 
-Variables A B:Set.
+Variables A B:Type.
 
 Variable f: A -> B.
 

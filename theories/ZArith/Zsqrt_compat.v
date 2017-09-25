@@ -41,7 +41,7 @@ Ltac compute_POS :=
       end
   end.
 
-Inductive sqrt_data (n:Z) : Set :=
+Inductive sqrt_data (n:Z) : Type :=
   c_sqrt : forall s r:Z, n = s * s + r -> 0 <= r <= 2 * s -> sqrt_data n.
 
 Definition sqrtrempos : forall p:positive, sqrt_data (Zpos p).

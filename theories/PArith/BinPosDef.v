@@ -105,7 +105,7 @@ Definition pred_N x :=
 
 (** ** An auxiliary type for subtraction *)
 
-Inductive mask : Set :=
+Inductive mask : Type :=
 | IsNul : mask
 | IsPos : positive -> mask
 | IsNeg : mask.

@@ -716,10 +716,7 @@ Module IntMake_ord (I:Int)(X: OrderedType)(D : OrderedType) <:
   Lemma compare_aux_Cmp : forall e,
    Cmp (compare_aux e) (flatten_e (fst e)) (flatten_e (snd e)).
   Proof.
-  intros e; functional induction (compare_aux e); simpl in *;
-   auto; intros; try clear e0; try clear e3; try MX.elim_comp; auto.
-  rewrite 2 cons_1 in IHc; auto.
-  Qed.
+  Admitted.
 
   Lemma compare_Cmp : forall m1 m2,
     Cmp (compare_aux (Raw.cons m1 (Raw.End _), Raw.cons m2 (Raw.End _)))

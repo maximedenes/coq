@@ -19,8 +19,8 @@ Defined.
 
 Hint Resolve sumbool_of_bool: bool.
 
-Definition bool_eq_rec :
-  forall (b:bool) (P:bool -> Set),
+Definition bool_eq_rect :
+  forall (b:bool) (P:bool -> Type),
     (b = true -> P true) -> (b = false -> P false) -> P b.
   destruct b; auto.
 Defined.

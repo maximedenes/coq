@@ -14,7 +14,7 @@ Local Open Scope nat_scope.
 
 Implicit Types a b n q r : nat.
 
-Inductive diveucl a b : Set :=
+Inductive diveucl a b : Type :=
   divex : forall q r, b > r -> a = q * b + r -> diveucl a b.
 
 Lemma eucl_dev : forall n, n > 0 -> forall m:nat, diveucl m n.

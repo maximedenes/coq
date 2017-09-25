@@ -144,7 +144,7 @@ Definition PolEnv := Env R. (* For interpreting PolC *)
 Definition eval_pol : PolEnv -> PolC -> R :=
    Pphi rplus rtimes phi.
 
-Inductive Op1 : Set := (* relations with 0 *)
+Inductive Op1 : Type := (* relations with 0 *)
 | Equal (* == 0 *)
 | NonEqual (* ~= 0 *)
 | Strict (* > 0 *)
@@ -661,7 +661,7 @@ Qed.
 
 (** Normalisation of formulae **)
 
-Inductive Op2 : Set := (* binary relations *)
+Inductive Op2 : Type := (* binary relations *)
 | OpEq
 | OpNEq
 | OpLe

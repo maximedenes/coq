@@ -51,12 +51,6 @@ Proof.
 intros A x P H y H'; case JMeq_eq with (1 := H'); trivial.
 Qed.
 
-Lemma JMeq_rec : forall (A:Type) (x:A) (P:A -> Set),
-  P x -> forall y, JMeq x y -> P y.
-Proof.
-intros A x P H y H'; case JMeq_eq with (1 := H'); trivial.
-Qed.
-
 Lemma JMeq_rect : forall (A:Type) (x:A) (P:A->Type),
   P x -> forall y, JMeq x y -> P y.
 Proof.
@@ -64,12 +58,6 @@ intros A x P H y H'; case JMeq_eq with (1 := H'); trivial.
 Qed.
 
 Lemma JMeq_ind_r : forall (A:Type) (x:A) (P:A -> Prop),
-   P x -> forall y, JMeq y x -> P y.
-Proof.
-intros A x P H y H'; case JMeq_eq with (1 := JMeq_sym H'); trivial.
-Qed.
-
-Lemma JMeq_rec_r : forall (A:Type) (x:A) (P:A -> Set),
    P x -> forall y, JMeq y x -> P y.
 Proof.
 intros A x P H y H'; case JMeq_eq with (1 := JMeq_sym H'); trivial.

@@ -17,11 +17,11 @@ Set Implicit Arguments.
 
 Section defs.
 
-Variable A : Set.
+Variable A : Type.
 Variable eqA : A -> A -> Prop.
 Hypothesis eqA_dec : forall x y:A, {eqA x y} + {~ eqA x y}.
 
-Inductive uniset : Set :=
+Inductive uniset : Type :=
     Charac : (A -> bool) -> uniset.
 
 Definition charac (s:uniset) (a:A) : bool := let (f) := s in f a.
