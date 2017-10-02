@@ -16,14 +16,174 @@ open Libnames
 open Globnames
 open Nametab
 
-let coq = Libnames.coq_string (* "Coq" *)
+let make_dir l = DirPath.make (List.rev_map Id.of_string l)
 
 (************************************************************************)
-(* Generic functions to find Coq objects *)
+(* Coq reference API                                                    *)
+(************************************************************************)
+[@@@ocaml.warning "-37"]
+type mode = Coq | HoTT | Ssr
+let mode = Coq
 
-type message = string
+let coq = Libnames.coq_string (* "Coq" *)
 
-let make_dir l = DirPath.make (List.rev_map Id.of_string l)
+let init_dir = match mode with
+  | Coq  -> [ coq; "Init"]
+  | HoTT -> [ "HoTT"; "Basics" ]
+  | Ssr  -> [ "mathcomp"; "ssreflect" ]
+
+let _lib_prelude, lib_logic, lib_data, lib_type, lib_specif = match mode with
+  | Coq  -> "Prelude", "Logic", "Datatypes", "Logic_Type", "Specif"
+  | HoTT -> "Overture", "Overture", "Overture", "Overture", "Overture"
+  | Ssr  -> "init", "init", "init", "init", "init"
+
+let l_eq = match mode with
+  | Coq  -> "eq"
+  | HoTT -> "paths"
+  | Ssr  -> "eq"
+
+(* let prelude_module_name    = init_dir@[lib_prelude] *)
+(* let prelude_module         = make_dir prelude_module_name *)
+
+let logic_module_name      = init_dir@[lib_logic]
+(* let logic_module           = make_dir logic_module_name *)
+
+let logic_type_module_name = init_dir@[lib_type]
+(* let logic_type_module      = make_dir logic_type_module_name *)
+
+let datatypes_module_name  = init_dir@[lib_data]
+(* let datatypes_module       = make_dir datatypes_module_name *)
+
+let specif_module_name     = init_dir@[lib_specif]
+
+let jmeq_module_name       = [coq;"Logic";"JMeq"]
+let jmeq_module            = make_dir jmeq_module_name
+
+let std_table : (string * string list * string) array =
+  let logic_lib = logic_module_name      in
+  let data_lib  = datatypes_module_name  in
+  let type_lib  = logic_type_module_name in
+  let spec_lib  = specif_module_name     in
+  let jmeq_lib  = jmeq_module_name       in
+  let eqdep_dec_lib  = [coq;"Logic";"Eqdep_dec"] in
+  [| "core.False.type", logic_lib, "False"
+
+   ; "core.True.type",  logic_lib, "True"
+   ; "core.True.I",     logic_lib, "I"
+
+   ; "core.not.type",   logic_lib, "not"
+
+   ; "core.or.type",    logic_lib, "or"
+   ; "core.or.ind",     logic_lib, "or_ind"
+
+   ; "core.and.type",   logic_lib, "and"
+   ; "core.and.ind",    logic_lib, "and_ind"
+   ; "core.and.conj",   logic_lib, "conj"
+
+   ; "core.iff.type",   logic_lib, "iff"
+   ; "core.iff.proj1",  logic_lib, "proj1"
+   ; "core.iff.proj2",  logic_lib, "proj2"
+
+   ; "core.ex.type",    logic_lib, "ex"
+   ; "core.ex.ind",     logic_lib, "ex_ind"
+   ; "core.ex.intro",   logic_lib, "ex_intro"
+
+   ; "core.eq.type",    logic_lib, l_eq ^ ""
+   ; "core.eq.refl",    logic_lib, l_eq ^ "_refl"
+   ; "core.eq.ind",     logic_lib, l_eq ^ "_ind"
+   ; "core.eq.rect",    logic_lib, l_eq ^ "_rect"
+   ; "core.eq.sym",     logic_lib, l_eq ^ "_sym"
+   ; "core.eq.congr",   logic_lib, "f_equal"
+   ; "core.eq.congr2",  logic_lib, "f_equal2"
+   ; "core.eq.trans",   logic_lib, "eq_trans"
+   (* XXX: Is not there? *)
+   ; "core.eq.congr_canonical", logic_lib, "f_equal_canonical_form"
+
+   ; "core.identity.type",    data_lib, "identity"
+   ; "core.identity.refl",    data_lib, "identity_refl"
+   ; "core.identity.ind",     data_lib, "identity_ind"
+   ; "core.identity.sym",     type_lib, "identity_sym"
+   ; "core.identity.congr",   type_lib, "identity_congr"
+   ; "core.identity.trans",   type_lib, "identity_trans"
+
+   (* XXX: Also doesn't seem there *)
+   ; "core.identity.congr_canonical",   ["Coq"; "Init"; "Logic_Type"], "identity_congr_canonical_form"
+
+   ; "core.ID.type",   data_lib, "ID"
+   ; "core.ID.id",     data_lib, "id"
+
+   ; "core.IDProp.type",   data_lib, "IDProp"
+   ; "core.IDProp.idProp", data_lib, "idProp"
+
+   ; "core.prod.type",   data_lib, "prod"
+   ; "core.prod.rect",   data_lib, "prod_rect"
+   ; "core.prod.intro",  data_lib, "pair"
+   ; "core.prod.proj1",  data_lib, "fst"
+   ; "core.prod.proj2",  data_lib, "snd"
+
+   ; "core.sig.type",    spec_lib, "sig"
+   ; "core.sig.rect",    spec_lib, "sig_rec"
+   ; "core.sig.intro",   spec_lib, "exist"
+   ; "core.sig.proj1",   spec_lib, "proj1_sig"
+   ; "core.sig.proj2",   spec_lib, "proj2_sig"
+
+   ; "core.sigT.type",   spec_lib, "sigT"
+   ; "core.sigT.rect",   spec_lib, "sigT_rect"
+   ; "core.sigT.intro",  spec_lib, "existT"
+   ; "core.sigT.proj1",  spec_lib, "projT1"
+   ; "core.sigT.proj2",  spec_lib, "projT2"
+
+   ; "core.sumbool.type", spec_lib, "sumbool"
+
+   ; "core.JMeq.type",   jmeq_lib, "JMeq"
+   ; "core.JMeq.refl",   jmeq_lib, "JMeq_refl"
+   ; "core.JMeq.ind",    jmeq_lib, "JMeq_ind"
+   ; "core.JMeq.sym",    jmeq_lib, "JMeq_sym"
+   ; "core.JMeq.congr",  jmeq_lib, "JMeq_congr"
+   ; "core.JMeq.trans",  jmeq_lib, "JMeq_trans"
+   ; "core.JMeq.hom",    jmeq_lib, "JMeq_hom"
+   ; "core.JMeq.congr_canonical", jmeq_lib, "JMeq_congr_canonical_form"
+
+   ; "core.bool.type",            data_lib, "bool"
+   ; "core.bool.true",            data_lib, "true"
+   ; "core.bool.false",           data_lib, "false"
+   ; "core.bool.andb",            data_lib, "andb"
+   ; "core.bool.andb_prop",       data_lib, "andb_prop"
+   ; "core.bool.andb_true_intro", data_lib, "andb_true_intro"
+   ; "core.bool.orb",             data_lib, "orb"
+   ; "core.bool.xorb",            data_lib, "xorb"
+   ; "core.bool.negb",            data_lib, "negb"
+
+   ; "core.eq_true.type",         data_lib, "eq_true"
+   ; "core.eq_true.ind",          data_lib, "eq_true_ind"
+
+   (* Not in the lib *)
+   ; "core.eq_true.congr",  logic_lib,     "eq_true_congr"
+   ; "core.eq_true.congr_canonical",  logic_lib,     "eq_true_congr"
+
+   ; "core.nat.type",      data_lib, "nat"
+   ; "core.nat.O",         data_lib, "O"
+   ; "core.nat.S",         data_lib, "S"
+
+   ; "core.list.type",      data_lib, "list"
+   ; "core.list.nil",       data_lib, "nil"
+   ; "core.list.cons",      data_lib, "cons"
+
+   ; "core.eqdep_dec.inj_pair2", eqdep_dec_lib, "inj_pair2_eq_dec"
+
+   ; "core.eqdep_dec.inj_pair2", eqdep_dec_lib, "inj_pair2_eq_dec"
+
+   ; "core.wf.well_founded", [coq;"Init";"Wf"], "well_founded"
+
+   ; "program.wf.fix_sub",   [coq;"Program";"Wf"], "Fix_sub"
+   ; "program.wf.mr",        [coq;"Program";"Wf"], "MR"
+
+   ; "program.tactics.obligation", [coq;"Program";"Tactics"], "obligation"
+   ; "program.tactics.fix_proto",  [coq;"Program";"Tactics"], "fix_proto"
+
+  |]
+
+let table = std_table
 
 let find_reference locstr dir s =
   let dp = make_dir dir in
@@ -38,6 +198,27 @@ let find_reference locstr dir s =
           str " has to be required first.")
 
 let coq_reference locstr dir s = find_reference locstr (coq::dir) s
+
+let table : (string, GlobRef.t Lazy.t) Hashtbl.t =
+  let ht = Hashtbl.create (2 * Array.length table) in
+  Array.iter (fun (b, path, s) -> Hashtbl.add ht b @@ lazy (find_reference "from_table" path s)) table;
+  ht
+
+(** Can throw Not_found *)
+let lib_ref    s =
+  try Lazy.force (Hashtbl.find table s)
+  with | Not_found ->
+    Feedback.msg_warning Pp.(str "not found in table: " ++ str s);
+    raise Not_found
+
+(** Replaces a binding ! *)
+let add_ref  s c =
+  Hashtbl.add table s (Lazy.from_val c)
+
+(************************************************************************)
+(* Generic functions to find Coq objects *)
+
+type message = string
 
 let has_suffix_in_dirs dirs ref =
   let dir = dirpath (path_of_global ref) in
@@ -74,25 +255,12 @@ let check_required_library d =
       | _ -> false
     in
     if not in_current_dir then
-(* Loading silently ...
-    let m, prefix = List.sep_last d' in
-    read_library
-     (Loc.ghost,make_qualid (DirPath.make (List.rev prefix)) m)
-*)
-(* or failing ...*)
       user_err ~hdr:"Coqlib.check_required_library"
         (str "Library " ++ DirPath.print dir ++ str " has to be required first.")
 
 (************************************************************************)
-(* Specific Coq objects *)
-
-let init_reference dir s =
-  let d = coq::"Init"::dir in
-  check_required_library d; find_reference "Coqlib" d s
-
-let logic_reference dir s =
-  let d = coq::"Logic"::dir in
-  check_required_library d; find_reference "Coqlib" d s
+(* Specific Coq objects                                                 *)
+(************************************************************************)
 
 let arith_dir = [coq;"Arith"]
 let arith_modules = [arith_dir]
@@ -104,7 +272,6 @@ let zarith_dir = [coq;"ZArith"]
 
 let zarith_base_modules = [numbers_dir;parith_dir;narith_dir;zarith_dir]
 
-let init_dir = [coq;"Init"]
 let init_modules = [
   init_dir@["Datatypes"];
   init_dir@["Logic"];
@@ -126,9 +293,6 @@ let logic_type_module = make_dir logic_type_module_name
 
 let datatypes_module_name = init_dir@["Datatypes"]
 let datatypes_module = make_dir datatypes_module_name
-
-let jmeq_module_name = [coq;"Logic";"JMeq"]
-let jmeq_module = make_dir jmeq_module_name
 
 (* TODO: temporary hack. Works only if the module isn't an alias *)
 let make_ind dir id = Globnames.encode_mind dir (Id.of_string id)
@@ -170,6 +334,7 @@ let glob_identity = IndRef (identity_kn,0)
 let jmeq_kn = make_ind jmeq_module "JMeq"
 let glob_jmeq = IndRef (jmeq_kn,0)
 
+(* Sigma data *)
 type coq_sigma_data = {
   proj1 : GlobRef.t;
   proj2 : GlobRef.t;
@@ -177,39 +342,29 @@ type coq_sigma_data = {
   intro : GlobRef.t;
   typ   : GlobRef.t }
 
+let build_sigma_gen str =
+  { typ   = lib_ref ("core." ^ str ^ ".type");
+    elim  = lib_ref ("core." ^ str ^ ".rect");
+    intro = lib_ref ("core." ^ str ^ ".intro");
+    proj1 = lib_ref ("core." ^ str ^ ".proj1");
+    proj2 = lib_ref ("core." ^ str ^ ".proj2");
+  }
+
+let build_prod       () = build_sigma_gen "prod"
+let build_sigma      () = build_sigma_gen "sig"
+let build_sigma_type () = build_sigma_gen "sigT"
+
+(* Booleans *)
+
 type coq_bool_data  = {
   andb : GlobRef.t;
   andb_prop : GlobRef.t;
   andb_true_intro : GlobRef.t}
 
 let build_bool_type () =
-  { andb =  init_reference ["Datatypes"] "andb";
-    andb_prop =  init_reference ["Datatypes"] "andb_prop";
-    andb_true_intro =  init_reference ["Datatypes"] "andb_true_intro" }
-
-let build_sigma_set () = anomaly (Pp.str "Use build_sigma_type.")
-
-let build_sigma_type () =
-  { proj1 = init_reference ["Specif"] "projT1";
-    proj2 = init_reference ["Specif"] "projT2";
-    elim = init_reference ["Specif"] "sigT_rect";
-    intro = init_reference ["Specif"] "existT";
-    typ = init_reference ["Specif"] "sigT" }
-
-let build_sigma () =
-  { proj1 = init_reference ["Specif"] "proj1_sig";
-    proj2 = init_reference ["Specif"] "proj2_sig";
-    elim = init_reference ["Specif"] "sig_rect";
-    intro = init_reference ["Specif"] "exist";
-    typ = init_reference ["Specif"] "sig" }
-
-
-let build_prod () =
-  { proj1 = init_reference ["Datatypes"] "fst";
-    proj2 = init_reference ["Datatypes"] "snd";
-    elim = init_reference ["Datatypes"] "prod_rec";
-    intro = init_reference ["Datatypes"] "pair";
-    typ = init_reference ["Datatypes"] "prod" }
+  { andb = lib_ref "core.bool.andb";
+    andb_prop = lib_ref "core.bool.andb_prop";
+    andb_true_intro = lib_ref "core.bool.andb_true_intro"; }
 
 (* Equalities *)
 type coq_eq_data = {
@@ -220,6 +375,24 @@ type coq_eq_data = {
   trans: GlobRef.t;
   congr: GlobRef.t }
 
+(* Leibniz equality on Type *)
+
+let build_eqdata_gen lib str =
+  let _ = check_required_library lib in {
+  eq    = lib_ref ("core." ^ str ^ ".type");
+  ind   = lib_ref ("core." ^ str ^ ".ind");
+  refl  = lib_ref ("core." ^ str ^ ".refl");
+  sym   = lib_ref ("core." ^ str ^ ".sym");
+  trans = lib_ref ("core." ^ str ^ ".trans");
+  congr = lib_ref ("core." ^ str ^ ".congr");
+  }
+
+let build_coq_eq_data       () = build_eqdata_gen logic_module_name "eq"
+let build_coq_jmeq_data     () = build_eqdata_gen jmeq_module_name  "JMeq"
+let build_coq_identity_data () = build_eqdata_gen datatypes_module_name "identity"
+
+(* Inversion data... *)
+
 (* Data needed for discriminate and injection *)
 type coq_inversion_data = {
   inv_eq   : GlobRef.t; (* : forall params, t -> Prop *)
@@ -227,155 +400,72 @@ type coq_inversion_data = {
   inv_congr: GlobRef.t  (* : forall params B (f:t->B) y, eq params y -> f c=f y *)
 }
 
-let lazy_init_reference dir id = lazy (init_reference dir id)
-let lazy_logic_reference dir id = lazy (logic_reference dir id)
-
-(* Leibniz equality on Type *)
-
-let coq_eq_eq = lazy_init_reference ["Logic"] "eq"
-let coq_eq_refl = lazy_init_reference ["Logic"] "eq_refl"
-let coq_eq_ind = lazy_init_reference ["Logic"] "eq_ind"
-let coq_eq_congr = lazy_init_reference ["Logic"] "f_equal"
-let coq_eq_sym  = lazy_init_reference ["Logic"] "eq_sym"
-let coq_eq_trans  = lazy_init_reference ["Logic"] "eq_trans"
-let coq_f_equal2 = lazy_init_reference ["Logic"] "f_equal2"
-let coq_eq_congr_canonical =
-  lazy_init_reference ["Logic"] "f_equal_canonical_form"
-
-let build_coq_eq_data () =
-  let _ = check_required_library logic_module_name in {
-  eq = Lazy.force coq_eq_eq;
-  ind = Lazy.force coq_eq_ind;
-  refl = Lazy.force coq_eq_refl;
-  sym = Lazy.force coq_eq_sym;
-  trans = Lazy.force coq_eq_trans;
-  congr = Lazy.force coq_eq_congr }
-
-let build_coq_eq () = Lazy.force coq_eq_eq
-let build_coq_eq_refl () = Lazy.force coq_eq_refl
-let build_coq_eq_sym () = Lazy.force coq_eq_sym
-let build_coq_f_equal2 () = Lazy.force coq_f_equal2
+let build_coq_inversion_gen l str =
+  List.iter check_required_library l; {
+    inv_eq    = lib_ref ("core." ^ str ^ ".type");
+    inv_ind   = lib_ref ("core." ^ str ^ ".ind");
+    inv_congr = lib_ref ("core." ^ str ^ ".congr_canonical");
+  }
 
 let build_coq_inversion_eq_data () =
-  let _ = check_required_library logic_module_name in {
-  inv_eq = Lazy.force coq_eq_eq;
-  inv_ind = Lazy.force coq_eq_ind;
-  inv_congr = Lazy.force coq_eq_congr_canonical }
-
-(* Heterogenous equality on Type *)
-
-let coq_jmeq_eq = lazy_logic_reference ["JMeq"] "JMeq"
-let coq_jmeq_hom = lazy_logic_reference ["JMeq"] "JMeq_hom"
-let coq_jmeq_refl = lazy_logic_reference ["JMeq"] "JMeq_refl"
-let coq_jmeq_ind = lazy_logic_reference ["JMeq"] "JMeq_ind"
-let coq_jmeq_sym  = lazy_logic_reference ["JMeq"] "JMeq_sym"
-let coq_jmeq_congr  = lazy_logic_reference ["JMeq"] "JMeq_congr"
-let coq_jmeq_trans  = lazy_logic_reference ["JMeq"] "JMeq_trans"
-let coq_jmeq_congr_canonical =
-  lazy_logic_reference ["JMeq"] "JMeq_congr_canonical_form"
-
-let build_coq_jmeq_data () =
-  let _ = check_required_library jmeq_module_name in {
-  eq = Lazy.force coq_jmeq_eq;
-  ind = Lazy.force coq_jmeq_ind;
-  refl = Lazy.force coq_jmeq_refl;
-  sym = Lazy.force coq_jmeq_sym;
-  trans = Lazy.force coq_jmeq_trans;
-  congr = Lazy.force coq_jmeq_congr }
-
-let build_coq_inversion_jmeq_data () =
-  let _ = check_required_library logic_module_name in {
-  inv_eq = Lazy.force coq_jmeq_hom;
-  inv_ind = Lazy.force coq_jmeq_ind;
-  inv_congr = Lazy.force coq_jmeq_congr_canonical }
-
-(* Specif *)
-let coq_sumbool  = lazy_init_reference ["Specif"] "sumbool"
-
-let build_coq_sumbool () = Lazy.force coq_sumbool
-
-(* Equality on Type as a Type *)
-let coq_identity_eq = lazy_init_reference ["Datatypes"] "identity"
-let coq_identity_refl = lazy_init_reference ["Datatypes"] "identity_refl"
-let coq_identity_ind = lazy_init_reference ["Datatypes"] "identity_ind"
-let coq_identity_congr = lazy_init_reference ["Logic_Type"] "identity_congr"
-let coq_identity_sym = lazy_init_reference ["Logic_Type"] "identity_sym"
-let coq_identity_trans = lazy_init_reference ["Logic_Type"] "identity_trans"
-let coq_identity_congr_canonical = lazy_init_reference ["Logic_Type"] "identity_congr_canonical_form"
-
-let build_coq_identity_data () =
-  let _ = check_required_library datatypes_module_name in {
-  eq = Lazy.force coq_identity_eq;
-  ind = Lazy.force coq_identity_ind;
-  refl = Lazy.force coq_identity_refl;
-  sym = Lazy.force coq_identity_sym;
-  trans = Lazy.force coq_identity_trans;
-  congr = Lazy.force coq_identity_congr }
-
-let build_coq_inversion_identity_data () =
-  let _ = check_required_library datatypes_module_name in
-  let _ = check_required_library logic_type_module_name in {
-  inv_eq = Lazy.force coq_identity_eq;
-  inv_ind = Lazy.force coq_identity_ind;
-  inv_congr = Lazy.force coq_identity_congr_canonical }
-
-(* Equality to true *)
-let coq_eq_true_eq = lazy_init_reference ["Datatypes"] "eq_true"
-let coq_eq_true_ind = lazy_init_reference ["Datatypes"] "eq_true_ind"
-let coq_eq_true_congr = lazy_init_reference ["Logic"] "eq_true_congr"
+  build_coq_inversion_gen [logic_module_name] "eq"
 
 let build_coq_inversion_eq_true_data () =
-  let _ = check_required_library datatypes_module_name in
-  let _ = check_required_library logic_module_name in {
-  inv_eq = Lazy.force coq_eq_true_eq;
-  inv_ind = Lazy.force coq_eq_true_ind;
-  inv_congr = Lazy.force coq_eq_true_congr }
+  build_coq_inversion_gen [logic_module_name] "True"
 
-(* The False proposition *)
-let coq_False  = lazy_init_reference ["Logic"] "False"
+let build_coq_inversion_identity_data () =
+  build_coq_inversion_gen [logic_module_name] "identity"
 
-(* The True proposition and its unique proof *)
-let coq_True   = lazy_init_reference ["Logic"] "True"
-let coq_I      = lazy_init_reference ["Logic"] "I"
+(* This needs a special case *)
+let build_coq_inversion_jmeq_data () = {
+  inv_eq    = lib_ref "core.JMeq.hom";
+  inv_ind   = lib_ref "core.JMeq.ind";
+  inv_congr = lib_ref "core.JMeq.congr_canonical";
+}
 
-(* Connectives *)
-let coq_not = lazy_init_reference ["Logic"] "not"
-let coq_and = lazy_init_reference ["Logic"] "and"
-let coq_conj = lazy_init_reference ["Logic"] "conj"
-let coq_or = lazy_init_reference ["Logic"] "or"
-let coq_ex = lazy_init_reference ["Logic"] "ex"
-let coq_iff = lazy_init_reference ["Logic"] "iff"
+(* Specif *)
+let build_coq_sumbool () = lib_ref "core.sumbool.type"
 
-let coq_iff_left_proj  = lazy_init_reference ["Logic"] "proj1"
-let coq_iff_right_proj = lazy_init_reference ["Logic"] "proj2"
+let build_coq_eq () = lib_ref "core.eq.type"
+let build_coq_eq_refl () = lib_ref "core.eq.refl"
+let build_coq_eq_sym () = lib_ref "core.eq.sym"
+let build_coq_f_equal2 () = lib_ref "core.eq.congr2"
 
 (* Runtime part *)
-let build_coq_True ()  = Lazy.force coq_True
-let build_coq_I ()     = Lazy.force coq_I
+let build_coq_True ()  = lib_ref "core.True.type"
+let build_coq_I ()     = lib_ref "core.True.I"
+let build_coq_identity () = lib_ref "core.identity.type"
 
-let build_coq_False () = Lazy.force coq_False
-let build_coq_not ()   = Lazy.force coq_not
-let build_coq_and ()   = Lazy.force coq_and
-let build_coq_conj ()  = Lazy.force coq_conj
-let build_coq_or ()    = Lazy.force coq_or
-let build_coq_ex ()    = Lazy.force coq_ex
-let build_coq_iff ()   = Lazy.force coq_iff
+let build_coq_eq_true () = lib_ref "core.eq_true.type"
+let build_coq_jmeq () = lib_ref "core.JMeq.type"
 
-let build_coq_iff_left_proj ()  = Lazy.force coq_iff_left_proj
-let build_coq_iff_right_proj () = Lazy.force coq_iff_right_proj
+let build_coq_False () = lib_ref "core.False.type"
+let build_coq_not ()   = lib_ref "core.not.type"
+let build_coq_and ()   = lib_ref "core.and.type"
+let build_coq_conj ()  = lib_ref "core.conj.type"
+let build_coq_or ()    = lib_ref "core.or.type"
+let build_coq_ex ()    = lib_ref "core.ex.type"
+let build_coq_sig () = lib_ref "core.sig.type"
+let build_coq_existT () = lib_ref "core.sigT.existT"
+let build_coq_iff ()   = lib_ref "core.iff.type"
 
+let build_coq_iff_left_proj ()  = lib_ref "core.iff.proj1"
+let build_coq_iff_right_proj () = lib_ref "core.iff.proj2"
 
 (* The following is less readable but does not depend on parsing *)
-let coq_eq_ref      = lazy (init_reference ["Logic"] "eq")
-let coq_identity_ref = lazy (init_reference ["Datatypes"] "identity")
-let coq_jmeq_ref     = lazy (find_reference "Coqlib" [coq;"Logic";"JMeq"] "JMeq")
-let coq_eq_true_ref = lazy (find_reference "Coqlib" [coq;"Init";"Datatypes"] "eq_true")
-let coq_existS_ref  = lazy (anomaly (Pp.str "use coq_existT_ref."))
-let coq_existT_ref  = lazy (init_reference ["Specif"] "existT")
-let coq_exist_ref  = lazy (init_reference ["Specif"] "exist")
-let coq_not_ref     = lazy (init_reference ["Logic"] "not")
-let coq_False_ref   = lazy (init_reference ["Logic"] "False")
-let coq_sumbool_ref = lazy (init_reference ["Specif"] "sumbool")
-let coq_sig_ref = lazy (init_reference ["Specif"] "sig")
-let coq_or_ref     = lazy (init_reference ["Logic"] "or")
-let coq_iff_ref    = lazy (init_reference ["Logic"] "iff")
+let coq_eq_ref      = Lazy.from_fun build_coq_eq
+let coq_identity_ref = Lazy.from_fun build_coq_identity
+let coq_jmeq_ref     = Lazy.from_fun build_coq_jmeq
+let coq_eq_true_ref = Lazy.from_fun build_coq_eq_true
+let coq_existS_ref  = Lazy.from_fun build_coq_existT
+let coq_existT_ref  = Lazy.from_fun build_coq_existT
+let coq_exist_ref  = Lazy.from_fun build_coq_ex
+let coq_not_ref     = Lazy.from_fun build_coq_not
+let coq_False_ref   = Lazy.from_fun build_coq_False
+let coq_sumbool_ref = Lazy.from_fun build_coq_sumbool
+let coq_sig_ref = Lazy.from_fun build_coq_sig
+let coq_or_ref     = Lazy.from_fun build_coq_or
+let coq_iff_ref    = Lazy.from_fun build_coq_iff
+
+(** Deprecated functions that search by library name. *)
+let build_sigma_set () = anomaly (Pp.str "Use build_sigma_type.")

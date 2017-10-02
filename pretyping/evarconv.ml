@@ -49,9 +49,10 @@ let _ = Goptions.declare_bool_option {
 (* XXX: we would like to search for this with late binding
    "data.id.type" etc... *)
 let impossible_default_case () =
-  let c, ctx = UnivGen.fresh_global_instance (Global.env()) (Globnames.ConstRef Coqlib.id) in
+  let c, ctx = Universes.fresh_global_instance (Global.env()) (Coqlib.(lib_ref "core.IDProp.idProp")) in
   let (_, u) = Constr.destConst c in
   Some (c, Constr.mkConstU (Coqlib.type_of_id, u), ctx)
+    [@@ocaml.warning "-3"]
 
 let coq_unit_judge =
   let open Environ in

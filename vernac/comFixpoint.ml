@@ -156,7 +156,8 @@ let subtac_dir = [contrib_name]
 let tactics_module = subtac_dir @ ["Tactics"]
 
 let init_constant dir s sigma =
-  Evarutil.new_global sigma (Coqlib.coq_reference "Command" dir s)
+  Evarutil.new_global sigma Coqlib.(find_reference "Command" ("Coq"::dir) s)
+    [@@warning "-3"]
 
 let fix_proto = init_constant tactics_module "fix_proto"
 

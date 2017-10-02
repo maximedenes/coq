@@ -764,7 +764,7 @@ let mkEtaApp c n imin =
 
 let mkRefl t c gl =
   let sigma = project gl in
-  let (sigma, refl) = EConstr.fresh_global (pf_env gl) sigma Coqlib.((build_coq_eq_data()).refl) in
+  let (sigma, refl) = EConstr.fresh_global (pf_env gl) sigma Coqlib.(lib_ref "core.eq.refl") in
   EConstr.mkApp (refl, [|t; c|]), { gl with sigma }
 
 let discharge_hyp (id', (id, mode)) gl =
@@ -1221,7 +1221,7 @@ let genclrtac cl cs clr =
       (fun type_err gl ->
          tclTHEN
            (tclTHEN (Proofview.V82.of_tactic (Tactics.elim_type (EConstr.of_constr
-             (UnivGen.constr_of_global @@ Coqlib.build_coq_False ())))) (old_cleartac clr))
+             (Universes.constr_of_global @@ Coqlib.(lib_ref "core.False.type"))))) (old_cleartac clr))
            (fun gl -> raise type_err)
            gl))
     (old_cleartac clr)

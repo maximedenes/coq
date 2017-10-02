@@ -921,7 +921,7 @@ let ftheory_to_obj : field_info -> obj =
 let field_equality evd r inv req =
   match EConstr.kind !evd req with
     | App (f, [| _ |]) when eq_constr_nounivs !evd f (Lazy.force coq_eq) ->
-        let c = UnivGen.constr_of_global (Coqlib.build_coq_eq_data()).congr in
+        let c = Universes.constr_of_global Coqlib.(lib_ref "core.eq.congr") in
         let c = EConstr.of_constr c in
         mkApp(c,[|r;r;inv|])
     | _ ->

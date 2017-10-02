@@ -1306,7 +1306,7 @@ let project_hint ~poly pri l2r r =
     | [a;b] -> (a,b)
     | _ -> assert false in
   let p =
-    if l2r then build_coq_iff_left_proj () else build_coq_iff_right_proj () in
+    if l2r then lib_ref "core.iff.proj1" else lib_ref "core.iff.proj2" in
   let sigma, p = Evd.fresh_global env sigma p in
   let c = Reductionops.whd_beta sigma (mkApp (c, Context.Rel.to_extended_vect mkRel 0 sign)) in
   let c = it_mkLambda_or_LetIn

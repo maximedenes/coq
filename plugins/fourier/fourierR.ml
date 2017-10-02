@@ -227,7 +227,7 @@ let ineq1_of_constr (h,t) =
 			   hstrict=false}]
               |_-> raise NoIneq)
           | Ind ((kn,i),_) ->
-            if not (GlobRef.equal (IndRef(kn,i)) Coqlib.glob_eq) then raise NoIneq;
+            if not (GlobRef.equal (IndRef(kn,i)) Coqlib.(lib_ref "core.eq.type")) then raise NoIneq;
             let t0= args.(0) in
             let t1= args.(1) in
             let t2= args.(2) in
@@ -283,18 +283,20 @@ let fourier_lineq lineq1 =
 let get = Lazy.force
 let cget = get
 let eget c = EConstr.of_constr (Lazy.force c)
-let constant path s = UnivGen.constr_of_global @@
-  Coqlib.coq_reference "Fourier" path s
+[@@@ocaml.warning "-3"]
+let constant path s = Universes.constr_of_global @@
+  Coqlib.find_reference "Fourier" path s
+[@@@ocaml.warning "+3"]
 
 (* Standard library *)
 open Coqlib
-let coq_sym_eqT = lazy (build_coq_eq_sym ())
-let coq_False = lazy (UnivGen.constr_of_global @@ build_coq_False ())
-let coq_not = lazy (UnivGen.constr_of_global @@ build_coq_not ())
-let coq_eq = lazy (UnivGen.constr_of_global @@ build_coq_eq ())
+let coq_sym_eqT = lazy (lib_ref "core.eq.sym")
+let coq_False = lazy (UnivGen.constr_of_global @@ lib_ref "core.False.type")
+let coq_not = lazy (UnivGen.constr_of_global @@ lib_ref "core.not.type")
+let coq_eq = lazy (UnivGen.constr_of_global @@ lib_ref "core.eq.type")
 
 (* Rdefinitions *)
-let constant_real = constant ["Reals";"Rdefinitions"]
+let constant_real = constant ["Coq"; "Reals";"Rdefinitions"]
 
 let coq_Rlt = lazy (constant_real "Rlt")
 let coq_Rgt = lazy (constant_real "Rgt")
@@ -310,7 +312,7 @@ let coq_R0 = lazy (constant_real "R0")
 let coq_R1 = lazy (constant_real "R1")
 
 (* RIneq *)
-let coq_Rinv_1 = lazy (constant ["Reals";"RIneq"] "Rinv_1")
+let coq_Rinv_1 = lazy (constant ["Coq"; "Reals";"RIneq"] "Rinv_1")
 
 (* Fourier_util *)
 let constant_fourier = constant ["fourier";"Fourier_util"]

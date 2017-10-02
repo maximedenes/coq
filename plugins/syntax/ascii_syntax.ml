@@ -39,8 +39,10 @@ let ascii_kn = make_kn ascii_module "ascii"
 let path_of_Ascii = ((ascii_kn,0),1)
 let static_glob_Ascii  = ConstructRef path_of_Ascii
 
+[@@@ocaml.warning "-3"]
 let make_reference id = find_reference "Ascii interpretation" ascii_module id
 let glob_Ascii = lazy (make_reference "Ascii")
+[@@@ocaml.warning "+3"]
 
 open Lazy
 

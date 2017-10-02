@@ -26,28 +26,27 @@ let step_count = ref 0
 
 let node_count = ref 0
 
-let logic_constant s = UnivGen.constr_of_global @@
-  Coqlib.coq_reference "refl_tauto" ["Init";"Logic"] s
+let li_False = lazy (destInd (Universes.constr_of_global @@ Coqlib.lib_ref "core.False.type"))
+let li_and   = lazy (destInd (Universes.constr_of_global @@ Coqlib.lib_ref "core.and.type"))
+let li_or    = lazy (destInd (Universes.constr_of_global @@ Coqlib.lib_ref "core.or.type"))
 
-let li_False = lazy (destInd (logic_constant "False"))
-let li_and   = lazy (destInd (logic_constant "and"))
-let li_or    = lazy (destInd (logic_constant "or"))
-
-let pos_constant s = UnivGen.constr_of_global @@
-  Coqlib.coq_reference "refl_tauto" ["Numbers";"BinNums"] s
+[@@@ocaml.warning "-3"]
+let pos_constant s = Universes.constr_of_global @@
+  Coqlib.find_reference "refl_tauto" ["Coq";"Numbers";"BinNums"] s
 
 let l_xI = lazy (pos_constant "xI")
 let l_xO = lazy (pos_constant "xO")
 let l_xH = lazy (pos_constant "xH")
 
-let store_constant s = UnivGen.constr_of_global @@
-  Coqlib.coq_reference "refl_tauto" ["rtauto";"Bintree"] s
+let store_constant s = Universes.constr_of_global @@
+  Coqlib.find_reference "refl_tauto" ["Coq";"rtauto";"Bintree"] s
 
 let l_empty = lazy (store_constant "empty")
 let l_push = lazy (store_constant "push")
 
-let constant s = UnivGen.constr_of_global @@
-  Coqlib.coq_reference "refl_tauto" ["rtauto";"Rtauto"] s
+let constant s = Universes.constr_of_global @@
+  Coqlib.find_reference "refl_tauto" ["Coq";"rtauto";"Rtauto"] s
+[@@@ocaml.warning "+3"]
 
 let l_Reflect = lazy (constant "Reflect")
 

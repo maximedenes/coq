@@ -136,8 +136,10 @@ let mul = function
   | (Const n,q) when eq_num n num_1 -> q
   | (p,q) -> Mul(p,q)
 
-let gen_constant msg path s = UnivGen.constr_of_global @@
-  coq_reference msg path s
+[@@@ocaml.warning "-3"]
+let gen_constant msg path s = Universes.constr_of_global @@
+  find_reference msg ("Coq"::path) s
+[@@@ocaml.warning "+3"]
 
 let tpexpr  = lazy (gen_constant "CC" ["setoid_ring";"Ring_polynom"] "PExpr")
 let ttconst = lazy (gen_constant "CC" ["setoid_ring";"Ring_polynom"] "PEc")
@@ -545,7 +547,7 @@ let nsatz lpol =
 
 let return_term t =
   let a =
-    mkApp(gen_constant "CC" ["Init";"Logic"] "eq_refl",[|tllp ();t|]) in
+    mkApp (UnivGen.constr_of_global @@ Coqlib.lib_ref "core.eq.refl",[|tllp ();t|]) in
   let a = EConstr.of_constr a in
   generalize [a]
 

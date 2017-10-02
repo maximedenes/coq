@@ -147,9 +147,10 @@ let rec mk_nat = function
 
 (* Lists *)
 
+[@@@ocaml.warning "-3"]
 let mkListConst c =
   let r =
-    Coqlib.coq_reference "" ["Init";"Datatypes"] c
+    Coqlib.find_reference "Omega" ["Coq";"Init";"Datatypes"] c
   in
   let inst =
     if Global.is_polymorphic r then
@@ -158,6 +159,7 @@ let mkListConst c =
       fun _ -> EConstr.EInstance.empty
   in
     fun u -> EConstr.mkConstructU (Globnames.destConstructRef r, inst u)
+[@@@ocaml.warning "+3"]
 
 let coq_cons univ typ = EConstr.mkApp (mkListConst "cons" univ, [|typ|])
 let coq_nil univ typ =  EConstr.mkApp (mkListConst "nil" univ, [|typ|])

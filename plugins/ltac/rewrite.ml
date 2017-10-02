@@ -57,10 +57,12 @@ let init_setoid () =
   else Coqlib.check_required_library ["Coq";"Setoids";"Setoid"]
 
 let lazy_find_reference dir s =
-  let gr = lazy (Coqlib.coq_reference "generalized rewriting" dir s) in
+  let gr = lazy (Coqlib.find_reference "generalized rewriting" dir s) in
   fun () -> Lazy.force gr
+[@@warning "-3"]
 
-let find_reference dir s = Coqlib.coq_reference "generalized rewriting" dir s
+let find_reference dir s = Coqlib.find_reference "generalized rewriting" ("Coq"::dir) s
+[@@warning "-3"]
 
 type evars = evar_map * Evar.Set.t (* goal evars, constraint evars *)
 
@@ -74,13 +76,13 @@ let find_global dir s =
 
 (** Global constants. *)
 
-let coq_eq_ref = lazy_find_reference ["Init"; "Logic"] "eq"
-let coq_eq = find_global ["Init"; "Logic"] "eq"
-let coq_f_equal = find_global ["Init"; "Logic"] "f_equal"
-let coq_all = find_global ["Init"; "Logic"] "all"
-let impl = find_global ["Program"; "Basics"] "impl"
+let coq_eq_ref  () = Coqlib.lib_ref    "core.eq.type"
+let coq_eq      = find_global    ["Init"; "Logic"] "eq"
+let coq_f_equal = find_global    ["Init"; "Logic"] "f_equal"
+let coq_all     = find_global    ["Init"; "Logic"] "all"
+let impl        = find_global    ["Program"; "Basics"] "impl"
 
-(** Bookkeeping which evars are constraints so that we can 
+(** Bookkeeping which evars are constraints so that we can
     remove them at the end of the tactic. *)
 
 let goalevars evars = fst evars
@@ -374,12 +376,12 @@ let type_app_poly env env evd f args =
 module PropGlobal = struct
   module Consts =
   struct 
-    let relation_classes = ["Classes"; "RelationClasses"]
-    let morphisms = ["Classes"; "Morphisms"]
-    let relation = ["Relations";"Relation_Definitions"], "relation"
+    let relation_classes = ["Coq"; "Classes"; "RelationClasses"]
+    let morphisms = ["Coq"; "Classes"; "Morphisms"]
+    let relation = ["Coq"; "Relations";"Relation_Definitions"], "relation"
     let app_poly = app_poly_nocheck
-    let arrow = find_global ["Program"; "Basics"] "arrow"
-    let coq_inverse = find_global ["Program"; "Basics"] "flip"
+    let arrow = find_global ["Coq"; "Program"; "Basics"] "arrow"
+    let coq_inverse = find_global ["Coq"; "Program"; "Basics"] "flip"
   end
 
   module G = GlobalBindings(Consts)
@@ -745,9 +747,9 @@ let new_global (evars, cstrs) gr =
   (sigma, cstrs), c
 
 let make_eq sigma =
-  new_global sigma (Coqlib.build_coq_eq ())
+  new_global sigma Coqlib.(lib_ref "core.eq.type")
 let make_eq_refl sigma =
-  new_global sigma (Coqlib.build_coq_eq_refl ())
+  new_global sigma Coqlib.(lib_ref "core.eq.refl")
 
 let get_rew_prf evars r = match r.rew_prf with
   | RewPrf (rel, prf) -> evars, (rel, prf)
