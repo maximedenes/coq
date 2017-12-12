@@ -2244,7 +2244,7 @@ let interp ?(verbosely=true) ?proof ~st (loc,c) =
           else Flags.silently  (interp ?proof ~atts ~st) c;
           if orig_program_mode || not !Flags.program_mode || isprogcmd then
             Flags.program_mode := orig_program_mode;
-          ignore (Flags.use_polymorphic_flag ())
+          Flags.forget_use_poly ()
           end
         with
         | reraise when
@@ -2256,7 +2256,7 @@ let interp ?(verbosely=true) ?proof ~st (loc,c) =
             let e = locate_if_not_already ?loc e in
             let () = restore_timeout () in
             Flags.program_mode := orig_program_mode;
-	    ignore (Flags.use_polymorphic_flag ());
+	    Flags.forget_use_poly ();
             iraise e
   in
   let atts = { loc; locality = None; polymorphic = false; } in

@@ -137,9 +137,15 @@ let make_universe_polymorphism b = universe_polymorphism := b
 let is_universe_polymorphism () = !universe_polymorphism
 
 let local_polymorphic_flag = ref None
+let use_poly_used = ref false
+let forget_use_poly () =
+  use_poly_used := false;
+  local_polymorphic_flag := None
+
 let use_polymorphic_flag () = 
+  assert (not !use_poly_used);
   match !local_polymorphic_flag with 
-  | Some p -> local_polymorphic_flag := None; p
+  | Some p -> local_polymorphic_flag := None; use_poly_used := true; p
   | None -> is_universe_polymorphism ()
 let make_polymorphic_flag b =
   local_polymorphic_flag := Some b

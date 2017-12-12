@@ -100,6 +100,7 @@ val is_universe_polymorphism : unit -> bool
 
 (** Local universe polymorphism flag. *)
 val make_polymorphic_flag : bool -> unit
+val forget_use_poly : unit -> unit
 val use_polymorphic_flag : unit -> bool
 
 (** Global polymorphic inductive cumulativity flag. *)
