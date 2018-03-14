@@ -70,10 +70,10 @@ class CoqTop:
         """
         # Suppress newlines, but not spaces: they are significant in notations
         sentence = re.sub(r"[\r\n]+", " ", sentence).strip()
-        print("Sending {}".format(sentence))
+        # print("Sending {}".format(sentence))
         self.coqtop.sendline(sentence)
         output = self.next_prompt()
-        print("Got {}".format(repr(output)))
+        # print("Got {}".format(repr(output)))
         return output
 
 def sendmany(*sentences):

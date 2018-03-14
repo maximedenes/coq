@@ -2723,14 +2723,14 @@ type classes inference.
 
      Goal True.
 
-+ .. coqtop:: in
++ .. coqtop:: in undo
 
      have foo : ty.
 
   Full inference for ``ty``. The first subgoal demands a
   proof of such instantiated statement.
 
-+ .. coqtop:: in
++ coqtop::
 
      have foo : ty := .
 
@@ -2739,13 +2739,13 @@ type classes inference.
   statement. Note that no proof term follows ``:=``, hence two subgoals are
   generated.
 
-+ .. coqtop:: in
++ .. coqtop:: in undo
 
      have foo : ty := t.
 
   No inference for ``ty`` and ``t``.
 
-+ .. coqtop:: in
++ .. coqtop:: in undo
 
      have foo := t.
 
@@ -4759,8 +4759,6 @@ would expect a proposition, e.g., after ``Lemma … : ``. It is then
 interpreted as ``(is_true b)``, i.e., the proposition ``b = true``. Coercions
 are elided by the pretty-printer, so they are essentially transparent
 to the user.
-
-.. _views_and_reflection_ssr:
 
 The reflect predicate
 ~~~~~~~~~~~~~~~~~~~~~
