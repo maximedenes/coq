@@ -25,6 +25,7 @@ Table of contents
 
    proof-engine/tactics
    proof-engine/detailed-tactic-examples
+   proof-engine/ssreflect-proof-language
 
 .. toctree::
    :caption: User extensions
