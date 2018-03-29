@@ -159,7 +159,7 @@ let set_batch_mode opts =
 
 let add_compile opts verbose s =
   let opts = set_batch_mode opts in
-  if not opts.glob_opt then Dumpglob.dump_to_dotglob ();
+  if not opts.glob_opt then Dumpglob.noglob ();
   (** make the file name explicit; needed not to break up Coq loadpath stuff. *)
   let s =
     let open Filename in
