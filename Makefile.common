@@ -195,7 +195,7 @@ vo_to_obj = $(foreach vo,$(1),$(dir $(vo)).coq-native/$(subst /,_,$(patsubst the
 GLOBFILES:=$(ALLVO:.vo=.glob)
 LIBFILES:=$(ALLVO) $(call vo_to_cm,$(ALLVO)) \
 	    $(call vo_to_obj,$(ALLVO)) \
-	    $(VFILES) $(GLOBFILES)
+	    $(VFILES)
 
 # For emacs:
 # Local Variables:
