@@ -29,6 +29,7 @@
 , buildIde ? true
 , buildDoc ? true
 , doCheck ? true
+, buildOSX ? false
 }:
 
 with pkgs;
@@ -73,6 +74,10 @@ stdenv.mkDerivation rec {
     ocamlPackages.merlin
     ocamlPackages.ocpIndent
     ocamlPackages.ocp-index
+  ] else []) ++ (if buildOSX then [
+    gtk2
+    gtksourceview
+    gdk_pixbuf
   ] else []);
 
   src =
