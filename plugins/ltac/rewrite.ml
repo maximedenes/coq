@@ -56,12 +56,13 @@ let init_setoid () =
   if is_dirpath_prefix_of classes_dirpath (Lib.cwd ()) then ()
   else Coqlib.check_required_library ["Coq";"Setoids";"Setoid"]
 
-let lazy_find_reference dir s =
-  let gr = lazy (Coqlib.find_reference "generalized rewriting" dir s) in
-  fun () -> Lazy.force gr
+let find_reference dir s =
+  Coqlib.find_reference "generalized rewriting" dir s
 [@@warning "-3"]
 
-let find_reference dir s = Coqlib.find_reference "generalized rewriting" ("Coq"::dir) s
+let lazy_find_reference dir s =
+  let gr = lazy (find_reference dir s) in
+  fun () -> Lazy.force gr
 [@@warning "-3"]
 
 type evars = evar_map * Evar.Set.t (* goal evars, constraint evars *)
@@ -77,10 +78,10 @@ let find_global dir s =
 (** Global constants. *)
 
 let coq_eq_ref  () = Coqlib.lib_ref    "core.eq.type"
-let coq_eq      = find_global    ["Init"; "Logic"] "eq"
-let coq_f_equal = find_global    ["Init"; "Logic"] "f_equal"
-let coq_all     = find_global    ["Init"; "Logic"] "all"
-let impl        = find_global    ["Program"; "Basics"] "impl"
+let coq_eq      = find_global    ["Coq"; "Init"; "Logic"] "eq"
+let coq_f_equal = find_global    ["Coq"; "Init"; "Logic"] "f_equal"
+let coq_all     = find_global    ["Coq"; "Init"; "Logic"] "all"
+let impl        = find_global    ["Coq"; "Program"; "Basics"] "impl"
 
 (** Bookkeeping which evars are constraints so that we can
     remove them at the end of the tactic. *)
@@ -156,7 +157,7 @@ end) = struct
   let respectful = find_global morphisms "respectful"
   let respectful_ref = lazy_find_reference morphisms "respectful"
 
-  let default_relation = find_global ["Classes"; "SetoidTactics"] "DefaultRelation"
+  let default_relation = find_global ["Coq"; "Classes"; "SetoidTactics"] "DefaultRelation"
 
   let coq_forall = find_global morphisms "forall_def"
 
@@ -397,12 +398,12 @@ end
 module TypeGlobal = struct
   module Consts = 
     struct 
-      let relation_classes = ["Classes"; "CRelationClasses"]
-      let morphisms = ["Classes"; "CMorphisms"]
+      let relation_classes = ["Coq"; "Classes"; "CRelationClasses"]
+      let morphisms = ["Coq"; "Classes"; "CMorphisms"]
       let relation = relation_classes, "crelation"
       let app_poly = app_poly_check
-      let arrow = find_global ["Classes"; "CRelationClasses"] "arrow"
-      let coq_inverse = find_global ["Classes"; "CRelationClasses"] "flip"
+      let arrow = find_global ["Coq"; "Classes"; "CRelationClasses"] "arrow"
+      let coq_inverse = find_global ["Coq"; "Classes"; "CRelationClasses"] "flip"
     end
 
   module G = GlobalBindings(Consts)

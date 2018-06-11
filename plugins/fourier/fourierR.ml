@@ -315,7 +315,7 @@ let coq_R1 = lazy (constant_real "R1")
 let coq_Rinv_1 = lazy (constant ["Coq"; "Reals";"RIneq"] "Rinv_1")
 
 (* Fourier_util *)
-let constant_fourier = constant ["fourier";"Fourier_util"]
+let constant_fourier = constant ["Coq"; "fourier";"Fourier_util"]
 
 let coq_Rlt_zero_1 = lazy (constant_fourier "Rlt_zero_1")
 let coq_Rlt_zero_pos_plus1 = lazy (constant_fourier "Rlt_zero_pos_plus1")

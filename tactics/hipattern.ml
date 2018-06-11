@@ -289,22 +289,26 @@ let coq_refl_jm_pattern       =
 
 open Globnames
 
+let is_globref_exists gr c =
+  try GlobRef.equal Coqlib.(lib_ref gr) c
+  with _ -> false
+
 let match_with_equation env sigma t =
   if not (isApp sigma t) then raise NoEquationFound;
   let (hdapp,args) = destApp sigma t in
   match EConstr.kind sigma hdapp with
   | Ind (ind,u) ->
-      if GlobRef.equal (IndRef ind) (lib_ref "core.eq.type") then
-	Some (build_coq_eq_data()),hdapp,
-	PolymorphicLeibnizEq(args.(0),args.(1),args.(2))
-      else if GlobRef.equal (IndRef ind) (lib_ref "core.identity.type") then
-	Some (build_coq_identity_data()),hdapp,
-	PolymorphicLeibnizEq(args.(0),args.(1),args.(2))
-      else if GlobRef.equal (IndRef ind) (lib_ref "core.JMeq.type") then
-	Some (build_coq_jmeq_data()),hdapp,
-	HeterogenousEq(args.(0),args.(1),args.(2),args.(3))
-      else
-        let (mib,mip) = Global.lookup_inductive ind in
+    if is_globref_exists "core.eq.type" (IndRef ind) then
+      Some (build_coq_eq_data()),hdapp,
+      PolymorphicLeibnizEq(args.(0),args.(1),args.(2))
+    else if is_globref_exists "core.identity.type" (IndRef ind) then
+      Some (build_coq_identity_data()),hdapp,
+      PolymorphicLeibnizEq(args.(0),args.(1),args.(2))
+    else if is_globref_exists "core.JMeq.type" (IndRef ind) then
+      Some (build_coq_jmeq_data()),hdapp,
+      HeterogenousEq(args.(0),args.(1),args.(2),args.(3))
+    else
+      let (mib,mip) = Global.lookup_inductive ind in
         let constr_types = mip.mind_nf_lc in
         let nconstr = Array.length mip.mind_consnames in
 	if Int.equal nconstr 1 then
