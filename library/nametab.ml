@@ -243,7 +243,7 @@ let user_name qid tab =
 let find uname tab =
   let id,l = U.repr uname in
     match search (Id.Map.find id tab) l with
-	Absolute (_,o) -> o
+          | Absolute (_,o) -> o
       | _ -> raise Not_found
 
 let exists uname tab =
@@ -387,20 +387,17 @@ let the_univrevtab = Summary.ref ~name:"univrevtab" (UnivIdMap.empty : univrevta
 let push_xref visibility sp xref =
   match visibility with
     | Until _ ->
-	the_ccitab := ExtRefTab.push visibility sp xref !the_ccitab;
-	the_globrevtab := Globrevtab.add xref sp !the_globrevtab
-    | _ ->
-	begin
-	  if ExtRefTab.exists sp !the_ccitab then
+            the_ccitab := ExtRefTab.push visibility sp xref !the_ccitab;
+            the_globrevtab := Globrevtab.add xref sp !the_globrevtab
+    | Exactly _ ->
 	    match ExtRefTab.find sp !the_ccitab with
-	      | TrueGlobal( ConstRef _) | TrueGlobal( IndRef _) |
-		    TrueGlobal( ConstructRef _) as xref ->
-		  the_ccitab := ExtRefTab.push visibility sp xref !the_ccitab;
-	      | _ -> 
-		  the_ccitab := ExtRefTab.push visibility sp xref !the_ccitab;
-	    else
-	      the_ccitab := ExtRefTab.push visibility sp xref !the_ccitab;
-	end
+            | TrueGlobal( ConstRef _) | TrueGlobal( IndRef _)
+                  | TrueGlobal( ConstructRef _) as xref ->
+                    the_ccitab := ExtRefTab.push visibility sp xref !the_ccitab;
+            | SynDef _ | TrueGlobal (VarRef _) ->
+                    the_ccitab := ExtRefTab.push visibility sp xref !the_ccitab;
+            | exception Not_found ->
+              the_ccitab := ExtRefTab.push visibility sp xref !the_ccitab
 
 let push_cci visibility sp ref =
   push_xref visibility sp (TrueGlobal ref)
