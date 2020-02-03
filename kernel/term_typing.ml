@@ -98,7 +98,7 @@ let infer_declaration env (dcl : constant_entry) =
       | None ->
         match op_t with
         | CPrimitives.OT_op op -> Typeops.type_of_prim env op
-        | CPrimitives.OT_type _ -> mkSet
+        | CPrimitives.OT_type ty -> Typeops.type_of_prim_type env ty
       in
       let cd =
         match op_t with

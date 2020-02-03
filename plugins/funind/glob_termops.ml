@@ -119,6 +119,8 @@ let change_vars =
       | GCast(b,c) ->
           GCast(change_vars mapping b,
                 Glob_ops.map_cast_type (change_vars mapping) c)
+      | GArray(ty,t) ->
+              GArray(change_vars mapping ty, Array.map (change_vars mapping) t)
       ) rt
   and change_vars_br mapping ({CAst.loc;v=(idl,patl,res)} as br) =
     let new_mapping = List.fold_right Id.Map.remove idl mapping in
@@ -305,6 +307,8 @@ let rec alpha_rt excluded rt =
         GApp(alpha_rt excluded f,
              List.map (alpha_rt excluded) args
             )
+    | GArray(ty,t) ->
+      GArray(alpha_rt excluded ty, Array.map (alpha_rt excluded) t)
   in
   new_rt
 
@@ -357,6 +361,7 @@ let is_free_in id =
     | GCast (b,(CastConv t|CastVM t|CastNative t)) -> is_free_in b || is_free_in t
     | GCast (b,CastCoerce) -> is_free_in b
     | GInt _ | GFloat _ -> false
+    | GArray(ty,t) -> is_free_in ty || Array.exists is_free_in t
     ) x
   and is_free_in_br {CAst.v=(ids,_,rt)} =
     (not (Id.List.mem id ids)) && is_free_in rt
@@ -453,6 +458,8 @@ let replace_var_by_term x_id term =
       | GCast(b,c) ->
           GCast(replace_var_by_pattern b,
                 Glob_ops.map_cast_type replace_var_by_pattern c)
+      | GArray(ty,t) ->
+            GArray(replace_var_by_pattern ty, Array.map replace_var_by_pattern t)
     ) x
   and replace_var_by_pattern_br ({CAst.loc;v=(idl,patl,res)} as br) =
     if List.exists (fun id -> Id.compare id x_id == 0) idl
@@ -556,6 +563,8 @@ let expand_as =
       | GCases(sty,po,el,brl) ->
           GCases(sty, Option.map (expand_as map) po, List.map (fun (rt,t) -> expand_as map rt,t) el,
                 List.map (expand_as_br map) brl)
+      | GArray(ty,t) ->
+              GArray(expand_as map ty, Array.map (expand_as map) t)
     )
   and expand_as_br map {CAst.loc; v=(idl,cpl,rt)} =
     CAst.make ?loc (idl,cpl, expand_as (List.fold_left add_as map cpl) rt)

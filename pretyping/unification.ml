@@ -563,7 +563,7 @@ let is_rigid_head sigma flags t =
   match EConstr.kind sigma t with
   | Const (cst,u) -> not (TransparentState.is_transparent_constant flags.modulo_delta cst)
   | Ind (i,u) -> true
-  | Construct _ | Int _ | Float _ -> true
+  | Construct _ | Int _ | Float _ | Array _ -> true
   | Fix _ | CoFix _ -> true
   | Rel _ | Var _ | Meta _ | Evar _ | Sort _ | Cast (_, _, _) | Prod _
     | Lambda _ | LetIn _ | App (_, _) | Case (_, _, _, _)
@@ -658,7 +658,7 @@ let rec is_neutral env sigma ts t =
     | Evar _ | Meta _ -> true
     | Case (_, p, c, cl) -> is_neutral env sigma ts c
     | Proj (p, c) -> is_neutral env sigma ts c
-    | Lambda _ | LetIn _ | Construct _ | CoFix _ | Int _ | Float _ -> false
+    | Lambda _ | LetIn _ | Construct _ | CoFix _ | Int _ | Float _ | Array _ -> false
     | Sort _ | Cast (_, _, _) | Prod (_, _, _) | Ind _ -> false (* Really? *)
     | Fix _ -> false (* This is an approximation *)
     | App _ -> assert false
@@ -1817,6 +1817,12 @@ let w_unify_to_subterm env evd ?(flags=default_unify_flags ()) (op,cl) =
                with ex when precatchable_exception ex ->
                  matchrec c)
 
+          | Array(ty,t) ->
+            (try
+              matchrec ty
+            with ex when precatchable_exception ex ->
+              iter_fail matchrec t)
+
           | Cast (_, _, _) (* Is this expected? *)
           | Rel _ | Var _ | Meta _ | Evar _ | Sort _ | Const _ | Ind _
             | Construct _ | Int _ | Float _ -> user_err Pp.(str "Match_subterm")))
@@ -1884,6 +1890,9 @@ let w_unify_to_subterm_all env evd ?(flags=default_unify_flags ()) (op,cl) =
 
             | Lambda (_,t,c) ->
                 bind (matchrec t) (matchrec c)
+
+            | Array(ty,t) ->
+              bind (matchrec ty) (bind_iter matchrec t)
 
           | Cast (_, _, _)  -> fail "Match_subterm" (* Is this expected? *)
 

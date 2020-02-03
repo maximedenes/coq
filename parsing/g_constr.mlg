@@ -32,7 +32,7 @@ let constr_kw =
     "SProp"; "Prop"; "Set"; "Type";
     ":="; "=>"; "->"; ".."; "<:"; "<<:"; ":>";
     ".("; "()"; "`{"; "`("; "@{"; "{|";
-    "_"; "@"; "+"; "!"; "?"; ";"; ","; ":" ]
+    "_"; "@"; "+"; "!"; "?"; ";"; ","; ":"; "[!" ]
 
 let _ = List.iter CLexer.add_keyword constr_kw
 
@@ -182,8 +182,21 @@ GRAMMAR EXTEND Gram
         { CAst.make ~loc @@ CNotation(None,(InConstrEntrySomeLevel,"{ _ }"),([c],[],[],[])) }
       | "`{"; c = operconstr LEVEL "200"; "}" ->
         { CAst.make ~loc @@ CGeneralization (MaxImplicit, None, c) }
+      | "[!"; ls = array_elems; "|"; e = lconstr; "!]" ->
+        { let t = Array.make (List.length ls + 1) e in
+                List.iteri (fun i e -> t.(i) <- e) ls;
+          CAst.make ~loc @@ CArray(CAst.make @@ CHole (None, IntroAnonymous, None), t)
+        }
+      | "[!"; ls = array_elems; "|"; e = lconstr ; "in"; te = lconstr; "!]" ->
+        { let t = Array.make (List.length ls + 1) e in
+                List.iteri (fun i e -> t.(i) <- e) ls;
+          CAst.make ~loc @@ CArray(te, t)
+        }
       | "`("; c = operconstr LEVEL "200"; ")" ->
         { CAst.make ~loc @@ CGeneralization (Explicit, None, c) } ] ]
+  ;
+  array_elems:
+    [ [ fs = LIST0 lconstr SEP ";" -> { fs } ]]
   ;
   record_declaration:
     [ [ fs = fields_def -> { CAst.make ~loc @@ CRecord fs } ] ]

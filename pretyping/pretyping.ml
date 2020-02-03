@@ -499,6 +499,7 @@ type pretyper = {
   pretype_cast : pretyper -> glob_constr * glob_constr cast_type -> unsafe_judgment pretype_fun;
   pretype_int : pretyper -> Uint63.t -> unsafe_judgment pretype_fun;
   pretype_float : pretyper -> Float64.t -> unsafe_judgment pretype_fun;
+  pretype_array : pretyper -> glob_constr * glob_constr array -> unsafe_judgment pretype_fun;
   pretype_type : pretyper -> glob_constr -> unsafe_type_judgment pretype_fun;
 }
 
@@ -540,6 +541,8 @@ let eval_pretyper self ~program_mode ~poly resolve_tc tycon env sigma t =
     self.pretype_int self n ?loc ~program_mode ~poly resolve_tc tycon env sigma
   | GFloat f ->
     self.pretype_float self f ?loc ~program_mode ~poly resolve_tc tycon env sigma
+  | GArray (ty,t) ->
+    self.pretype_array self (ty,t) ?loc ~program_mode ~poly resolve_tc tycon env sigma
 
 let eval_type_pretyper self ~program_mode ~poly resolve_tc tycon env sigma t =
   self.pretype_type self t ~program_mode ~poly resolve_tc tycon env sigma
@@ -1187,24 +1190,6 @@ struct
         sigma, { uj_val = v; uj_type = tval }
     in discard_trace @@ inh_conv_coerce_to_tycon ?loc ~program_mode resolve_tc env sigma cj tycon
 
-  let pretype_int self i =
-    fun ?loc ~program_mode ~poly resolve_tc tycon env sigma ->
-        let resj =
-          try Typing.judge_of_int !!env i
-          with Invalid_argument _ ->
-            user_err ?loc ~hdr:"pretype" (str "Type of int63 should be registered first.")
-        in
-        discard_trace @@ inh_conv_coerce_to_tycon ?loc ~program_mode resolve_tc env sigma resj tycon
-
-  let pretype_float self f =
-    fun ?loc ~program_mode ~poly resolve_tc tycon env sigma ->
-      let resj =
-        try Typing.judge_of_float !!env f
-        with Invalid_argument _ ->
-          user_err ?loc ~hdr:"pretype" (str "Type of float should be registered first.")
-        in
-        discard_trace @@ inh_conv_coerce_to_tycon ?loc ~program_mode resolve_tc env sigma resj tycon
-
 (* [pretype_type valcon env sigma c] coerces [c] into a type *)
 let pretype_type self c ?loc ~program_mode ~poly resolve_tc valcon (env : GlobEnv.t) sigma = match DAst.get c with
   | GHole (knd, naming, None) ->
@@ -1246,6 +1231,36 @@ let pretype_type self c ?loc ~program_mode ~poly resolve_tc valcon (env : GlobEn
                 ?loc:(loc_of_glob_constr c) !!env sigma tj.utj_val v
           end
 
+  let pretype_int self i =
+    fun ?loc ~program_mode ~poly resolve_tc tycon env sigma ->
+        let resj =
+          try Typing.judge_of_int !!env i
+          with Invalid_argument _ ->
+            user_err ?loc ~hdr:"pretype" (str "Type of int63 should be registered first.")
+        in
+        discard_trace @@ inh_conv_coerce_to_tycon ?loc ~program_mode resolve_tc env sigma resj tycon
+
+  let pretype_float self f =
+    fun ?loc ~program_mode ~poly resolve_tc tycon env sigma ->
+      let resj =
+        try Typing.judge_of_float !!env f
+        with Invalid_argument _ ->
+          user_err ?loc ~hdr:"pretype" (str "Type of float should be registered first.")
+        in
+        discard_trace @@ inh_conv_coerce_to_tycon ?loc ~program_mode resolve_tc env sigma resj tycon
+
+  let pretype_array self (ty,t) =
+    fun ?loc ~program_mode ~poly resolve_tc tycon env sigma ->
+          let sigma, jty = pretype_type self ~program_mode ~poly ty resolve_tc empty_valcon env sigma in
+    let pretype_elem = eval_pretyper self ~program_mode ~poly resolve_tc (mk_tycon jty.utj_val) env in
+          let sigma, jt = Array.fold_left_map pretype_elem sigma t in
+          let ta = EConstr.of_constr @@ Typeops.type_of_array !!env in
+          let j = {
+            uj_val = EConstr.mkArray(jty.utj_val, Array.map (fun j -> j.uj_val) jt);
+            uj_type = EConstr.mkApp(ta,[|jty.utj_val|])
+          } in
+          discard_trace @@ inh_conv_coerce_to_tycon ?loc ~program_mode resolve_tc env sigma j tycon
+
 end
 
 (* [pretype tycon env sigma lvar lmeta cstr] attempts to type [cstr] *)
@@ -1272,6 +1287,7 @@ let default_pretyper =
     pretype_cast = pretype_cast;
     pretype_int = pretype_int;
     pretype_float = pretype_float;
+    pretype_array = pretype_array;
     pretype_type = pretype_type;
   }
 

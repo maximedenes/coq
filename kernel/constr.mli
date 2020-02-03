@@ -76,6 +76,9 @@ val mkVar : Id.t -> constr
 (** Constructs a machine integer *)
 val mkInt : Uint63.t -> constr
 
+(** Constructs an array *)
+val mkArray : types * constr array -> constr
+
 (** Constructs a machine float number *)
 val mkFloat : Float64.t -> constr
 
@@ -238,6 +241,7 @@ type ('constr, 'types, 'sort, 'univs) kind_of_term =
   | Proj      of Projection.t * 'constr
   | Int       of Uint63.t
   | Float     of Float64.t
+  | Array     of 'types * 'constr array
 
 (** User view of [constr]. For [App], it is ensured there is at
    least one argument and the function is not itself an applicative

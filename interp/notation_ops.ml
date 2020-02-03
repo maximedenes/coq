@@ -92,9 +92,11 @@ let rec eq_notation_constr (vars1,vars2 as vars) t1 t2 = match t1, t2 with
    Uint63.equal i1 i2
 | NFloat f1, NFloat f2 ->
   Float64.equal f1 f2
+| NArray(ty1,t1), NArray(ty2,t2) ->
+  (eq_notation_constr vars) ty1 ty2 && Array.equal (eq_notation_constr vars) t1 t2
 | (NRef _ | NVar _ | NApp _ | NHole _ | NList _ | NLambda _ | NProd _
   | NBinderList _ | NLetIn _ | NCases _ | NLetTuple _ | NIf _
-  | NRec _ | NSort _ | NCast _ | NInt _ | NFloat _), _ -> false
+  | NRec _ | NSort _ | NCast _ | NInt _ | NFloat _ | NArray _), _ -> false
 
 (**********************************************************************)
 (* Re-interpret a notation as a glob_constr, taking care of binders   *)
@@ -249,6 +251,7 @@ let glob_constr_of_notation_constr_with_binders ?loc g f ?(h=default_binder_stat
   | NRef x -> GRef (x,None)
   | NInt i -> GInt i
   | NFloat f -> GFloat f
+  | NArray (ty,t) -> GArray(f e ty, Array.map (f e) t)
 
 let glob_constr_of_notation_constr ?loc x =
   let rec aux () x =
@@ -472,6 +475,7 @@ let notation_constr_and_vars_of_glob_constr recvars a =
      if arg != None then has_ltac := true;
      NHole (w, naming, arg)
   | GRef (r,_) -> NRef r
+  | GArray (ty, t) -> NArray (aux ty, Array.map aux t)
   | GEvar _ | GPatVar _ ->
       user_err Pp.(str "Existential variables not allowed in notations.")
   ) x
@@ -674,6 +678,12 @@ let rec subst_notation_constr subst bound raw =
       let r1' = subst_notation_constr subst bound r1 in
       let k' = smartmap_cast_type (subst_notation_constr subst bound) k in
       if r1' == r1 && k' == k then raw else NCast(r1',k')
+
+  | NArray (ty,t) ->
+      let ty' = subst_notation_constr subst bound ty
+      and t' = Array.Smart.map (subst_notation_constr subst bound) t in
+        if ty' == ty && t' == t then raw else
+          NArray(ty',t')
 
 let subst_interpretation subst (metas,pat) =
   let bound = List.fold_left (fun accu (id, _) -> Id.Set.add id accu) Id.Set.empty metas in
@@ -1254,9 +1264,15 @@ let rec match_ inner u alp metas sigma a1 a2 =
           match_names metas (alp,sigma) (Name id') na in
       match_in u alp metas sigma (mkGApp a1 [DAst.make @@ GVar id']) b2
 
+  | GArray(ty,t), NArray(nty,nt) ->
+    if Int.equal (Array.length t) (Array.length nt) then
+      let sigma = match_in u alp metas sigma ty nty in
+      Array.fold_left2 (match_in u alp metas) sigma t nt
+    else raise No_match
+
   | (GRef _ | GVar _ | GEvar _ | GPatVar _ | GApp _ | GLambda _ | GProd _
      | GLetIn _ | GCases _ | GLetTuple _ | GIf _ | GRec _ | GSort _ | GHole _
-     | GCast _ | GInt _ | GFloat _), _ -> raise No_match
+     | GCast _ | GInt _ | GFloat _ | GArray _), _ -> raise No_match
 
 and match_in u = match_ true u
 

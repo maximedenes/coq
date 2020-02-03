@@ -783,7 +783,7 @@ let rec adjust_env env = function
   | NCast (c,_) -> adjust_env env c
   | NApp _ -> restart_no_binders env
   | NVar _ | NRef _ | NHole _ | NCases _ | NLetTuple _ | NIf _
-  | NRec _ | NSort _ | NInt _ | NFloat _
+  | NRec _ | NSort _ | NInt _ | NFloat _ | NArray _
   | NList _ | NBinderList _ -> env (* to be safe, but restart should be ok *)
 
 let instantiate_notation_constr loc intern intern_pat ntnvars subst infos c =
@@ -2248,6 +2248,8 @@ let internalize globalenv env pattern_mode (_, ntnvars as lvar) c =
     | CCast (c1, c2) ->
         DAst.make ?loc @@
         GCast (intern env c1, map_cast_type (intern_type (slide_binders env)) c2)
+    | CArray(ty,t) ->
+            DAst.make ?loc @@ GArray(intern env ty, Array.map (intern env) t)
     )
   and intern_type env = intern (set_type_scope env)
 

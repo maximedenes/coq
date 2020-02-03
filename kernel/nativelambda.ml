@@ -40,6 +40,7 @@ type lambda =
   | Lfix          of (int array * (string * inductive) array * int) * fix_decl
   | Lcofix        of int * fix_decl
   | Lint          of int (* a constant constructor *)
+  | Lparray       of lambda array
   | Lmakeblock    of prefix * inductive * int * lambda array
                   (* prefix, inductive name, constructor tag, arguments *)
         (* A fully applied non-constant constructor *)
@@ -187,6 +188,9 @@ let map_lam_with_binders g f n lam =
   | Levar (evk, args) ->
     let args' = Array.Smart.map (f n) args in
     if args == args' then lam else Levar (evk, args')
+  | Lparray p ->
+      let p' = Array.Smart.map (f n) p in
+      if p == p' then lam else Lparray p'
 
 (*s Lift and substitution *)
 
@@ -377,6 +381,12 @@ let makeblock env ind tag nparams arity args =
     let prefix = get_mind_prefix env (fst ind) in
     Lmakeblock(prefix, ind, tag, args)
 
+let makearray args =
+  try
+    let p = Array.map get_value args in
+    Lval (Nativevalues.parray_of_array p)
+  with Not_found -> Lparray args
+
 (* Translation of constants *)
 
 let rec get_alias env (kn, u as p) =
@@ -400,8 +410,13 @@ let expand_prim env kn op arity =
 
 let lambda_of_prim env kn op args =
   let arity = CPrimitives.arity op in
-  if Array.length args >= arity then prim env kn op args
-  else mkLapp (expand_prim env kn op arity) args
+  match Int.compare (Array.length args) arity with
+  | 0 -> prim env kn op args
+  | x when x > 0 ->
+    let prim_args = Array.sub args 0 arity in
+    let extra_args = Array.sub args arity (Array.length args - arity) in
+    mkLapp(prim env kn op prim_args) extra_args
+  | _ -> mkLapp (expand_prim env kn op arity) args
 
 (*i Global environment *)
 
@@ -588,6 +603,8 @@ let rec lambda_of_constr cache env sigma c =
   | Int i -> Luint i
 
   | Float f -> Lfloat f
+
+  | Array(_,p) -> makearray (lambda_of_args cache env sigma 0 p)
 
 and lambda_of_app cache env sigma f args =
   match kind f with

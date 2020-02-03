@@ -349,6 +349,7 @@ and fterm =
   | FEvar of existential * fconstr subs
   | FInt of Uint63.t
   | FFloat of Float64.t
+  | FArray of fconstr * fconstr Parray.t
   | FLIFT of int * fconstr
   | FCLOS of constr * fconstr subs
   | FLOCKED
@@ -439,7 +440,7 @@ let rec lft_fconstr n ft =
     | FLIFT(k,m) -> lft_fconstr (n+k) m
     | FLOCKED -> assert false
     | FFlex (RelKey _) | FAtom _ | FApp _ | FProj _ | FCaseT _ | FProd _
-      | FLetIn _ | FEvar _ | FCLOS _ -> {mark=ft.mark; term=FLIFT(n,ft)}
+      | FLetIn _ | FEvar _ | FCLOS _ | FArray _ -> {mark=ft.mark; term=FLIFT(n,ft)}
 let lift_fconstr k f =
   if Int.equal k 0 then f else lft_fconstr k f
 let lift_fconstr_vect k v =
@@ -501,7 +502,7 @@ let mk_clos e t =
     | Construct kn -> {mark = mark Cstr Unknown; term = FConstruct kn }
     | Int i -> {mark = mark Cstr Unknown; term = FInt i}
     | Float f -> {mark = mark Cstr Unknown; term = FFloat f}
-    | (CoFix _|Lambda _|Fix _|Prod _|Evar _|App _|Case _|Cast _|LetIn _|Proj _) ->
+    | (CoFix _|Lambda _|Fix _|Prod _|Evar _|App _|Case _|Cast _|LetIn _|Proj _|Array _) ->
         {mark = mark Red Unknown; term = FCLOS(t,e)}
 
 let inject c = mk_clos (subs_id 0) c
@@ -620,6 +621,10 @@ let rec to_constr lfts v =
        Constr.mkInt i
     | FFloat f ->
         Constr.mkFloat f
+
+    | FArray(ty, t) ->
+            let init i = to_constr lfts (Parray.get t (Uint63.of_int i)) in
+            mkArray(to_constr lfts ty, Array.init (snd (* FIXME check ? *) (Uint63.to_int2 (Parray.length t)) + 1) init)
 
     | FCLOS (t,env) ->
       if is_subs_id env && is_lift_id lfts then t
@@ -930,7 +935,7 @@ let rec knh info m stk =
 
 (* cases where knh stops *)
     | (FFlex _|FLetIn _|FConstruct _|FEvar _|
-       FCoFix _|FLambda _|FRel _|FAtom _|FInd _|FProd _|FInt _|FFloat _) ->
+       FCoFix _|FLambda _|FRel _|FAtom _|FInd _|FProd _|FInt _|FFloat _|FArray _) ->
         (m, stk)
 
 (* The same for pure terms *)
@@ -952,6 +957,11 @@ and knht info e t stk =
     | LetIn (n,b,t,c) ->
       { mark = mark Red Unknown; term = FLetIn (n, mk_clos e b, mk_clos e t, c, e) }, stk
     | Evar ev -> { mark = mark Red Unknown; term = FEvar (ev, e) }, stk
+    | Array(ty,t) ->
+      let len = Array.length t - 1 in
+      let t = Parray.init (Uint63.of_int len) (fun i -> mk_clos e t.(i)) (mk_clos e t.(len)) in
+      let term = FArray(mk_clos e ty, t) in
+      knh info { mark = mark Cstr Unknown; term } stk
 
 let inject c = mk_clos (subs_id 0) c
 
@@ -965,6 +975,7 @@ module FNativeEntries =
     type elem = fconstr
     type args = fconstr array
     type evd = unit
+    module Parray = Parray
 
     let get = Array.get
 
@@ -977,6 +988,11 @@ module FNativeEntries =
       match [@ocaml.warning "-4"] e.term with
       | FFloat f -> f
       | _ -> raise Primred.NativeDestKO
+
+    let get_parray () e =
+      match [@ocaml.warning "-4"] e.term with
+      | FArray(ty,t) -> (ty,t)
+      | _ -> raise Not_found
 
     let dummy = {mark = mark Norm KnownR; term = FRel 0}
 
@@ -1106,6 +1122,17 @@ module FNativeEntries =
         frefl := { mark = mark Cstr KnownR; term = FConstruct (Univ.in_punivs crefl) }
       | None -> defined_refl := false
 
+    let defined_array = ref false
+
+    let farray = ref dummy
+
+    let init_array retro =
+      match retro.Retroknowledge.retro_array with
+      | Some c ->
+        defined_array := true;
+        farray := { mark = mark Norm KnownR; term = FFlex (ConstKey (Univ.in_punivs c)) }
+      | None -> defined_array := false
+
     let init env =
       current_retro := env.retroknowledge;
       init_int !current_retro;
@@ -1116,7 +1143,8 @@ module FNativeEntries =
       init_cmp !current_retro;
       init_f_cmp !current_retro;
       init_f_class !current_retro;
-      init_refl !current_retro
+      init_refl !current_retro;
+      init_array !current_retro
 
     let check_env env =
       if not (!current_retro == env.retroknowledge) then init env
@@ -1152,6 +1180,10 @@ module FNativeEntries =
     let check_f_class env =
       check_env env;
       assert (!defined_f_class)
+
+    let check_array env =
+      check_env env;
+      assert (!defined_array)
 
     let mkInt env i =
       check_int env;
@@ -1242,6 +1274,11 @@ module FNativeEntries =
     let mkNaN env =
       check_f_class env;
       !fNaN
+
+    let mkArray env ty t =
+      check_array env;
+      { mark = mark Whnf KnownR; term = FArray(ty, t)}
+
   end
 
 module FredNative = RedNative(FNativeEntries)
@@ -1304,7 +1341,7 @@ let rec knr info tab m stk =
       (match info.i_cache.i_sigma ev with
           Some c -> knit info tab env c stk
         | None -> (m,stk))
-  | FInt _ | FFloat _ ->
+  | FInt _ | FFloat _ | FArray _ ->
     (match [@ocaml.warning "-4"] strip_update_shift_app m stk with
      | (_, _, Zprimitive(op,c,rargs,nargs)::s) ->
        let (rargs, nargs) = skip_native_args (m::rargs) nargs in
@@ -1312,7 +1349,8 @@ let rec knr info tab m stk =
          | [] ->
            let args = Array.of_list (List.rev rargs) in
            begin match FredNative.red_prim (info_env info) () op args with
-             | Some m -> kni info tab m s
+             | Some m ->
+             kni info tab m s
              | None ->
                let f = {mark = mark Whnf KnownR; term = FFlex (ConstKey c)} in
                let m = {mark = mark Whnf KnownR; term = FApp(f,args)} in
@@ -1410,7 +1448,7 @@ and norm_head info tab m =
       | FProj (p,c) ->
           mkProj (p, kl info tab c)
       | FLOCKED | FRel _ | FAtom _ | FFlex _ | FInd _ | FConstruct _
-        | FApp _ | FCaseT _ | FLIFT _ | FCLOS _ | FInt _ | FFloat _ -> term_of_fconstr m
+        | FApp _ | FCaseT _ | FLIFT _ | FCLOS _ | FInt _ | FFloat _ | FArray _ -> term_of_fconstr m
 
 (* Initialization and then normalization *)
 

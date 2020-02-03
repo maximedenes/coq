@@ -123,7 +123,10 @@ val judge_of_int : env -> Uint63.t -> unsafe_judgment
 val type_of_float : env -> types
 val judge_of_float : env -> Float64.t -> unsafe_judgment
 
-val type_of_prim_type : env -> CPrimitives.prim_type -> types
+val type_of_array : env -> types
+val judge_of_array : env -> unsafe_type_judgment -> unsafe_judgment array -> unsafe_judgment
+
+val type_of_prim_type : env -> 'a CPrimitives.prim_type -> types
 val type_of_prim : env -> CPrimitives.t -> types
 
 val warn_bad_relevance_name : string

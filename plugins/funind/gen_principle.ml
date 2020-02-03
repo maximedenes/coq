@@ -86,6 +86,7 @@ let is_rec names =
                                 )
                                 b
     | GApp(f,args) -> List.exists (lookup names) (f::args)
+    | GArray(ty,t) -> lookup names ty || Array.exists (lookup names) t
     | GCases(_,_,el,brl) ->
       List.exists (fun (e,_) -> lookup names e) el ||
       List.exists (lookup_br names) brl
@@ -1866,6 +1867,8 @@ let rec add_args id new_args =
         CErrors.anomaly ~label:"add_args " (Pp.str "CGeneralization.")
       | CDelimiters _ ->
         CErrors.anomaly ~label:"add_args " (Pp.str "CDelimiters.")
+      | CArray _ ->
+        CErrors.anomaly ~label:"add_args " (Pp.str "CArray.")
     )
 
 let rec get_args b t : Constrexpr.local_binder_expr list * Constrexpr.constr_expr * Constrexpr.constr_expr =

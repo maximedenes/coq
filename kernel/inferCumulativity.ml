@@ -138,6 +138,7 @@ let rec infer_fterm cv_pb infos variances hd stk =
     let le = Esubst.subs_liftn n e in
     let variances = infer_vect infos variances (Array.map (mk_clos le) cl) in
     infer_stack infos variances stk
+  | FArray _ -> infer_stack infos variances stk (* FIXME *)
 
   (* Removed by whnf *)
   | FLOCKED | FCaseT _ | FLetIn _ | FApp _ | FLIFT _ | FCLOS _ -> assert false

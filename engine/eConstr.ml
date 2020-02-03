@@ -77,6 +77,7 @@ let mkArrow t1 r t2 = of_kind (Prod (make_annot Anonymous r, t1, t2))
 let mkArrowR t1 t2 = mkArrow t1 Sorts.Relevant t2
 let mkInt i = of_kind (Int i)
 let mkFloat f = of_kind (Float f)
+let mkArray (ty,t) = of_kind (Array (ty,t))
 
 let mkRef (gr,u) = let open GlobRef in match gr with
   | ConstRef c -> mkConstU (c,u)
@@ -366,6 +367,7 @@ let iter_with_full_binders sigma g f n c =
     Array.iter (f n) tl;
     let n' = Array.fold_left2_i (fun i n na t -> g (LocalAssum (na,lift i t)) n) n lna tl in
     Array.iter (f n') bl
+  | Array (ty,t) -> f n ty; Array.Fun1.iter f n t
 
 let iter_with_binders sigma g f n c =
   let f l c = f l (of_constr c) in
@@ -757,7 +759,7 @@ let kind_of_type sigma t = match kind sigma t with
   | (Rel _ | Meta _ | Var _ | Evar _ | Const _
   | Proj _ | Case _ | Fix _ | CoFix _ | Ind _)
     -> AtomicType (t,[||])
-  | (Lambda _ | Construct _ | Int _ | Float _) -> failwith "Not a type"
+  | (Lambda _ | Construct _ | Int _ | Float _ | Array _) -> failwith "Not a type"
 
 module Unsafe =
 struct
