@@ -332,3 +332,39 @@ val no_check_next_up : t -> t
 
 val no_check_next_down : t -> t
 [@@ocaml.inline always]
+
+(** Support for arrays *)
+
+val parray_of_array : t array -> t
+val is_parray : t -> bool
+
+val arraymake : t -> t -> t -> t -> t (* accu A n def *)
+val arrayget : t -> t -> t -> t -> t (* accu A t n *)
+val arraydefault : t -> t -> t (* accu A t *)
+val arrayset : t -> t -> t -> t -> t -> t (* accu A t n v *)
+val arraycopy : t -> t -> t -> t (* accu A t *)
+val arrayreroot : t -> t -> t -> t (* accu A t *)
+val arraylength : t -> t -> t -> t (* accu A t *)
+val arrayinit : t -> t -> t -> t (* accu A n f def *)
+val arraymap : t -> t -> t (* accu A B f t *)
+
+val no_check_arraymake : t -> t -> t
+[@@ocaml.inline always]
+
+val no_check_arrayget : t -> t -> t -> t
+[@@ocaml.inline always]
+
+val no_check_arraydefault : t -> t
+[@@ocaml.inline always]
+
+val no_check_arrayset : t -> t -> t -> t
+[@@ocaml.inline always]
+
+val no_check_arraycopy : t -> t
+[@@ocaml.inline always]
+
+val no_check_arrayreroot : t -> t
+[@@ocaml.inline always]
+
+val no_check_arraylength : t -> t
+[@@ocaml.inline always]

@@ -51,6 +51,16 @@ type t =
   | Float64ldshiftexp
   | Float64next_up
   | Float64next_down
+  | Arraymake
+  | Arrayget
+  | Arraydefault
+  | Arrayset
+  | Arraydestrset
+  | Arraycopy
+  | Arrayreroot
+  | Arraylength
+  | Arrayinit
+  | Arraymap
 
 val equal : t -> t -> bool
 
@@ -66,34 +76,39 @@ val hash : t -> int
 val to_string : t -> string
 
 val arity : t -> int
+val nparams : t -> int
 
 val kind : t -> args_red
 
 (** Special Entries for Register **)
 
-type prim_type =
-  | PT_int63
-  | PT_float64
+type 'a prim_type =
+  | PT_int63 : unit prim_type
+  | PT_float64 : unit prim_type
+  | PT_array : ind_or_type prim_type
 
-type 'a prim_ind =
+and 'a prim_ind =
   | PIT_bool : unit prim_ind
-  | PIT_carry : prim_type prim_ind
-  | PIT_pair : (prim_type * prim_type) prim_ind
+  | PIT_carry : ind_or_type prim_ind
+  | PIT_pair : (ind_or_type * ind_or_type) prim_ind
   | PIT_cmp : unit prim_ind
   | PIT_f_cmp : unit prim_ind
   | PIT_f_class : unit prim_ind
+
+and ind_or_type =
+  | PITT_ind : 'a prim_ind * 'a -> ind_or_type
+  | PITT_type : 'a prim_type * 'a -> ind_or_type
+  | PITT_param : int -> ind_or_type (* DeBruijn index referring to prenex type quantifiers *)
+
+type prim_type_ex = PTE : 'a prim_type -> prim_type_ex
 
 type prim_ind_ex = PIE : 'a prim_ind -> prim_ind_ex
 
 type op_or_type =
   | OT_op of t
-  | OT_type of prim_type
+  | OT_type : 'a prim_type -> op_or_type
 
 val prim_ind_to_string : 'a prim_ind -> string
 val op_or_type_to_string : op_or_type -> string
 
-type ind_or_type =
-  | PITT_ind : 'a prim_ind * 'a -> ind_or_type
-  | PITT_type : prim_type -> ind_or_type
-
-val types : t -> ind_or_type list
+val types : t -> int * ind_or_type list list

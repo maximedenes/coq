@@ -832,6 +832,7 @@ and detype_r d flags avoid env sigma t =
     | CoFix (n,recdef) -> detype_cofix (detype d) flags avoid env sigma n recdef
     | Int i -> GInt i
     | Float f -> GFloat f
+    | Array(ty,t) -> GArray(detype d flags avoid env sigma ty, Array.map (detype d flags avoid env sigma) t)
 
 and detype_eqns d flags avoid env sigma ci computable constructs consnargsl bl =
   try
@@ -1116,6 +1117,12 @@ let rec subst_glob_constr env subst = DAst.map (function
       let r1' = subst_glob_constr env subst r1 in
       let k' = smartmap_cast_type (subst_glob_constr env subst) k in
       if r1' == r1 && k' == k then raw else GCast (r1',k')
+
+  | GArray (ty,t) as raw ->
+      let ty' = subst_glob_constr env subst ty
+      and t' = Array.Smart.map (subst_glob_constr env subst) t in
+        if ty' == ty && t' == t then raw else
+          GArray(ty',t')
 
   )
 

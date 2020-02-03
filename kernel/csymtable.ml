@@ -63,6 +63,16 @@ let set_global v =
   global_data.glob_len <- global_data.glob_len + 1;
   n
 
+(* Initialization of OCaml primitives *)
+(* TODO move unsafe part to Vmvalues *)
+let prim_Array_make = set_global (Obj.magic Parray.make)
+let prim_Array_get = set_global (Obj.magic Parray.get)
+let prim_Array_get_default = set_global (Obj.magic Parray.default)
+let prim_Array_set = set_global (Obj.magic Parray.set)
+let prim_Array_copy = set_global (Obj.magic Parray.copy)
+let prim_Array_reroot = set_global (Obj.magic Parray.reroot)
+let prim_Array_length = set_global (Obj.magic Parray.length)
+
 (* table pour les structured_constant et les annotations des switchs *)
 
 module SConstTable = Hashtbl.Make (struct
@@ -118,6 +128,17 @@ let slot_for_annot key =
     let n =  set_global (val_of_annot_switch key) in
     AnnotTable.add annot_tbl key n;
     n
+
+let slot_for_caml_prim =
+  let open CPrimitives in function
+  | Arraymake -> prim_Array_make
+  | Arrayget -> prim_Array_get
+  | Arraydefault -> prim_Array_get_default
+  | Arrayset -> prim_Array_set
+  | Arraycopy -> prim_Array_copy
+  | Arrayreroot -> prim_Array_reroot
+  | Arraylength -> prim_Array_length
+  | _ -> assert false
 
 let slot_for_proj_name key =
   try ProjNameTable.find proj_name_tbl key
@@ -182,6 +203,7 @@ and eval_to_patch env (buff,pl,fv) =
     | Reloc_const sc -> slot_for_str_cst sc
     | Reloc_getglobal kn -> slot_for_getglobal env kn
     | Reloc_proj_name p -> slot_for_proj_name p
+    | Reloc_caml_prim op -> slot_for_caml_prim op
   in
   let tc = patch buff pl slots in
   let vm_env =

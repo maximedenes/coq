@@ -225,12 +225,14 @@ GRAMMAR EXTEND Gram
 
    register_token:
      [ [ r = register_prim_token -> { CPrimitives.OT_op r }
-       | r = register_type_token -> { CPrimitives.OT_type r } ] ]
+       | r = register_type_token -> { match r with CPrimitives.PTE ty -> CPrimitives.OT_type ty } ] ]
    ;
 
    register_type_token:
-     [ [ "#int63_type" -> { CPrimitives.PT_int63 }
-       | "#float64_type" -> { CPrimitives.PT_float64 } ] ]
+     [ [ "#int63_type" -> { CPrimitives.(PTE PT_int63) }
+       | "#float64_type" -> { CPrimitives.(PTE PT_float64) }
+       | "#array_type" -> { CPrimitives.(PTE PT_array) }
+     ] ]
    ;
 
    register_prim_token:
@@ -276,6 +278,15 @@ GRAMMAR EXTEND Gram
        | "#float64_ldshiftexp" -> { CPrimitives.Float64ldshiftexp }
        | "#float64_next_up" -> { CPrimitives.Float64next_up }
        | "#float64_next_down" -> { CPrimitives.Float64next_down }
+       | "#array_make" -> { CPrimitives.Arraymake }
+       | "#array_get" -> { CPrimitives.Arrayget }
+       | "#array_default" -> { CPrimitives.Arraydefault }
+       | "#array_set" -> { CPrimitives.Arrayset }
+       | "#array_length" -> { CPrimitives.Arraylength }
+       | "#array_copy" -> { CPrimitives.Arraycopy }
+       | "#array_reroot" -> { CPrimitives.Arrayreroot }
+       | "#array_init" -> { CPrimitives.Arrayinit }
+       | "#array_map" -> { CPrimitives.Arraymap }
        ] ]
     ;
 

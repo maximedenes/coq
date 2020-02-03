@@ -19,6 +19,7 @@
 #include <caml/memory.h>
 #include <caml/signals.h>
 #include <caml/version.h>
+#include <caml/callback.h>
 #include <math.h>
 #include "coq_gc.h"
 #include "coq_instruct.h"
@@ -91,7 +92,8 @@ if (sp - num_args < coq_stack_threshold) {                                     \
 /* GC interface */
 #define Setup_for_gc { sp -= 2; sp[0] = accu; sp[1] = coq_env; coq_sp = sp; }
 #define Restore_after_gc { accu = sp[0]; coq_env = sp[1]; sp += 2; }
-
+#define Setup_for_caml_call { *--sp = coq_env; coq_sp = sp; }
+#define Restore_after_caml_call { sp = coq_sp; coq_env = *sp++; }
 
 /* Register optimization.
    Some compilers underestimate the use of the local variables representing
@@ -1749,6 +1751,63 @@ value coq_interprete
         CheckFloat1();
         Coq_copy_double(coq_next_down(Double_val(accu)));
         Next;
+      }
+
+
+      Instruct(ISINT_CAML_CALL2) {
+              print_instr("ISINT_CAML_CALL2");
+              if (Is_uint63(accu)) {
+                pc++;
+                print_int(*pc);
+                Setup_for_caml_call;
+                accu = caml_callback2(Field(coq_global_data, *pc),accu, sp[1]);
+                Restore_after_caml_call;
+                sp += 1;
+                pc++;
+              } else pc += *pc;
+              Next;
+      }
+
+      Instruct(ISARRAY_CAML_CALL1) {
+        print_instr("ISARRAY_CAML_CALL1");
+              if (Is_coq_array(accu)) {
+                pc++;
+                Setup_for_caml_call;
+                print_int(*pc);
+                accu = caml_callback(Field(coq_global_data, *pc),accu);
+                Restore_after_caml_call;
+                pc++;
+              }
+              else pc += *pc;
+              Next;
+      }
+
+      Instruct(ISARRAY_INT_CAML_CALL2) {
+        print_instr("ISARRAY_INT_CAML_CALL2");
+              if (Is_coq_array(accu) && Is_long(sp[0])) {
+                pc++;
+                Setup_for_caml_call;
+                print_int(*pc);
+                accu = caml_callback2(Field(coq_global_data, *pc),accu, sp[1]);
+                Restore_after_caml_call;
+                sp += 1;
+                pc++;
+              } else pc += *pc;
+              Next;
+      }
+
+      Instruct(ISARRAY_INT_CAML_CALL3) {
+              print_instr("ISARRAY_INT_CAML_CALL3");
+              if (Is_coq_array(accu) && Is_long(sp[0])) {
+                pc++;
+                Setup_for_caml_call;
+                print_int(*pc);
+                accu = caml_callback3(Field(coq_global_data, *pc),accu, sp[1], sp[2]);
+                Restore_after_caml_call;
+                sp += 2;
+                pc++;
+              } else pc += *pc;
+              Next;
       }
 
 /* Debugging and machine control */

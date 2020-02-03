@@ -686,6 +686,84 @@ let next_down accu x =
   if is_float x then no_check_next_down x
   else accu x
 
+let is_parray t =
+  let t = Obj.magic t in
+  Obj.is_block t && Obj.size t = 1
+
+let to_parray t = Obj.magic t
+let of_parray t = Obj.magic t
+
+let no_check_arraymake n def =
+  of_parray (Parray.make (to_uint n) def)
+
+let arraymake accu vA n def =
+  if is_int n then
+    no_check_arraymake n def
+  else accu vA n def
+
+let no_check_arrayget t n =
+   Parray.get (to_parray t) (to_uint n)
+[@@ocaml.inline always]
+
+let arrayget accu vA t n =
+  if is_parray t && is_int n then
+    no_check_arrayget t n
+  else accu vA t n
+
+let no_check_arraydefault t =
+  Parray.default (to_parray t)
+[@@ocaml.inline always]
+
+let arraydefault accu vA t =
+  if is_parray t then
+    no_check_arraydefault
+  else accu vA t
+
+let no_check_arrayset t n v =
+  of_parray (Parray.set (to_parray t) (to_uint n) v)
+[@@ocaml.inline always]
+
+let arrayset accu vA t n v =
+  if is_parray t && is_int n then
+    no_check_arrayset t n v
+  else accu vA t n v
+
+let no_check_arraycopy t =
+  of_parray (Parray.copy (to_parray t))
+[@@ocaml.inline always]
+
+let arraycopy accu vA t =
+  if is_parray t then
+    no_check_arraycopy t
+  else accu vA t
+
+let no_check_arrayreroot t =
+  of_parray (Parray.reroot (to_parray t))
+[@@ocaml.inline always]
+
+let arrayreroot accu vA t =
+  if is_parray t then
+    no_check_arrayreroot t
+  else accu vA t
+
+let no_check_arraylength t =
+  mk_uint (Parray.length (to_parray t))
+[@@ocaml.inline always]
+
+let arraylength accu vA t =
+  if is_parray t then
+    no_check_arraylength t
+  else accu vA t
+
+let parray_of_array t =
+  (Obj.magic (Parray.of_array t) : t)
+
+let arrayinit n (f:t->t) def =
+  of_parray (Parray.init (to_uint n) (Obj.magic f) def)
+
+let arraymap f t =
+  of_parray (Parray.map f (to_parray t))
+
 let hobcnv = Array.init 256 (fun i -> Printf.sprintf "%02x" i)
 let bohcnv = Array.init 256 (fun i -> i -
                                       (if 0x30 <= i then 0x30 else 0) -

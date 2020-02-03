@@ -213,9 +213,11 @@ let type_of_apply env func funt argsv argstv =
   apply_rec 0 (inject funt)
 
 (* Type of primitive constructs *)
-let type_of_prim_type _env = function
+let type_of_prim_type _env (type a) (prim : a CPrimitives.prim_type) = match prim with
   | CPrimitives.PT_int63 -> Constr.mkSet
   | CPrimitives.PT_float64 -> Constr.mkSet
+  | CPrimitives.PT_array ->
+    Constr.mkProd(Context.anonR, Constr.mkSet, Constr.mkSet)
 
 let type_of_int env =
   match env.retroknowledge.Retroknowledge.retro_int63 with
@@ -228,9 +230,15 @@ let type_of_float env =
   | None -> raise
         (Invalid_argument "Typeops.type_of_float: float64 not_defined")
 
+let type_of_array env =
+  match env.retroknowledge.Retroknowledge.retro_array with
+  | Some c -> mkConst c
+  | None -> CErrors.user_err Pp.(str"The type array must be registered before this construction can be typechecked.")
+
 let type_of_prim env t =
   let int_ty () = type_of_int env in
   let float_ty () = type_of_float env in
+  let array_ty a = mkApp(type_of_array env, [|a|]) in
   let bool_ty () =
     match env.retroknowledge.Retroknowledge.retro_bool with
     | Some ((ind,_),_) -> Constr.mkInd ind
@@ -262,37 +270,43 @@ let type_of_prim env t =
     | None -> CErrors.user_err Pp.(str"The type carry must be registered before this primitive.")
   in
   let open CPrimitives in
-  let tr_prim_type = function
-    | PT_int63 -> int_ty ()
-    | PT_float64 -> float_ty () in
-  let tr_ind (type t) (i : t prim_ind) (a : t) = match i, a with
+  let tr_prim_type (tr_type : ind_or_type -> constr) (type a) (ty : a prim_type) (t : a) = match ty with
+    | PT_int63 -> int_ty t
+    | PT_float64 -> float_ty t
+    | PT_array -> array_ty (tr_type t)
+  in
+  let tr_ind (tr_type : ind_or_type -> constr) (type t) (i : t prim_ind) (a : t) = match i, a with
     | PIT_bool, () -> bool_ty ()
-    | PIT_carry, t -> carry_ty (tr_prim_type t)
-    | PIT_pair, (t1, t2) -> pair_ty (tr_prim_type t1) (tr_prim_type t2)
+    | PIT_carry, t -> carry_ty (tr_type t)
+    | PIT_pair, (t1, t2) -> pair_ty (tr_type t1) (tr_type t2)
     | PIT_cmp, () -> compare_ty ()
     | PIT_f_cmp, () -> f_compare_ty ()
-    | PIT_f_class, () -> f_class_ty () in
-  let tr_type = function
-    | PITT_ind (i, a) -> tr_ind i a
-    | PITT_type t -> tr_prim_type t in
-  let rec nary_op = function
+    | PIT_f_class, () -> f_class_ty ()
+  in
+  let rec tr_type n = function
+    | PITT_ind (i, a) -> tr_ind (tr_type n) i a
+    | PITT_type (ty,t) -> tr_prim_type (tr_type n) ty t
+    | PITT_param i -> Constr.mkRel (n+i)
+    in
+  let rec fun_type n = function
     | [] -> assert false
-    | [ret_ty] -> tr_type ret_ty
+    | [ret_ty] -> tr_type n ret_ty
     | arg_ty :: r ->
-       let arg_ty = tr_type arg_ty in
-       Constr.mkProd(Context.nameR (Id.of_string "x"), arg_ty, nary_op r) in
-  nary_op (types t)
+       let arg_ty = tr_type n arg_ty in
+       Constr.mkProd(Context.nameR (Id.of_string "x"), arg_ty, fun_type (n+1) r) in
+  let rec nary_op n = function
+    | [] -> assert false
+    | [ret_ty] -> fun_type n ret_ty
+    | arg_ty :: r ->
+       Constr.mkProd(Context.nameR (Id.of_string "x"), fun_type n arg_ty, nary_op (n+1) r) in
+  let nparams, sign = types t in
+  let params = List.make nparams (Context.anonR, mkSet) in
+  compose_prod params @@ nary_op 0 sign
 
 let type_of_prim_or_type env = let open CPrimitives in
   function
   | OT_type t -> type_of_prim_type env t
   | OT_op op -> type_of_prim env op
-
-let judge_of_int env i =
-  make_judge (Constr.mkInt i) (type_of_int env)
-
-let judge_of_float env f =
-  make_judge (Constr.mkFloat f) (type_of_float env)
 
 (* Type of product *)
 
@@ -353,6 +367,17 @@ let check_cast env c ct k expected_type =
       Nativeconv.native_conv CUMUL sigma env ct expected_type
   with NotConvertible ->
     error_actual_type env (make_judge c ct) expected_type
+
+let judge_of_int env i =
+  make_judge (Constr.mkInt i) (type_of_int env)
+
+let judge_of_float env f =
+  make_judge (Constr.mkFloat f) (type_of_float env)
+
+let judge_of_array env tyj tj =
+  let ty = tyj.utj_val in
+  Array.iter (fun j -> check_cast env j.uj_val j.uj_type DEFAULTcast ty) tj;
+  make_judge (mkArray(ty, Array.map j_val tj)) (mkApp (type_of_array env, [|ty|]))
 
 (* Inductive types. *)
 
@@ -591,6 +616,15 @@ let rec execute env cstr =
     (* Primitive types *)
     | Int _ -> cstr, type_of_int env
     | Float _ -> cstr, type_of_float env
+    | Array(ty,t) ->
+      let _ = execute_is_type env ty in
+      let ta = type_of_array env in
+      let t' = Array.Smart.map (fun x ->
+        let x', xt = execute env x in
+        check_cast env x' xt DEFAULTcast ty;
+        x') t in
+      let cstr = if t'==t then cstr else mkArray(ty,t') in
+      cstr, mkApp(ta, [|ty|])
 
     (* Partial proofs: unsupported by the kernel *)
     | Meta _ ->

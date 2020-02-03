@@ -701,6 +701,7 @@ let build_proof
                 match EConstr.kind sigma f with
                   | Int _ -> user_err Pp.(str "integer cannot be applied")
                   | Float _ -> user_err Pp.(str "float cannot be applied")
+                  | Array _ -> user_err Pp.(str "array cannot be applied")
                   | App _ -> assert false (* we have collected all the app in decompose_app *)
                   | Proj _ -> assert false (*FIXME*)
                   | Var _ | Construct _ | Rel _ | Evar _ | Meta _  | Ind _ | Sort _ | Prod _ ->
@@ -773,6 +774,7 @@ let build_proof
                  build_proof do_finalize new_infos
                 ] g
           | Rel _ -> anomaly (Pp.str "Free var in goal conclusion!")
+          | Array _ -> CErrors.user_err Pp.(str "Arrays not handled yet")
   and build_proof do_finalize dyn_infos g =
 (*     observe (str "proving with "++Printer.pr_lconstr dyn_infos.info++ str " on goal " ++ pr_gls g); *)
     Indfun_common.observe_tac (fun env sigma ->
