@@ -755,8 +755,8 @@ let arraylength accu vA t =
     no_check_arraylength t
   else accu vA t
 
-let parray_of_array t =
-  (Obj.magic (Parray.of_array t) : t)
+let parray_of_array t def =
+  (Obj.magic (Parray.unsafe_of_array t def) : t)
 
 let arrayinit n (f:t->t) def =
   of_parray (Parray.init (to_uint n) (Obj.magic f) def)

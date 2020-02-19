@@ -316,7 +316,7 @@ let iter_constr_LR f c = match kind c with
   | Fix (_, (_, t, b)) | CoFix (_, (_, t, b)) ->
     for i = 0 to Array.length t - 1 do f t.(i); f b.(i) done
   | Proj(_,a) -> f a
-  | Array(ty,t) -> f ty; Array.iter f t
+  | Array(t,def) -> Array.iter f t; f def
   | (Rel _ | Meta _ | Var _   | Sort _ | Const _ | Ind _ | Construct _
      | Int _ | Float _) -> ()
 

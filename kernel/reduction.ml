@@ -631,19 +631,19 @@ and eqappr cv_pb l2r infos (lft1,st1) (lft2,st2) cuniv =
         if Float64.equal f1 f2 then convert_stacks l2r infos lft1 lft2 v1 v2 cuniv
         else raise NotConvertible
 
-    | FArray(ty1, t1), FArray(ty2, t2) ->
+    | FArray t1, FArray t2 ->
       let len = Parray.length t1 in
       if Uint63.equal len (Parray.length t2) then
         let el1 = el_stack lft1 v1 in
         let el2 = el_stack lft2 v2 in
-              let len = snd (Uint63.to_int2 len) (* FIXME *) in
-              (* FIXME: use an iterator below *)
-              let u = ref (ccnv CONV l2r infos el1 el2 ty1 ty2 cuniv) in
-              for i = 0 to len (* default value *) do
-                let i = Uint63.of_int i in
-                u := ccnv CONV l2r infos el1 el2 (Parray.get t1 i) (Parray.get t2 i) !u
-              done;
-              convert_stacks l2r infos lft1 lft2 v1 v2 !u
+        let len = snd (Uint63.to_int2 len) (* FIXME *) in
+        (* FIXME: use an iterator below *)
+        let u = ref cuniv in
+        for i = 0 to len (* default value *) do
+          let i = Uint63.of_int i in
+          u := ccnv CONV l2r infos el1 el2 (Parray.get t1 i) (Parray.get t2 i) !u
+        done;
+        convert_stacks l2r infos lft1 lft2 v1 v2 !u
       else raise NotConvertible
 
      (* Should not happen because both (hd1,v1) and (hd2,v2) are in whnf *)

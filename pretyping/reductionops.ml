@@ -838,8 +838,6 @@ struct
   type args = EConstr.t array
   type evd = evar_map
 
-  module Parray = Primred.Narray
-
   let get = Array.get
 
   let get_int evd e =
@@ -854,7 +852,7 @@ struct
 
   let get_parray evd e =
     match EConstr.kind evd e with
-    | Array(t,p) -> (t,p)
+    | Array(t,def) -> Parray.of_array t def
     | _ -> raise Not_found
 
   let mkInt env i =
@@ -956,8 +954,9 @@ struct
       get_f_class_constructors env in
     mkConstruct nan
 
-  let mkArray env ty t =
-    mkArray(ty,t)
+  let mkArray env t =
+    let (t,def) = Parray.to_array t in
+    mkArray(t,def)
 
 end
 

@@ -2248,8 +2248,8 @@ let internalize globalenv env pattern_mode (_, ntnvars as lvar) c =
     | CCast (c1, c2) ->
         DAst.make ?loc @@
         GCast (intern env c1, map_cast_type (intern_type (slide_binders env)) c2)
-    | CArray(ty,t) ->
-            DAst.make ?loc @@ GArray(intern env ty, Array.map (intern env) t)
+    | CArray(t,def) ->
+      DAst.make ?loc @@ GArray(Array.map (intern env) t, intern env def)
     )
   and intern_type env = intern (set_type_scope env)
 

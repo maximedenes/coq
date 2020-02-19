@@ -499,7 +499,7 @@ type pretyper = {
   pretype_cast : pretyper -> glob_constr * glob_constr cast_type -> unsafe_judgment pretype_fun;
   pretype_int : pretyper -> Uint63.t -> unsafe_judgment pretype_fun;
   pretype_float : pretyper -> Float64.t -> unsafe_judgment pretype_fun;
-  pretype_array : pretyper -> glob_constr * glob_constr array -> unsafe_judgment pretype_fun;
+  pretype_array : pretyper -> glob_constr array * glob_constr -> unsafe_judgment pretype_fun;
   pretype_type : pretyper -> glob_constr -> unsafe_type_judgment pretype_fun;
 }
 
@@ -541,8 +541,8 @@ let eval_pretyper self ~program_mode ~poly resolve_tc tycon env sigma t =
     self.pretype_int self n ?loc ~program_mode ~poly resolve_tc tycon env sigma
   | GFloat f ->
     self.pretype_float self f ?loc ~program_mode ~poly resolve_tc tycon env sigma
-  | GArray (ty,t) ->
-    self.pretype_array self (ty,t) ?loc ~program_mode ~poly resolve_tc tycon env sigma
+  | GArray (t,def) ->
+    self.pretype_array self (t,def) ?loc ~program_mode ~poly resolve_tc tycon env sigma
 
 let eval_type_pretyper self ~program_mode ~poly resolve_tc tycon env sigma t =
   self.pretype_type self t ~program_mode ~poly resolve_tc tycon env sigma
@@ -1249,15 +1249,15 @@ let pretype_type self c ?loc ~program_mode ~poly resolve_tc valcon (env : GlobEn
         in
         discard_trace @@ inh_conv_coerce_to_tycon ?loc ~program_mode resolve_tc env sigma resj tycon
 
-  let pretype_array self (ty,t) =
+  let pretype_array self (t,def) =
     fun ?loc ~program_mode ~poly resolve_tc tycon env sigma ->
-          let sigma, jty = pretype_type self ~program_mode ~poly ty resolve_tc empty_valcon env sigma in
-    let pretype_elem = eval_pretyper self ~program_mode ~poly resolve_tc (mk_tycon jty.utj_val) env in
+          let sigma, jdef = eval_pretyper self ~program_mode ~poly resolve_tc empty_valcon env sigma def in
+          let pretype_elem = eval_pretyper self ~program_mode ~poly resolve_tc (mk_tycon jdef.uj_type) env in
           let sigma, jt = Array.fold_left_map pretype_elem sigma t in
           let ta = EConstr.of_constr @@ Typeops.type_of_array !!env in
           let j = {
-            uj_val = EConstr.mkArray(jty.utj_val, Array.map (fun j -> j.uj_val) jt);
-            uj_type = EConstr.mkApp(ta,[|jty.utj_val|])
+            uj_val = EConstr.mkArray(Array.map (fun j -> j.uj_val) jt, jdef.uj_val);
+            uj_type = EConstr.mkApp(ta,[|jdef.uj_type|])
           } in
           discard_trace @@ inh_conv_coerce_to_tycon ?loc ~program_mode resolve_tc env sigma j tycon
 

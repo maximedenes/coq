@@ -165,9 +165,10 @@ let rec json_expr env = function
       ("what", json_str "expr:float");
       ("float", json_str (Float64.to_string f))
     ]
-  | MLparray t -> json_dict [
+  | MLparray(t,def) -> json_dict [
       ("what", json_str "expr:array");
-      ("elems", json_listarr (Array.map (json_expr env) t))
+      ("elems", json_listarr (Array.map (json_expr env) t));
+      ("default", json_expr env def)
     ]
 
 and json_one_pat env (ids,p,t) =

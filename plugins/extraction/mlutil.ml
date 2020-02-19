@@ -431,7 +431,7 @@ let ast_iter_rel f =
     | MLapp (a,l) -> iter n a; List.iter (iter n) l
     | MLcons (_,_,l) | MLtuple l ->  List.iter (iter n) l
     | MLmagic a -> iter n a
-    | MLparray p -> Array.iter (iter n) p
+    | MLparray (t,def) -> Array.iter (iter n) t; iter n def
     | MLglob _ | MLexn _ | MLdummy _ | MLaxiom | MLuint _ | MLfloat _ -> ()
   in iter 0
 
@@ -451,7 +451,7 @@ let ast_map f = function
   | MLcons (typ,c,l) -> MLcons (typ,c, List.map f l)
   | MLtuple l -> MLtuple (List.map f l)
   | MLmagic a -> MLmagic (f a)
-  | MLparray p -> MLparray (Array.map f p)
+  | MLparray (t,def) -> MLparray (Array.map f t, f def)
   | MLrel _ | MLglob _ | MLexn _ | MLdummy _ | MLaxiom
   | MLuint _ | MLfloat _ as a -> a
 
@@ -471,7 +471,7 @@ let ast_map_lift f n = function
   | MLcons (typ,c,l) -> MLcons (typ,c, List.map (f n) l)
   | MLtuple l -> MLtuple (List.map (f n) l)
   | MLmagic a -> MLmagic (f n a)
-  | MLparray p -> MLparray (Array.map (f n) p)
+  | MLparray (t,def) -> MLparray (Array.map (f n) t, f n def)
   | MLrel _ | MLglob _ | MLexn _ | MLdummy _ | MLaxiom
   | MLuint _ | MLfloat _ as a -> a
 
@@ -487,7 +487,7 @@ let ast_iter f = function
   | MLapp (a,l) -> f a; List.iter f l
   | MLcons (_,_,l) | MLtuple l -> List.iter f l
   | MLmagic a -> f a
-  | MLparray p -> Array.iter f p
+  | MLparray (t,def) -> Array.iter f t; f def
   | MLrel _ | MLglob _ | MLexn _ | MLdummy _ | MLaxiom
   | MLuint _ | MLfloat _ -> ()
 
@@ -525,7 +525,7 @@ let nb_occur_match =
     | MLapp (a,l) -> List.fold_left (fun r a -> r+(nb k a)) (nb k a) l
     | MLcons (_,_,l) | MLtuple l -> List.fold_left (fun r a -> r+(nb k a)) 0 l
     | MLmagic a -> nb k a
-    | MLparray p -> Array.fold_left (fun r a -> r+(nb k a)) 0 p
+    | MLparray (t,def) -> Array.fold_left (fun r a -> r+(nb k a)) 0 t + nb k def
     | MLglob _ | MLexn _ | MLdummy _ | MLaxiom | MLuint _ | MLfloat _ -> 0
   in nb 1
 
@@ -578,9 +578,10 @@ let dump_unused_vars a =
        let b' = ren env b in
        if b' == b then a else MLmagic b'
 
-    | MLparray t ->
+    | MLparray(t,def) ->
        let t' = Array.Smart.map (ren env) t in
-       if t' == t then a else MLparray t'
+       let def' = ren env def in
+       if def' == def && t' == t then a else MLparray(t',def')
 
     | MLglob _ | MLexn _ | MLdummy _ | MLaxiom | MLuint _ | MLfloat _ -> a
 
@@ -1415,7 +1416,7 @@ let rec ml_size = function
   | MLfix(_,_,f) -> ml_size_array f
   | MLletin (_,_,t) -> ml_size t
   | MLmagic t -> ml_size t
-  | MLparray t -> ml_size_array t
+  | MLparray(t,def) -> ml_size_array t + ml_size def
   | MLglob _ | MLrel _ | MLexn _ | MLdummy _ | MLaxiom
   | MLuint _ | MLfloat _ -> 0
 

@@ -133,7 +133,7 @@ and constr_expr_r =
   | CGeneralization of Glob_term.binding_kind * abstraction_kind option * constr_expr
   | CPrim of prim_token
   | CDelimiters of string * constr_expr
-  | CArray of constr_expr * constr_expr array
+  | CArray of constr_expr array * constr_expr
 and constr_expr = constr_expr_r CAst.t
 
 and case_expr = constr_expr                 (* expression that is being matched *)

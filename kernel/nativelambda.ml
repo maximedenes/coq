@@ -40,7 +40,7 @@ type lambda =
   | Lfix          of (int array * (string * inductive) array * int) * fix_decl
   | Lcofix        of int * fix_decl
   | Lint          of int (* a constant constructor *)
-  | Lparray       of lambda array
+  | Lparray       of lambda array * lambda
   | Lmakeblock    of prefix * inductive * int * lambda array
                   (* prefix, inductive name, constructor tag, arguments *)
         (* A fully applied non-constant constructor *)
@@ -188,9 +188,10 @@ let map_lam_with_binders g f n lam =
   | Levar (evk, args) ->
     let args' = Array.Smart.map (f n) args in
     if args == args' then lam else Levar (evk, args')
-  | Lparray p ->
+  | Lparray (p,def) ->
       let p' = Array.Smart.map (f n) p in
-      if p == p' then lam else Lparray p'
+      let def' = f n def in
+      if def' == def && p == p' then lam else Lparray (p', def')
 
 (*s Lift and substitution *)
 
@@ -381,11 +382,11 @@ let makeblock env ind tag nparams arity args =
     let prefix = get_mind_prefix env (fst ind) in
     Lmakeblock(prefix, ind, tag, args)
 
-let makearray args =
+let makearray args def =
   try
     let p = Array.map get_value args in
-    Lval (Nativevalues.parray_of_array p)
-  with Not_found -> Lparray args
+    Lval (Nativevalues.parray_of_array p (get_value def))
+  with Not_found -> Lparray (args, def)
 
 (* Translation of constants *)
 
@@ -604,7 +605,9 @@ let rec lambda_of_constr cache env sigma c =
 
   | Float f -> Lfloat f
 
-  | Array(_,p) -> makearray (lambda_of_args cache env sigma 0 p)
+  | Array (t, def) ->
+    let def = lambda_of_constr cache env sigma def in
+    makearray (lambda_of_args cache env sigma 0 t) def
 
 and lambda_of_app cache env sigma f args =
   match kind f with

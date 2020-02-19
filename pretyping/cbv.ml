@@ -53,7 +53,7 @@ type cbv_value =
   | COFIXP of cofixpoint * cbv_value subs * cbv_value array
   | CONSTR of constructor Univ.puniverses * cbv_value array
   | PRIMITIVE of CPrimitives.t * constr * cbv_value array
-  | ARRAY of cbv_value * cbv_value Parray.t
+  | ARRAY of cbv_value Parray.t
 
 (* type of terms with a hole. This hole can appear only under App or Case.
  *   TOP means the term is considered without context
@@ -98,8 +98,8 @@ let rec shift_value n = function
       CONSTR (c, Array.map (shift_value n) args)
   | PRIMITIVE(op,c,args) ->
       PRIMITIVE(op,c,Array.map (shift_value n) args)
-  | ARRAY(ty,t) ->
-      ARRAY(shift_value n ty, Parray.map (shift_value n) t)
+  | ARRAY t ->
+      ARRAY(Parray.map (shift_value n) t)
 
 let shift_value n v =
   if Int.equal n 0 then v else shift_value n v
@@ -212,8 +212,6 @@ module VNativeEntries =
     type args = cbv_value array
     type evd = unit
 
-    module Parray = Parray
-
     let get = Array.get
 
     let get_int () e =
@@ -234,7 +232,7 @@ module VNativeEntries =
 
     let get_parray () e =
       match e with
-      | ARRAY(ty,t) -> (ty,t)
+      | ARRAY(t) -> t
       | _ -> raise Primred.NativeDestKO
 
     let mkInt env i = VAL(0, mkInt i)
@@ -337,8 +335,8 @@ module VNativeEntries =
         get_f_class_constructors env in
       CONSTR(Univ.in_punivs nan, [||])
 
-    let mkArray env ty t =
-      ARRAY(ty,t)
+    let mkArray env t =
+      ARRAY t
   end
 
 module VredNative = RedNative(VNativeEntries)
@@ -381,8 +379,9 @@ and reify_value = function (* reduction under binders *)
       mkApp(mkConstructU c, Array.map reify_value args)
   | PRIMITIVE(op,c,args) ->
       mkApp(c, Array.map reify_value args)
-  | ARRAY (ty,t) ->
-      mkArray(reify_value ty, Array.map reify_value (Parray.to_array t))
+  | ARRAY t ->
+    let t, def = Parray.to_array t in
+      mkArray(Array.map reify_value t, reify_value def)
 
 and apply_env env t =
   match kind t with
@@ -472,14 +471,13 @@ let rec norm_head info env t stack =
   | CoFix cofix -> (COFIXP(cofix,env,[||]), stack)
   | Construct c -> (CONSTR(c, [||]), stack)
 
-  | Array(ty,t) ->
-    let len = Array.length t - 1 in
-    let ty = cbv_stack_term info TOP env ty in
+  | Array(t,def) ->
+    let len = Array.length t in
     let t =
-            Parray.init (Uint63.of_int len)
-            (fun i -> cbv_stack_term info TOP env t.(i))
-            (cbv_stack_term info TOP env t.(len)) in
-    (ARRAY(ty, t),stack)
+      Parray.init (Uint63.of_int len)
+      (fun i -> cbv_stack_term info TOP env t.(i))
+      (cbv_stack_term info TOP env def) in
+    (ARRAY t, stack)
 
   (* neutral cases *)
   | (Sort _ | Meta _ | Ind _ | Int _ | Float _) -> (VAL(0, t), stack)
@@ -667,8 +665,9 @@ and cbv_norm_value info = function (* reduction under binders *)
       mkApp(mkConstructU c, Array.map (cbv_norm_value info) args)
   | PRIMITIVE(op,c,args) ->
       mkApp(c,Array.map (cbv_norm_value info) args)
-  | ARRAY (ty,t) ->
-      mkArray(cbv_norm_value info ty, Array.map (cbv_norm_value info) (Parray.to_array t))
+  | ARRAY t ->
+    let t, def = Parray.to_array t in
+      mkArray(Array.map (cbv_norm_value info) t, cbv_norm_value info def)
 
 (* with profiling *)
 let cbv_norm infos constr =
