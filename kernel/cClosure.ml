@@ -349,7 +349,7 @@ and fterm =
   | FEvar of existential * fconstr subs
   | FInt of Uint63.t
   | FFloat of Float64.t
-  | FArray of fconstr * fconstr Parray.t
+  | FArray of fconstr Parray.t
   | FLIFT of int * fconstr
   | FCLOS of constr * fconstr subs
   | FLOCKED
@@ -622,9 +622,9 @@ let rec to_constr lfts v =
     | FFloat f ->
         Constr.mkFloat f
 
-    | FArray(ty, t) ->
-            let init i = to_constr lfts (Parray.get t (Uint63.of_int i)) in
-            mkArray(to_constr lfts ty, Array.init (snd (* FIXME check ? *) (Uint63.to_int2 (Parray.length t)) + 1) init)
+    | FArray t ->
+      let init i = to_constr lfts (Parray.get t (Uint63.of_int i)) in
+      mkArray(Array.init (snd (* FIXME check ? *) (Uint63.to_int2 (Parray.length t))) init, to_constr lfts (Parray.default t))
 
     | FCLOS (t,env) ->
       if is_subs_id env && is_lift_id lfts then t
@@ -957,10 +957,10 @@ and knht info e t stk =
     | LetIn (n,b,t,c) ->
       { mark = mark Red Unknown; term = FLetIn (n, mk_clos e b, mk_clos e t, c, e) }, stk
     | Evar ev -> { mark = mark Red Unknown; term = FEvar (ev, e) }, stk
-    | Array(ty,t) ->
-      let len = Array.length t - 1 in
-      let t = Parray.init (Uint63.of_int len) (fun i -> mk_clos e t.(i)) (mk_clos e t.(len)) in
-      let term = FArray(mk_clos e ty, t) in
+    | Array(t,def) ->
+      let len = Array.length t in
+      let t = Parray.init (Uint63.of_int len) (fun i -> mk_clos e t.(i)) (mk_clos e def) in
+      let term = FArray t in
       knh info { mark = mark Cstr Unknown; term } stk
 
 let inject c = mk_clos (subs_id 0) c
@@ -975,7 +975,6 @@ module FNativeEntries =
     type elem = fconstr
     type args = fconstr array
     type evd = unit
-    module Parray = Parray
 
     let get = Array.get
 
@@ -991,7 +990,7 @@ module FNativeEntries =
 
     let get_parray () e =
       match [@ocaml.warning "-4"] e.term with
-      | FArray(ty,t) -> (ty,t)
+      | FArray t -> t
       | _ -> raise Not_found
 
     let dummy = {mark = mark Norm KnownR; term = FRel 0}
@@ -1275,9 +1274,9 @@ module FNativeEntries =
       check_f_class env;
       !fNaN
 
-    let mkArray env ty t =
+    let mkArray env t =
       check_array env;
-      { mark = mark Whnf KnownR; term = FArray(ty, t)}
+      { mark = mark Whnf KnownR; term = FArray t}
 
   end
 

@@ -1082,10 +1082,10 @@ let check_one_fix renv recpos trees def =
         | Sort _ | Int _ | Float _ ->
           assert (List.is_empty l)
 
-              | Array (ty,t) ->
-                assert (List.is_empty l);
-                check_rec_call renv [] ty;
-                Array.iter (check_rec_call renv []) t
+        | Array (t,def) ->
+          assert (List.is_empty l);
+          Array.iter (check_rec_call renv []) t;
+          check_rec_call renv [] def
 
         (* l is not checked because it is considered as the meta's context *)
         | (Evar _ | Meta _) -> ()

@@ -410,9 +410,9 @@ let matches_core env sigma allow_bound_rels
 
       | PFloat f1, Float f2 when Float64.equal f1 f2 -> subst
 
-      | PArray(pty,pt), Array(ty,t)
+      | PArray(pt,pdef), Array(t,def)
              when Array.length pt = Array.length t ->
-         Array.fold_left2 (sorec ctx env) (sorec ctx env subst pty ty) pt t
+         sorec ctx env (Array.fold_left2 (sorec ctx env) subst pt t) pdef def
 
       | (PRef _ | PVar _ | PRel _ | PApp _ | PProj _ | PLambda _
          | PProd _ | PLetIn _ | PSort _ | PIf _ | PCase _
@@ -534,12 +534,12 @@ let sub_match ?(closed=true) env sigma pat c =
       aux env term mk_ctx next
     with Retyping.RetypeError _ -> next ()
     end
-  | Array(ty,t) ->
+  | Array(t,def) ->
     let next_mk_ctx = function
-    | ty :: l -> mk_ctx (mkArray(ty, Array.of_list l))
+    | def :: l -> mk_ctx (mkArray(Array.of_list l, def))
     | _ -> assert false
     in
-    let sub = (env,ty) :: subargs env t in
+    let sub = (env,def) :: subargs env t in (* FIXME order of subterms seems wrong *)
     try_aux sub next_mk_ctx next
   | Construct _|Ind _|Evar _|Const _|Rel _|Meta _|Var _|Sort _|Int _|Float _ ->
     next ()

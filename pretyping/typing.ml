@@ -329,11 +329,11 @@ let judge_of_int env v =
 let judge_of_float env v =
   Environ.on_judgment EConstr.of_constr (judge_of_float env v)
 
-let judge_of_array env tyj tj =
-  Feedback.msg_debug Pp.(str"Typing.judge_of_array tyj" ++ Constr.debug_print (EConstr.Unsafe.to_constr tyj.utj_val));
-  let ty = tyj.utj_val in
+let judge_of_array env tj defj =
+  let def = defj.uj_val in
+  let ty = defj.uj_type in
   let arr = EConstr.of_constr @@ type_of_array env in
-  make_judge (mkArray(ty, Array.map j_val tj)) (mkApp (arr, [|ty|]))
+  make_judge (mkArray(Array.map j_val tj, def)) (mkApp (arr, [|ty|]))
 
 (* cstr must be in n.f. w.r.t. evars and execute returns a judgement
    where both the term and type are in n.f. *)
@@ -449,11 +449,10 @@ let rec execute env sigma cstr =
     | Float f ->
         sigma, judge_of_float env f
 
-    | Array(ty,t) ->
-      let sigma, tyj = execute env sigma ty in
+    | Array(t,def) ->
       let sigma, tj = execute_array env sigma t in
-      let sigma, tyj = type_judgment env sigma tyj in
-      sigma, judge_of_array env tyj tj
+      let sigma, defj = execute env sigma def in
+      sigma, judge_of_array env tj defj
 
 and execute_recdef env sigma (names,lar,vdef) =
   let sigma, larj = execute_array env sigma lar in

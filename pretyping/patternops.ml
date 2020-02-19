@@ -64,8 +64,8 @@ let rec constr_pattern_eq p1 p2 = match p1, p2 with
    Uint63.equal i1 i2
 | PFloat f1, PFloat f2 ->
    Float64.equal f1 f2
-| PArray (ty1, t1), PArray (ty2, t2) ->
-  constr_pattern_eq ty1 ty2 && Array.equal constr_pattern_eq t1 t2
+| PArray (t1, def1), PArray (t2, def2) ->
+  Array.equal constr_pattern_eq t1 t2 && constr_pattern_eq def1 def2
 | (PRef _ | PVar _ | PEvar _ | PRel _ | PApp _ | PSoApp _
    | PLambda _ | PProd _ | PLetIn _ | PSort _ | PMeta _
    | PIf _ | PCase _ | PFix _ | PCoFix _ | PProj _ | PInt _
@@ -95,8 +95,8 @@ let rec occur_meta_pattern = function
       (occur_meta_pattern p) ||
       (occur_meta_pattern c) ||
       (List.exists (fun (_,_,p) -> occur_meta_pattern p) br)
-  | PArray (ty,t) ->
-      (occur_meta_pattern ty) || (Array.exists occur_meta_pattern t)
+  | PArray (t,def) ->
+      Array.exists occur_meta_pattern t || occur_meta_pattern def
   | PMeta _ | PSoApp _ -> true
   | PEvar _ | PVar _ | PRef _ | PRel _ | PSort _ | PFix _ | PCoFix _
     | PInt _ | PFloat _ -> false
@@ -125,8 +125,8 @@ let rec occurn_pattern n = function
      Array.exists (occurn_pattern n) tl || Array.exists (occurn_pattern (n+Array.length tl)) bl
   | PCoFix (_,(_,tl,bl)) ->
      Array.exists (occurn_pattern n) tl || Array.exists (occurn_pattern (n+Array.length tl)) bl
-  | PArray (ty,t) ->
-      (occurn_pattern n ty) || (Array.exists (occurn_pattern n) t)
+  | PArray (t,def) ->
+    Array.exists (occurn_pattern n) t || occurn_pattern n def
 
 let noccurn_pattern n c = not (occurn_pattern n c)
 
@@ -225,8 +225,8 @@ let pattern_of_constr env sigma t =
                   Array.map (pattern_of_constr env') bl))
     | Int i -> PInt i
     | Float f -> PFloat f
-    | Array (ty,t) ->
-      PArray (pattern_of_constr env ty,Array.map (pattern_of_constr env) t)
+    | Array (t, def) ->
+      PArray (Array.map (pattern_of_constr env) t, pattern_of_constr env def)
     in
   pattern_of_constr env t
 
@@ -248,7 +248,7 @@ let map_pattern_with_binders g f l = function
   | PCoFix (ln,(lna,tl,bl)) ->
      let l' = Array.fold_left (fun l na -> g na l) l lna in
      PCoFix (ln,(lna,Array.map (f l) tl,Array.map (f l') bl))
-  | PArray (ty,t) -> PArray (f l ty, Array.map (f l) t)
+  | PArray (t,def) -> PArray (Array.map (f l) t, f l def)
   (* Non recursive *)
   | (PVar _ | PEvar _ | PRel _ | PRef _  | PSort _  | PMeta _ | PInt _
      | PFloat _ as x) -> x
@@ -370,11 +370,11 @@ let rec subst_pattern env sigma subst pat =
       let bl' = Array.Smart.map (subst_pattern env sigma subst) bl in
       if bl' == bl && tl' == tl then pat
       else PCoFix (ln,(lna,tl',bl'))
-  | PArray (ty,t) ->
-      let ty' = subst_pattern env sigma subst ty in
+  | PArray (t,def) ->
       let t' = Array.Smart.map (subst_pattern env sigma subst) t in
-        if ty' == ty && t' == t then pat else
-          PArray (ty',t')
+      let def' = subst_pattern env sigma subst def in
+      if def' == def && t' == t then pat
+      else PArray (t',def')
 
 let mkPLetIn na b t c = PLetIn(na,b,t,c)
 let mkPProd na t u = PProd(na,t,u)

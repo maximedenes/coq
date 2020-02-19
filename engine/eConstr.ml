@@ -367,7 +367,7 @@ let iter_with_full_binders sigma g f n c =
     Array.iter (f n) tl;
     let n' = Array.fold_left2_i (fun i n na t -> g (LocalAssum (na,lift i t)) n) n lna tl in
     Array.iter (f n') bl
-  | Array (ty,t) -> f n ty; Array.Fun1.iter f n t
+  | Array (t,def) -> Array.Fun1.iter f n t; f n def
 
 let iter_with_binders sigma g f n c =
   let f l c = f l (of_constr c) in

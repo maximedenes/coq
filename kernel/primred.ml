@@ -122,73 +122,16 @@ let get_f_class_constructors env =
 
 exception NativeDestKO
 
-module type PARRAY =
-  sig
-    type 'a t
-    val length  : 'a t -> Uint63.t
-    val get     : 'a t -> Uint63.t -> 'a
-    val set     : 'a t -> Uint63.t -> 'a -> 'a t
-    val default : 'a t -> 'a
-    val make    : Uint63.t -> 'a -> 'a t
-    val init    : Uint63.t -> (int -> 'a) -> 'a -> 'a t
-    val copy    : 'a t -> 'a t
-    val reroot  : 'a t -> 'a t
-
-    val map : ('a -> 'b) -> 'a t -> 'b t
-
-    (* /!\ Unsafe function *)
-    val of_array : 'a array -> 'a t
-
- end
-
-module Narray : PARRAY with type 'a t = 'a array =
-  struct
-    type 'a t = 'a array
-
-    let of_array _ = assert false
-
-    let length p = Uint63.of_int (Array.length p - 1)
-
-    let get p i =
-      let len = Uint63.of_int (Array.length p) in
-      if Uint63.le Uint63.zero i && Uint63.lt i len then p.(snd (Uint63.to_int2 i) (* FIXME *))
-      else p.(Array.length p - 1)
-
-    let set p i a =
-      let len = Uint63.of_int (Array.length p - 1) in
-      if Uint63.le Uint63.zero i && Uint63.lt i len then
-            let p' = Array.copy p in p'.(snd (Uint63.to_int2 i) (* FIXME *)) <- a; p'
-      else p
-
-    let default p = p.(Array.length p - 1)
-
-    let make n def =
-      Array.make (Parray.trunc_size n) def
-
-    let init n f def =
-      let n = Parray.trunc_size n in
-      let t = Array.make n def in
-      for i = 0 to n - 2 do t.(i) <- f i done;
-      t
-
-    let copy p = p
-    let reroot p = p
-
-    let map = Array.map
-
-  end
-
 module type RedNativeEntries =
   sig
     type elem
     type args
     type evd (* will be unit in kernel, evar_map outside *)
-    module Parray : PARRAY
 
     val get : args -> int -> elem
     val get_int : evd -> elem -> Uint63.t
     val get_float : evd -> elem -> Float64.t
-    val get_parray : evd -> elem -> elem * elem Parray.t
+    val get_parray : evd -> elem -> elem Parray.t
     val mkInt : env -> Uint63.t -> elem
     val mkFloat : env -> Float64.t -> elem
     val mkBool : env -> bool -> elem
@@ -211,7 +154,7 @@ module type RedNativeEntries =
     val mkPInf : env -> elem
     val mkNInf : env -> elem
     val mkNaN : env -> elem
-    val mkArray : env -> elem -> elem Parray.t -> elem
+    val mkArray : env -> elem Parray.t -> elem
   end
 
 module type RedNative =
@@ -384,35 +327,34 @@ struct
     | Float64next_down ->
       let f = get_float1 evd args in E.mkFloat env (Float64.next_down f)
     | Arraymake ->
-            let t = E.get args 0 in
-            let i = get_int evd args 1 in
-            let d = E.get args 2 in
-            E.mkArray env t (E.Parray.make i d)
+      let i = get_int evd args 1 in
+      let d = E.get args 2 in
+      E.mkArray env (Parray.make i d)
     | Arrayget ->
-            let (_,p) = get_parray evd args 1 in
-            let i = get_int evd args 2 in
-            E.Parray.get p i
+      let t = get_parray evd args 1 in
+      let i = get_int evd args 2 in
+      Parray.get t i
     | Arraydefault ->
-            let (_,p) = get_parray evd args 1 in
-            E.Parray.default p
+      let t = get_parray evd args 1 in
+      Parray.default t
     | Arrayset ->
-            let (t,p) = get_parray evd args 1 in
-            let i = get_int evd args 2 in
-            let a = E.get args 3 in
-            let p' = E.Parray.set p i a in
-            E.mkArray env t p'
+      let t = get_parray evd args 1 in
+      let i = get_int evd args 2 in
+      let a = E.get args 3 in
+      let t' = Parray.set t i a in
+      E.mkArray env t'
     | Arraycopy ->
-            let t, p = get_parray evd args 1 in
-            let p' = E.Parray.copy p in
-      E.mkArray env t p'
+      let t = get_parray evd args 1 in
+      let t' = Parray.copy t in
+      E.mkArray env t'
     | Arrayreroot ->
-            let ar = E.get args 1 in
-            let _, p = E.get_parray evd ar in
-            let _ = E.Parray.reroot p in
-            ar
+      let ar = E.get args 1 in
+      let t = E.get_parray evd ar in
+      let _ = Parray.reroot t in
+      ar (* FIXME check this *)
     | Arraylength ->
-            let (_,p) = get_parray evd args 1 in
-            E.mkInt env (E.Parray.length p)
+      let t = get_parray evd args 1 in
+      E.mkInt env (Parray.length t)
     | Arraydestrset | Arraymap | Arrayinit -> assert false (* FIXME *)
 
   let red_prim env evd p args =

@@ -374,10 +374,11 @@ let judge_of_int env i =
 let judge_of_float env f =
   make_judge (Constr.mkFloat f) (type_of_float env)
 
-let judge_of_array env tyj tj =
-  let ty = tyj.utj_val in
+let judge_of_array env tj defj =
+  let def = defj.uj_val in
+  let ty = defj.uj_type in
   Array.iter (fun j -> check_cast env j.uj_val j.uj_type DEFAULTcast ty) tj;
-  make_judge (mkArray(ty, Array.map j_val tj)) (mkApp (type_of_array env, [|ty|]))
+  make_judge (mkArray(Array.map j_val tj, def)) (mkApp (type_of_array env, [|ty|]))
 
 (* Inductive types. *)
 
@@ -616,14 +617,14 @@ let rec execute env cstr =
     (* Primitive types *)
     | Int _ -> cstr, type_of_int env
     | Float _ -> cstr, type_of_float env
-    | Array(ty,t) ->
-      let _ = execute_is_type env ty in
+    | Array(t,def) ->
+      let def', ty = execute env def in
       let ta = type_of_array env in
       let t' = Array.Smart.map (fun x ->
         let x', xt = execute env x in
         check_cast env x' xt DEFAULTcast ty;
         x') t in
-      let cstr = if t'==t then cstr else mkArray(ty,t') in
+      let cstr = if def'==def && t'==t then cstr else mkArray(t',def') in
       cstr, mkApp(ta, [|ty|])
 
     (* Partial proofs: unsupported by the kernel *)

@@ -692,11 +692,12 @@ let rec extract_term env sg mle mlt c args =
        extract_app env sg mle mlt extract_var args
     | Int i -> assert (args = []); MLuint i
     | Float f -> assert (args = []); MLfloat f
-    | Array (ty,t) ->
-            assert (args = []);
-            let a = new_meta () in
-            let ml_arr = Array.map (fun c -> extract_term env sg mle a c []) t in
-            MLparray ml_arr
+    | Array (t,def) ->
+      assert (args = []);
+      let a = new_meta () in
+      let ml_arr = Array.map (fun c -> extract_term env sg mle a c []) t in
+      let def = extract_term env sg mle a def [] in
+      MLparray(ml_arr, def)
     | Ind _ | Prod _ | Sort _ -> assert false
 
 (*s [extract_maybe_term] is [extract_term] for usual terms, else [MLdummy] *)

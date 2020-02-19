@@ -1347,7 +1347,9 @@ let ml_of_instance instance u =
      MLconstruct(prefix,cn,tag,args)
   | Luint i -> MLapp(MLprimitive Mk_uint, [|MLuint i|])
   | Lfloat f -> MLapp(MLprimitive Mk_float, [|MLfloat f|])
-  | Lparray t -> MLapp(MLprimitive MLparray_of_array, [| MLarray (Array.map (ml_of_lam env l) t) |])
+  | Lparray (t,def) ->
+    let def = ml_of_lam env l def in
+    MLapp(MLprimitive MLparray_of_array, [| MLarray (Array.map (ml_of_lam env l) t); def |])
   | Lval v ->
       let i = push_symbol (SymbValue v) in get_value_code i
   | Lsort s ->

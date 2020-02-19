@@ -174,9 +174,9 @@ let rec constr_expr_eq e1 e2 =
     | CDelimiters(s1,e1), CDelimiters(s2,e2) ->
       String.equal s1 s2 &&
       constr_expr_eq e1 e2
-    | CArray(ty1,t1), CArray(ty2,t2) ->
-      constr_expr_eq ty1 ty2 &&
-      Array.equal constr_expr_eq t1 t2
+    | CArray(t1,def1), CArray(t2,def2) ->
+      Array.equal constr_expr_eq t1 t2 &&
+      constr_expr_eq def1 def2
   | (CRef _ | CFix _ | CCoFix _ | CProdN _ | CLambdaN _ | CLetIn _ | CAppExpl _
      | CApp _ | CRecord _ | CCases _ | CLetTuple _ | CIf _ | CHole _
      | CPatVar _ | CEvar _ | CSort _ | CCast _ | CNotation _ | CPrim _
@@ -356,7 +356,7 @@ let fold_constr_expr_with_binders g f n acc = CAst.with_val (function
             (fold_local_binders g f n acc t lb) c lb) l acc
     | CCoFix (_,_) ->
       Feedback.msg_warning (strbrk "Capture check in multiple binders not done"); acc
-    | CArray (ty,t) -> Array.fold_left (f n) (f n acc ty) t
+    | CArray (t,def) -> f n (Array.fold_left (f n) acc t) def
   )
 
 let free_vars_of_constr_expr c =
@@ -443,8 +443,8 @@ let map_constr_expr_with_binders g f e = CAst.map (function
           let e'' = List.fold_left (fun e ({ CAst.v = id },_,_,_) -> g id e) e' dl in
           let d' = f e'' d in
           (id,bl',t',d')) dl)
-    | CArray (ty,t) ->
-      CArray (f e ty, Array.map (f e) t)
+    | CArray (t, def) ->
+      CArray (Array.map (f e) t, f e def)
   )
 
 (* Used in constrintern *)

@@ -19,38 +19,16 @@ val get_f_class_constructors :
 
 exception NativeDestKO (* Should be raised by get_* functions on failure *)
 
-module type PARRAY =
-  sig
-    type 'a t
-    val length  : 'a t -> Uint63.t
-    val get     : 'a t -> Uint63.t -> 'a
-    val set     : 'a t -> Uint63.t -> 'a -> 'a t
-    val default : 'a t -> 'a
-    val make    : Uint63.t -> 'a -> 'a t
-    val init    : Uint63.t -> (int -> 'a) -> 'a -> 'a t
-    val copy    : 'a t -> 'a t
-    val reroot  : 'a t -> 'a t
-
-    val map : ('a -> 'b) -> 'a t -> 'b t
-
-    (* /!\ Unsafe function *)
-    val of_array : 'a array -> 'a t
-
- end
-
-module Narray : PARRAY with type 'a t = 'a array
-
 module type RedNativeEntries =
   sig
     type elem
     type args
     type evd (* will be unit in kernel, evar_map outside *)
-    module Parray : PARRAY
 
     val get : args -> int -> elem
     val get_int : evd -> elem -> Uint63.t
     val get_float : evd -> elem -> Float64.t
-    val get_parray : evd -> elem -> elem * elem Parray.t
+    val get_parray : evd -> elem -> elem Parray.t
     val mkInt : env -> Uint63.t -> elem
     val mkFloat : env -> Float64.t -> elem
     val mkBool : env -> bool -> elem
@@ -73,7 +51,7 @@ module type RedNativeEntries =
     val mkPInf : env -> elem
     val mkNInf : env -> elem
     val mkNaN : env -> elem
-    val mkArray : env -> elem -> elem Parray.t -> elem
+    val mkArray : env -> elem Parray.t -> elem
   end
 
 module type RedNative =

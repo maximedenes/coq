@@ -1818,9 +1818,9 @@ let w_unify_to_subterm env evd ?(flags=default_unify_flags ()) (op,cl) =
                with ex when precatchable_exception ex ->
                  matchrec c)
 
-          | Array(ty,t) ->
+          | Array(t,def) ->
             (try
-              matchrec ty
+              matchrec def
             with ex when precatchable_exception ex ->
               iter_fail matchrec t)
 
@@ -1892,8 +1892,8 @@ let w_unify_to_subterm_all env evd ?(flags=default_unify_flags ()) (op,cl) =
             | Lambda (_,t,c) ->
                 bind (matchrec t) (matchrec c)
 
-            | Array(ty,t) ->
-              bind (matchrec ty) (bind_iter matchrec t)
+            | Array(t,def) ->
+              bind (bind_iter matchrec t) (matchrec def)
 
           | Cast (_, _, _)  -> fail "Match_subterm" (* Is this expected? *)
 

@@ -542,13 +542,13 @@ let makeblock tag nparams arity args =
       Lval(val_of_block Obj.last_non_constant_constructor_tag args)
   else Lmakeblock(tag, args)
 
-let makearray args =
+let makearray args def =
   try
     let p = Array.map get_value args in
-    Lval ((Obj.magic (Parray.of_array p)):structured_values) (* FIXME *)
+    Lval ((Obj.magic (Parray.unsafe_of_array p (get_value def))):structured_values) (* FIXME *)
   with Not_found ->
     let ar = Lmakeblock(0, args) in (* build the ocaml array *)
-    let kind = Lmakeblock(0, [|ar|]) in (* Parray.Array *)
+    let kind = Lmakeblock(0, [|ar; def|]) in (* Parray.Array *)
     Lmakeblock(0,[|kind|]) (* the reference *)
 
 (* Compiling constants *)
@@ -781,7 +781,9 @@ let rec lambda_of_constr env c =
 
   | Int i -> Luint i
   | Float f -> Lfloat f
-  | Array(_,p) -> makearray (lambda_of_args env 0 p)
+  | Array(t,def) ->
+    let def = lambda_of_constr env def in
+    makearray (lambda_of_args env 0 t) def
 
 and lambda_of_app env f args =
   match Constr.kind f with

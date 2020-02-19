@@ -12,7 +12,11 @@ val reroot  : 'a t -> 'a t
 
 val map : ('a -> 'b) -> 'a t -> 'b t
 
-val to_array : 'a t -> 'a array
+val to_array : 'a t -> 'a array * 'a (* default *)
 
-    (* /!\ Unsafe function *)
-val of_array : 'a array -> 'a t
+val of_array : 'a array -> 'a (* default *) -> 'a t
+
+val unsafe_of_array : 'a array -> 'a -> 'a t
+(* [unsafe_of_array] injects a mutable array into a persistent one, but does
+   not perform a copy. This means that if the persistent array is mutated, the
+   original one will be too. *)

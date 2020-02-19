@@ -658,11 +658,11 @@ let map_constr_with_binders_left_to_right sigma g f l c =
         if Array.for_all2 (==) tl tl' && Array.for_all2 (==) bl bl'
         then c
         else mkCoFix (ln,(lna,tl',bl'))
-  | Array(ty,t) ->
-      let ty' = f l ty in
+  | Array(t,def) ->
       let t' = Array.map_left (f l) t in
-      if ty' == ty && t' == t then c
-      else mkArray(ty', t')
+      let def' = f l def in
+      if def' == def && t' == t then c
+      else mkArray(t',def')
 
 let map_under_context_with_full_binders sigma g f l n d =
   let open EConstr in
@@ -740,10 +740,10 @@ let map_constr_with_full_binders_gen userview sigma g f l cstr =
       if Array.for_all2 (==) tl tl' && Array.for_all2 (==) bl bl'
       then cstr
       else mkCoFix (ln,(lna,tl',bl'))
-  | Array(ty, t) ->
-      let ty' = f l ty in
+  | Array(t,def) ->
       let t' = Array.Smart.map (f l) t in
-      if ty==ty' && t == t' then cstr else mkArray (ty', t')
+      let def' = f l def in
+      if def==def' && t == t' then cstr else mkArray (t', def')
 
 let map_constr_with_full_binders sigma g f =
   map_constr_with_full_binders_gen false sigma g f

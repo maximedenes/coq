@@ -206,15 +206,10 @@ GRAMMAR EXTEND Gram
         { CAst.make ~loc @@ CNotation(None,(InConstrEntrySomeLevel,"{ _ }"),([c],[],[],[])) }
       | "`{"; c = operconstr LEVEL "200"; "}" ->
         { CAst.make ~loc @@ CGeneralization (MaxImplicit, None, c) }
-      | "[!"; ls = array_elems; "|"; e = lconstr; "!]" ->
-        { let t = Array.make (List.length ls + 1) e in
-                List.iteri (fun i e -> t.(i) <- e) ls;
-          CAst.make ~loc @@ CArray(CAst.make @@ CHole (None, IntroAnonymous, None), t)
-        }
-      | "[!"; ls = array_elems; "|"; e = lconstr ; "in"; te = lconstr; "!]" ->
-        { let t = Array.make (List.length ls + 1) e in
-                List.iteri (fun i e -> t.(i) <- e) ls;
-          CAst.make ~loc @@ CArray(te, t)
+      | "[!"; ls = array_elems; "|"; def = lconstr; "!]" ->
+        { let t = Array.make (List.length ls) def in
+          List.iteri (fun i e -> t.(i) <- e) ls;
+          CAst.make ~loc @@ CArray(t, def)
         }
       | "`("; c = operconstr LEVEL "200"; ")" ->
         { CAst.make ~loc @@ CGeneralization (Explicit, None, c) } ] ]

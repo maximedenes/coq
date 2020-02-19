@@ -5,54 +5,54 @@ let length_to_int i = snd (Uint63.to_int2 i) (* TODO check correctness on 32 bit
 
 let trunc_size n =
   if Uint63.le Uint63.zero n && Uint63.lt n (Uint63.of_int max_array_length32) then
-    length_to_int n + 1
+    length_to_int n
   else max_array_length32
 
 type 'a t = ('a kind) ref
 and 'a kind =
-  | Array of 'a array
-        (* | Matrix of 'a array array *)
+  | Array of 'a array * 'a
   | Updated of int * 'a * 'a t
 
-let of_array t = ref (Array t)
+let unsafe_of_array t def = ref (Array (t,def))
+let of_array t def = unsafe_of_array (Array.copy t) def
 
 let debug s = if !Flags.debug then Feedback.msg_debug Pp.(str s) (* TODO remove *)
 
 let rec length p =
   match !p with
-  | Array t -> Uint63.of_int (Array.length t - 1) (* The default value *)
+  | Array (t,_) -> Uint63.of_int @@ Array.length t
   | Updated (_, _, p) -> length p
 
 let length p =
   match !p with
-  | Array t -> Uint63.of_int (Array.length t - 1)
+  | Array (t,_) -> Uint63.of_int @@ Array.length t
   | Updated (_, _, p) -> debug "Array.length"; length p
 
 let rec get_updated p n =
   match !p with
-  | Array t ->
+  | Array (t,def) ->
       let l = Array.length t in
       if Uint63.le Uint63.zero n && Uint63.lt n (Uint63.of_int l) then
         Array.unsafe_get t (length_to_int n)
-      else (debug "Array.get: out of bound";Array.unsafe_get t (l-1))
+      else (debug "Array.get: out of bound"; def)
   | Updated (k,e,p) ->
      if Uint63.equal n (Uint63.of_int k) then e
      else get_updated p n
 
 let get p n =
   match !p with
-  | Array t ->
+  | Array (t,def) ->
       let l = Array.length t in
       if Uint63.le Uint63.zero n && Uint63.lt n (Uint63.of_int l) then
         Array.unsafe_get t (length_to_int n)
-      else (debug "Array.get: out of bound";Array.unsafe_get t (l-1))
+      else (debug "Array.get: out of bound"; def)
   | Updated _ -> debug "Array.get";get_updated p n
 
 let set p n e =
   let kind = !p in
   match kind with
-  | Array t ->
-      let l = Uint63.of_int (Array.length t - 1) in
+  | Array (t,_) ->
+      let l = Uint63.of_int @@ Array.length t in
       if Uint63.le Uint63.zero n && Uint63.lt n l then
         let res = ref kind in
         let n = length_to_int n in
@@ -69,8 +69,8 @@ let set p n e =
 let destr_set p n e =
   let kind = !p in
   match kind with
-  | Array t ->
-      let l = Uint63.of_int (Array.length t - 1) in
+  | Array (t,_) ->
+      let l = Uint63.of_int @@ Array.length t in
       if Uint63.le Uint63.zero n && Uint63.lt n l then
         let n = length_to_int n in
         Array.unsafe_set t n e;
@@ -80,36 +80,37 @@ let destr_set p n e =
 
 let rec default_updated p =
   match !p with
-  | Array t -> Array.unsafe_get t (Array.length t - 1)
+  | Array (_,def) -> def
   | Updated (_,_,p) -> default_updated p
 
 let default p =
   match !p with
-  | Array t -> Array.unsafe_get t (Array.length t - 1)
+  | Array (_,def) -> def
   | Updated (_,_,p) -> debug "Array.default";default_updated p
 
 let make n def =
-  ref (Array (Array.make (trunc_size n) def))
+  ref (Array (Array.make (trunc_size n) def, def))
 
 let init n f def =
   let n = trunc_size n in
-  let t = Array.make n def in
-  for i = 0 to n - 2 do Array.unsafe_set t i (f i) done;
-  ref (Array t)
+  let t = Array.init n f in
+  ref (Array (t, def))
 
 let rec copy_updated p =
   match !p with
-  | Array t -> Array.copy t
+  | Array (t,def) -> Array.copy t, def
   | Updated (n,e,p) ->
-      let t = copy_updated p in
-      Array.unsafe_set t n e; t
+      let (t,_) as r = copy_updated p in
+      Array.unsafe_set t n e; r
 
 let to_array p =
   match !p with
-  | Array t -> Array.copy t
+  | Array (t,def) -> Array.copy t, def
   | Updated _ -> debug "Array.copy"; copy_updated p
 
-let copy p = ref (Array (to_array p))
+let copy p =
+  let (t,def) = to_array p in
+  ref (Array (t,def))
 
 let rec rerootk t k =
   match !t with
@@ -117,7 +118,7 @@ let rec rerootk t k =
   | Updated (i, v, t') ->
       let k' () =
         begin match !t' with
-        | Array a as n ->
+        | Array (a,_def) as n ->
             let v' = a.(i) in
             Array.unsafe_set a i v;
             t := n;
@@ -130,9 +131,8 @@ let reroot t = rerootk t (fun () -> t)
 
 let map f p =
   match !p with
-  | Array t -> ref (Array (Array.map f t))
+  | Array (t,def) -> ref (Array (Array.map f t, f def))
   | _ ->
       let len = length_to_int (length p) in
-      ref (Array
-             (Array.init (len + 1)
-                (fun i -> f (get p (Uint63.of_int i)))))
+      let t = Array.init len (fun i -> f (get p (Uint63.of_int i))) in
+      ref (Array(t, f (default p)))
