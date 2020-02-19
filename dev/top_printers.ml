@@ -313,6 +313,7 @@ let constr_display csr =
       "Int("^(Uint63.to_string i)^")"
   | Float f ->
       "Float("^(Float64.to_string f)^")"
+  | Array (t,def) -> "Array("^(array_display t)^","^(term_display def)^")\n"
 
   and array_display v =
     "[|"^
@@ -447,6 +448,12 @@ let print_pure_constr csr =
      print_string ("Int("^(Uint63.to_string i)^")")
   | Float f ->
       print_string ("Float("^(Float64.to_string f)^")")
+  | Array (t,def) ->
+      print_string "Array(";
+      Array.iter (fun x -> box_display x; print_space()) t;
+      print_string "|";
+      box_display def;
+      print_string ")"
 
   and box_display c = open_hovbox 1; term_display c; close_box()
 
