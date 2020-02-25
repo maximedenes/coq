@@ -1,10 +1,11 @@
-let max_array_length32 = 18014398509481983
-(* 4194303 Sys.max_array_length on arch32 *)
+let max_array_length32 = 4194303
+
+let max_length = Uint63.of_int max_array_length32
 
 let length_to_int i = snd (Uint63.to_int2 i) (* TODO check correctness on 32 bits *)
 
 let trunc_size n =
-  if Uint63.le Uint63.zero n && Uint63.lt n (Uint63.of_int max_array_length32) then
+  if Uint63.le Uint63.zero n && Uint63.lt n max_length then
     length_to_int n
   else max_array_length32
 

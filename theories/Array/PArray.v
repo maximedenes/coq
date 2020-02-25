@@ -38,7 +38,7 @@ Notation "t '.[' i '<-' a ']'" := (set t i a) (at level 50) : array_scope.
 Local Open Scope int63_scope.
 Local Open Scope array_scope.
 
-Definition max_array_length := 4194302.
+Primitive max_length := #array_max_length.
 
 (** Axioms *)
 Axiom get_outofbound : forall A (t:array A) i, (i < length t) = false -> t.[i] = default t.
@@ -51,10 +51,10 @@ Axiom default_set : forall (A:Set) t i (a:A), default (t.[i<-a]) = default t.
 Axiom get_make : forall (A:Set) (a:A) size i, (make size a).[i] = a.
 Axiom default_make : forall (A:Set) (a:A) size, (default (make size a)) = a.
 
-Axiom ltb_length : forall A (t:array A), length t <= max_array_length = true.
+Axiom ltb_length : forall A (t:array A), length t <= max_length = true.
 
 Axiom length_make : forall (A:Set) size (a:A),
-  length (make size a) = if size <= max_array_length then size else max_array_length.
+  length (make size a) = if size <= max_length then size else max_length.
 Axiom length_set : forall (A:Set) t i (a:A),
   length (t.[i<-a]) = length t.
 
@@ -66,7 +66,7 @@ Axiom length_reroot : forall A (t:array A), length (reroot t) = length t.
 
 
 Axiom length_init : forall (A:Set) f size (def:A),
-  length (init size f def) = if size <= max_array_length then size else max_array_length.
+  length (init size f def) = if size <= max_length then size else max_length.
 
 Axiom get_init : forall (A:Set) f size (def:A) i,
   (init size f def).[i] = if i < length (init size f def) then f i else def.

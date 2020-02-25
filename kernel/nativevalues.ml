@@ -755,6 +755,9 @@ let arraylength accu vA t =
     no_check_arraylength t
   else accu vA t
 
+let no_check_arraymaxlength =
+  mk_uint (Parray.max_length)
+
 let parray_of_array t def =
   (Obj.magic (Parray.unsafe_of_array t def) : t)
 

@@ -61,6 +61,7 @@ type t =
   | Arraylength
   | Arrayinit
   | Arraymap
+  | Arraymaxlength
 
 let equal (p1 : t) (p2 : t) =
   p1 == p2
@@ -118,6 +119,7 @@ let hash = function
   | Arraylength -> 50
   | Arrayinit -> 51
   | Arraymap -> 52
+  | Arraymaxlength -> 53
 
 (* Should match names in nativevalues.ml *)
 let to_string = function
@@ -173,6 +175,7 @@ let to_string = function
   | Arraylength -> "arraylength"
   | Arrayinit -> "arrayinit"
   | Arraymap -> "arraymap"
+  | Arraymaxlength -> "arraymaxlength"
 
 type 'a prim_type =
   | PT_int63 : unit prim_type
@@ -236,6 +239,7 @@ let types =
   | Arraylength -> 1, [[array_ty (PITT_param 1)]; [int_ty]]
   | Arrayinit -> 1, [[int_ty];[int_ty;PITT_param 1];[PITT_param 1];[array_ty (PITT_param 1)]]
   | Arraymap -> 2, [[PITT_param 1;PITT_param 2];[array_ty (PITT_param 1)];[array_ty (PITT_param 2)]]
+  | Arraymaxlength -> 0, [[int_ty]]
 
 type arg_kind =
   | Kparam (* not needed for the evaluation of the primitive when it reduces *)

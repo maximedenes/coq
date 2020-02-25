@@ -507,6 +507,325 @@ let mk_clos e t =
 
 let inject c = mk_clos (subs_id 0) c
 
+(************************************************************************)
+(* Reduction of Native operators                                        *)
+
+open Primred
+
+module FNativeEntries =
+  struct
+    type elem = fconstr
+    type args = fconstr array
+    type evd = unit
+
+    let get = Array.get
+
+    let get_int () e =
+      match [@ocaml.warning "-4"] e.term with
+      | FInt i -> i
+      | _ -> raise Primred.NativeDestKO
+
+    let get_float () e =
+      match [@ocaml.warning "-4"] e.term with
+      | FFloat f -> f
+      | _ -> raise Primred.NativeDestKO
+
+    let get_parray () e =
+      match [@ocaml.warning "-4"] e.term with
+      | FArray t -> t
+      | _ -> raise Not_found
+
+    let dummy = {mark = mark Norm KnownR; term = FRel 0}
+
+    let current_retro = ref Retroknowledge.empty
+    let defined_int = ref false
+    let fint = ref dummy
+
+    let init_int retro =
+      match retro.Retroknowledge.retro_int63 with
+      | Some c ->
+        defined_int := true;
+        fint := { mark = mark Norm KnownR; term = FFlex (ConstKey (Univ.in_punivs c)) }
+      | None -> defined_int := false
+
+    let defined_float = ref false
+    let ffloat = ref dummy
+
+    let init_float retro =
+      match retro.Retroknowledge.retro_float64 with
+      | Some c ->
+        defined_float := true;
+        ffloat := { mark = mark Norm KnownR; term = FFlex (ConstKey (Univ.in_punivs c)) }
+      | None -> defined_float := false
+
+    let defined_bool = ref false
+    let ftrue = ref dummy
+    let ffalse = ref dummy
+
+    let init_bool retro =
+      match retro.Retroknowledge.retro_bool with
+      | Some (ct,cf) ->
+        defined_bool := true;
+        ftrue := { mark = mark Cstr KnownR; term = FConstruct (Univ.in_punivs ct) };
+        ffalse := { mark = mark Cstr KnownR; term = FConstruct (Univ.in_punivs cf) }
+      | None -> defined_bool :=false
+
+    let defined_carry = ref false
+    let fC0 = ref dummy
+    let fC1 = ref dummy
+
+    let init_carry retro =
+      match retro.Retroknowledge.retro_carry with
+      | Some(c0,c1) ->
+        defined_carry := true;
+        fC0 := { mark = mark Cstr KnownR; term = FConstruct (Univ.in_punivs c0) };
+        fC1 := { mark = mark Cstr KnownR; term = FConstruct (Univ.in_punivs c1) }
+      | None -> defined_carry := false
+
+    let defined_pair = ref false
+    let fPair = ref dummy
+
+    let init_pair retro =
+      match retro.Retroknowledge.retro_pair with
+      | Some c ->
+        defined_pair := true;
+        fPair := { mark = mark Cstr KnownR; term = FConstruct (Univ.in_punivs c) }
+      | None -> defined_pair := false
+
+    let defined_cmp = ref false
+    let fEq = ref dummy
+    let fLt = ref dummy
+    let fGt = ref dummy
+    let fcmp = ref dummy
+
+    let init_cmp retro =
+      match retro.Retroknowledge.retro_cmp with
+      | Some (cEq, cLt, cGt) ->
+        defined_cmp := true;
+        fEq := { mark = mark Cstr KnownR; term = FConstruct (Univ.in_punivs cEq) };
+        fLt := { mark = mark Cstr KnownR; term = FConstruct (Univ.in_punivs cLt) };
+        fGt := { mark = mark Cstr KnownR; term = FConstruct (Univ.in_punivs cGt) };
+        let (icmp, _) = cEq in
+        fcmp := { mark = mark Norm KnownR; term = FInd (Univ.in_punivs icmp) }
+      | None -> defined_cmp := false
+
+    let defined_f_cmp = ref false
+    let fFEq = ref dummy
+    let fFLt = ref dummy
+    let fFGt = ref dummy
+    let fFNotComparable = ref dummy
+
+    let init_f_cmp retro =
+      match retro.Retroknowledge.retro_f_cmp with
+      | Some (cFEq, cFLt, cFGt, cFNotComparable) ->
+        defined_f_cmp := true;
+        fFEq := { mark = mark Cstr KnownR; term = FConstruct (Univ.in_punivs cFEq) };
+        fFLt := { mark = mark Cstr KnownR; term = FConstruct (Univ.in_punivs cFLt) };
+        fFGt := { mark = mark Cstr KnownR; term = FConstruct (Univ.in_punivs cFGt) };
+        fFNotComparable :=
+          { mark = mark Cstr KnownR; term = FConstruct (Univ.in_punivs cFNotComparable) };
+      | None -> defined_f_cmp := false
+
+    let defined_f_class = ref false
+    let fPNormal = ref dummy
+    let fNNormal = ref dummy
+    let fPSubn = ref dummy
+    let fNSubn = ref dummy
+    let fPZero = ref dummy
+    let fNZero = ref dummy
+    let fPInf = ref dummy
+    let fNInf = ref dummy
+    let fNaN = ref dummy
+
+    let init_f_class retro =
+      match retro.Retroknowledge.retro_f_class with
+      | Some (cPNormal, cNNormal, cPSubn, cNSubn, cPZero, cNZero,
+              cPInf, cNInf, cNaN) ->
+        defined_f_class := true;
+        fPNormal := { mark = mark Cstr KnownR; term = FConstruct (Univ.in_punivs cPNormal) };
+        fNNormal := { mark = mark Cstr KnownR; term = FConstruct (Univ.in_punivs cNNormal) };
+        fPSubn := { mark = mark Cstr KnownR; term = FConstruct (Univ.in_punivs cPSubn) };
+        fNSubn := { mark = mark Cstr KnownR; term = FConstruct (Univ.in_punivs cNSubn) };
+        fPZero := { mark = mark Cstr KnownR; term = FConstruct (Univ.in_punivs cPZero) };
+        fNZero := { mark = mark Cstr KnownR; term = FConstruct (Univ.in_punivs cNZero) };
+        fPInf := { mark = mark Cstr KnownR; term = FConstruct (Univ.in_punivs cPInf) };
+        fNInf := { mark = mark Cstr KnownR; term = FConstruct (Univ.in_punivs cNInf) };
+        fNaN := { mark = mark Cstr KnownR; term = FConstruct (Univ.in_punivs cNaN) };
+      | None -> defined_f_class := false
+    let defined_refl = ref false
+
+    let frefl = ref dummy
+
+    let init_refl retro =
+      match retro.Retroknowledge.retro_refl with
+      | Some crefl ->
+        defined_refl := true;
+        frefl := { mark = mark Cstr KnownR; term = FConstruct (Univ.in_punivs crefl) }
+      | None -> defined_refl := false
+
+    let defined_array = ref false
+
+    let farray = ref dummy
+
+    let init_array retro =
+      match retro.Retroknowledge.retro_array with
+      | Some c ->
+        defined_array := true;
+        farray := { mark = mark Norm KnownR; term = FFlex (ConstKey (Univ.in_punivs c)) }
+      | None -> defined_array := false
+
+    let init env =
+      current_retro := env.retroknowledge;
+      init_int !current_retro;
+      init_float !current_retro;
+      init_bool !current_retro;
+      init_carry !current_retro;
+      init_pair !current_retro;
+      init_cmp !current_retro;
+      init_f_cmp !current_retro;
+      init_f_class !current_retro;
+      init_refl !current_retro;
+      init_array !current_retro
+
+    let check_env env =
+      if not (!current_retro == env.retroknowledge) then init env
+
+    let check_int env =
+      check_env env;
+      assert (!defined_int)
+
+    let check_float env =
+      check_env env;
+      assert (!defined_float)
+
+    let check_bool env =
+      check_env env;
+      assert (!defined_bool)
+
+    let check_carry env =
+      check_env env;
+      assert (!defined_carry && !defined_int)
+
+    let check_pair env =
+      check_env env;
+      assert (!defined_pair && !defined_int)
+
+    let check_cmp env =
+      check_env env;
+      assert (!defined_cmp)
+
+    let check_f_cmp env =
+      check_env env;
+      assert (!defined_f_cmp)
+
+    let check_f_class env =
+      check_env env;
+      assert (!defined_f_class)
+
+    let check_array env =
+      check_env env;
+      assert (!defined_array)
+
+    let mkInt env i =
+      check_int env;
+      { mark = mark Cstr KnownR; term = FInt i }
+
+    let mkFloat env f =
+      check_float env;
+      { mark = mark Norm KnownR; term = FFloat f }
+
+    let mkBool env b =
+      check_bool env;
+      if b then !ftrue else !ffalse
+
+    let mkCarry env b e =
+      check_carry env;
+      {mark = mark Cstr KnownR;
+       term = FApp ((if b then !fC1 else !fC0),[|!fint;e|])}
+
+    let mkIntPair env e1 e2 =
+      check_pair env;
+      { mark = mark Cstr KnownR; term = FApp(!fPair, [|!fint;!fint;e1;e2|]) }
+
+    let mkFloatIntPair env f i =
+      check_pair env;
+      check_float env;
+      { mark = mark Cstr KnownR; term = FApp(!fPair, [|!ffloat;!fint;f;i|]) }
+
+    let mkLt env =
+      check_cmp env;
+      !fLt
+
+    let mkEq env =
+      check_cmp env;
+      !fEq
+
+    let mkGt env =
+      check_cmp env;
+      !fGt
+
+    let mkFLt env =
+      check_f_cmp env;
+      !fFLt
+
+    let mkFEq env =
+      check_f_cmp env;
+      !fFEq
+
+    let mkFGt env =
+      check_f_cmp env;
+      !fFGt
+
+    let mkFNotComparable env =
+      check_f_cmp env;
+      !fFNotComparable
+
+    let mkPNormal env =
+      check_f_class env;
+      !fPNormal
+
+    let mkNNormal env =
+      check_f_class env;
+      !fNNormal
+
+    let mkPSubn env =
+      check_f_class env;
+      !fPSubn
+
+    let mkNSubn env =
+      check_f_class env;
+      !fNSubn
+
+    let mkPZero env =
+      check_f_class env;
+      !fPZero
+
+    let mkNZero env =
+      check_f_class env;
+      !fNZero
+
+    let mkPInf env =
+      check_f_class env;
+      !fPInf
+
+    let mkNInf env =
+      check_f_class env;
+      !fNInf
+
+    let mkNaN env =
+      check_f_class env;
+      !fNaN
+
+    let mkArray env t =
+      check_array env;
+      { mark = mark Whnf KnownR; term = FArray t}
+
+  end
+
+module FredNative = RedNative(FNativeEntries)
+
+(************************************************************************)
+
 (** Hand-unrolling of the map function to bypass the call to the generic array
     allocation *)
 let mk_clos_vect env v = match v with
@@ -542,6 +861,11 @@ let ref_value_cache ({ i_cache = cache; _ }) tab ref =
         in
         Def (inject body)
       with
+      | NotEvaluableConst (IsPrimitive op) when Int.equal (CPrimitives.arity op) 0 ->
+        begin match FredNative.red_prim cache.i_env () op [||] with
+          | Some m -> Def m
+          | None -> Primitive op
+        end
       | NotEvaluableConst (IsPrimitive op) (* Const *) -> Primitive op
       | Not_found (* List.assoc *)
       | NotEvaluableConst _ (* Const *)
@@ -963,327 +1287,6 @@ and knht info e t stk =
       let term = FArray t in
       knh info { mark = mark Cstr Unknown; term } stk
 
-let inject c = mk_clos (subs_id 0) c
-
-(************************************************************************)
-(* Reduction of Native operators                                        *)
-
-open Primred
-
-module FNativeEntries =
-  struct
-    type elem = fconstr
-    type args = fconstr array
-    type evd = unit
-
-    let get = Array.get
-
-    let get_int () e =
-      match [@ocaml.warning "-4"] e.term with
-      | FInt i -> i
-      | _ -> raise Primred.NativeDestKO
-
-    let get_float () e =
-      match [@ocaml.warning "-4"] e.term with
-      | FFloat f -> f
-      | _ -> raise Primred.NativeDestKO
-
-    let get_parray () e =
-      match [@ocaml.warning "-4"] e.term with
-      | FArray t -> t
-      | _ -> raise Not_found
-
-    let dummy = {mark = mark Norm KnownR; term = FRel 0}
-
-    let current_retro = ref Retroknowledge.empty
-    let defined_int = ref false
-    let fint = ref dummy
-
-    let init_int retro =
-      match retro.Retroknowledge.retro_int63 with
-      | Some c ->
-        defined_int := true;
-        fint := { mark = mark Norm KnownR; term = FFlex (ConstKey (Univ.in_punivs c)) }
-      | None -> defined_int := false
-
-    let defined_float = ref false
-    let ffloat = ref dummy
-
-    let init_float retro =
-      match retro.Retroknowledge.retro_float64 with
-      | Some c ->
-        defined_float := true;
-        ffloat := { mark = mark Norm KnownR; term = FFlex (ConstKey (Univ.in_punivs c)) }
-      | None -> defined_float := false
-
-    let defined_bool = ref false
-    let ftrue = ref dummy
-    let ffalse = ref dummy
-
-    let init_bool retro =
-      match retro.Retroknowledge.retro_bool with
-      | Some (ct,cf) ->
-        defined_bool := true;
-        ftrue := { mark = mark Cstr KnownR; term = FConstruct (Univ.in_punivs ct) };
-        ffalse := { mark = mark Cstr KnownR; term = FConstruct (Univ.in_punivs cf) }
-      | None -> defined_bool :=false
-
-    let defined_carry = ref false
-    let fC0 = ref dummy
-    let fC1 = ref dummy
-
-    let init_carry retro =
-      match retro.Retroknowledge.retro_carry with
-      | Some(c0,c1) ->
-        defined_carry := true;
-        fC0 := { mark = mark Cstr KnownR; term = FConstruct (Univ.in_punivs c0) };
-        fC1 := { mark = mark Cstr KnownR; term = FConstruct (Univ.in_punivs c1) }
-      | None -> defined_carry := false
-
-    let defined_pair = ref false
-    let fPair = ref dummy
-
-    let init_pair retro =
-      match retro.Retroknowledge.retro_pair with
-      | Some c ->
-        defined_pair := true;
-        fPair := { mark = mark Cstr KnownR; term = FConstruct (Univ.in_punivs c) }
-      | None -> defined_pair := false
-
-    let defined_cmp = ref false
-    let fEq = ref dummy
-    let fLt = ref dummy
-    let fGt = ref dummy
-    let fcmp = ref dummy
-
-    let init_cmp retro =
-      match retro.Retroknowledge.retro_cmp with
-      | Some (cEq, cLt, cGt) ->
-        defined_cmp := true;
-        fEq := { mark = mark Cstr KnownR; term = FConstruct (Univ.in_punivs cEq) };
-        fLt := { mark = mark Cstr KnownR; term = FConstruct (Univ.in_punivs cLt) };
-        fGt := { mark = mark Cstr KnownR; term = FConstruct (Univ.in_punivs cGt) };
-        let (icmp, _) = cEq in
-        fcmp := { mark = mark Norm KnownR; term = FInd (Univ.in_punivs icmp) }
-      | None -> defined_cmp := false
-
-    let defined_f_cmp = ref false
-    let fFEq = ref dummy
-    let fFLt = ref dummy
-    let fFGt = ref dummy
-    let fFNotComparable = ref dummy
-
-    let init_f_cmp retro =
-      match retro.Retroknowledge.retro_f_cmp with
-      | Some (cFEq, cFLt, cFGt, cFNotComparable) ->
-        defined_f_cmp := true;
-        fFEq := { mark = mark Cstr KnownR; term = FConstruct (Univ.in_punivs cFEq) };
-        fFLt := { mark = mark Cstr KnownR; term = FConstruct (Univ.in_punivs cFLt) };
-        fFGt := { mark = mark Cstr KnownR; term = FConstruct (Univ.in_punivs cFGt) };
-        fFNotComparable :=
-          { mark = mark Cstr KnownR; term = FConstruct (Univ.in_punivs cFNotComparable) };
-      | None -> defined_f_cmp := false
-
-    let defined_f_class = ref false
-    let fPNormal = ref dummy
-    let fNNormal = ref dummy
-    let fPSubn = ref dummy
-    let fNSubn = ref dummy
-    let fPZero = ref dummy
-    let fNZero = ref dummy
-    let fPInf = ref dummy
-    let fNInf = ref dummy
-    let fNaN = ref dummy
-
-    let init_f_class retro =
-      match retro.Retroknowledge.retro_f_class with
-      | Some (cPNormal, cNNormal, cPSubn, cNSubn, cPZero, cNZero,
-              cPInf, cNInf, cNaN) ->
-        defined_f_class := true;
-        fPNormal := { mark = mark Cstr KnownR; term = FConstruct (Univ.in_punivs cPNormal) };
-        fNNormal := { mark = mark Cstr KnownR; term = FConstruct (Univ.in_punivs cNNormal) };
-        fPSubn := { mark = mark Cstr KnownR; term = FConstruct (Univ.in_punivs cPSubn) };
-        fNSubn := { mark = mark Cstr KnownR; term = FConstruct (Univ.in_punivs cNSubn) };
-        fPZero := { mark = mark Cstr KnownR; term = FConstruct (Univ.in_punivs cPZero) };
-        fNZero := { mark = mark Cstr KnownR; term = FConstruct (Univ.in_punivs cNZero) };
-        fPInf := { mark = mark Cstr KnownR; term = FConstruct (Univ.in_punivs cPInf) };
-        fNInf := { mark = mark Cstr KnownR; term = FConstruct (Univ.in_punivs cNInf) };
-        fNaN := { mark = mark Cstr KnownR; term = FConstruct (Univ.in_punivs cNaN) };
-      | None -> defined_f_class := false
-    let defined_refl = ref false
-
-    let frefl = ref dummy
-
-    let init_refl retro =
-      match retro.Retroknowledge.retro_refl with
-      | Some crefl ->
-        defined_refl := true;
-        frefl := { mark = mark Cstr KnownR; term = FConstruct (Univ.in_punivs crefl) }
-      | None -> defined_refl := false
-
-    let defined_array = ref false
-
-    let farray = ref dummy
-
-    let init_array retro =
-      match retro.Retroknowledge.retro_array with
-      | Some c ->
-        defined_array := true;
-        farray := { mark = mark Norm KnownR; term = FFlex (ConstKey (Univ.in_punivs c)) }
-      | None -> defined_array := false
-
-    let init env =
-      current_retro := env.retroknowledge;
-      init_int !current_retro;
-      init_float !current_retro;
-      init_bool !current_retro;
-      init_carry !current_retro;
-      init_pair !current_retro;
-      init_cmp !current_retro;
-      init_f_cmp !current_retro;
-      init_f_class !current_retro;
-      init_refl !current_retro;
-      init_array !current_retro
-
-    let check_env env =
-      if not (!current_retro == env.retroknowledge) then init env
-
-    let check_int env =
-      check_env env;
-      assert (!defined_int)
-
-    let check_float env =
-      check_env env;
-      assert (!defined_float)
-
-    let check_bool env =
-      check_env env;
-      assert (!defined_bool)
-
-    let check_carry env =
-      check_env env;
-      assert (!defined_carry && !defined_int)
-
-    let check_pair env =
-      check_env env;
-      assert (!defined_pair && !defined_int)
-
-    let check_cmp env =
-      check_env env;
-      assert (!defined_cmp)
-
-    let check_f_cmp env =
-      check_env env;
-      assert (!defined_f_cmp)
-
-    let check_f_class env =
-      check_env env;
-      assert (!defined_f_class)
-
-    let check_array env =
-      check_env env;
-      assert (!defined_array)
-
-    let mkInt env i =
-      check_int env;
-      { mark = mark Cstr KnownR; term = FInt i }
-
-    let mkFloat env f =
-      check_float env;
-      { mark = mark Norm KnownR; term = FFloat f }
-
-    let mkBool env b =
-      check_bool env;
-      if b then !ftrue else !ffalse
-
-    let mkCarry env b e =
-      check_carry env;
-      {mark = mark Cstr KnownR;
-       term = FApp ((if b then !fC1 else !fC0),[|!fint;e|])}
-
-    let mkIntPair env e1 e2 =
-      check_pair env;
-      { mark = mark Cstr KnownR; term = FApp(!fPair, [|!fint;!fint;e1;e2|]) }
-
-    let mkFloatIntPair env f i =
-      check_pair env;
-      check_float env;
-      { mark = mark Cstr KnownR; term = FApp(!fPair, [|!ffloat;!fint;f;i|]) }
-
-    let mkLt env =
-      check_cmp env;
-      !fLt
-
-    let mkEq env =
-      check_cmp env;
-      !fEq
-
-    let mkGt env =
-      check_cmp env;
-      !fGt
-
-    let mkFLt env =
-      check_f_cmp env;
-      !fFLt
-
-    let mkFEq env =
-      check_f_cmp env;
-      !fFEq
-
-    let mkFGt env =
-      check_f_cmp env;
-      !fFGt
-
-    let mkFNotComparable env =
-      check_f_cmp env;
-      !fFNotComparable
-
-    let mkPNormal env =
-      check_f_class env;
-      !fPNormal
-
-    let mkNNormal env =
-      check_f_class env;
-      !fNNormal
-
-    let mkPSubn env =
-      check_f_class env;
-      !fPSubn
-
-    let mkNSubn env =
-      check_f_class env;
-      !fNSubn
-
-    let mkPZero env =
-      check_f_class env;
-      !fPZero
-
-    let mkNZero env =
-      check_f_class env;
-      !fNZero
-
-    let mkPInf env =
-      check_f_class env;
-      !fPInf
-
-    let mkNInf env =
-      check_f_class env;
-      !fNInf
-
-    let mkNaN env =
-      check_f_class env;
-      !fNaN
-
-    let mkArray env t =
-      check_array env;
-      { mark = mark Whnf KnownR; term = FArray t}
-
-  end
-
-module FredNative = RedNative(FNativeEntries)
-
-(************************************************************************)
-
 (* Computes a weak head normal form from the result of knh. *)
 let rec knr info tab m stk =
   match m.term with
@@ -1295,8 +1298,17 @@ let rec knr info tab m stk =
       (match ref_value_cache info tab (ConstKey c) with
         | Def v -> kni info tab v stk
         | Primitive op when check_native_args op stk ->
-          let rargs, a, nargs, stk = get_native_args1 op c stk in
-          kni info tab a (Zprimitive(op,c,rargs,nargs)::stk)
+          if CPrimitives.arity op > 0 then
+            let rargs, a, nargs, stk = get_native_args1 op c stk in
+            kni info tab a (Zprimitive(op,c,rargs,nargs)::stk)
+          else
+           begin match FredNative.red_prim (info_env info) () op [||] with
+             | Some m ->
+               kni info tab m stk
+             | None ->
+               let m = {mark = mark Whnf KnownR; term = FFlex (ConstKey c)} in
+               (m,stk)
+           end
         | Undef _ | OpaqueDef _ | Primitive _ -> (set_norm m; (m,stk)))
   | FFlex(VarKey id) when red_set info.i_flags (fVAR id) ->
       (match ref_value_cache info tab (VarKey id) with

@@ -356,6 +356,8 @@ struct
       let t = get_parray evd args 1 in
       E.mkInt env (Parray.length t)
     | Arraydestrset | Arraymap | Arrayinit -> assert false (* FIXME *)
+    | Arraymaxlength ->
+      E.mkInt env Parray.max_length
 
   let red_prim env evd p args =
     try
