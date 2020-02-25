@@ -1,3 +1,4 @@
+val max_length : Uint63.t
 val trunc_size : Uint63.t -> int
 type 'a t
 val length  : 'a t -> Uint63.t

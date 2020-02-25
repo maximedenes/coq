@@ -368,3 +368,5 @@ val no_check_arrayreroot : t -> t
 
 val no_check_arraylength : t -> t
 [@@ocaml.inline always]
+
+val no_check_arraymaxlength : t

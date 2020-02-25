@@ -287,6 +287,7 @@ GRAMMAR EXTEND Gram
        | "#array_reroot" -> { CPrimitives.Arrayreroot }
        | "#array_init" -> { CPrimitives.Arrayinit }
        | "#array_map" -> { CPrimitives.Arraymap }
+       | "#array_max_length" -> { CPrimitives.Arraymaxlength }
        ] ]
     ;
 

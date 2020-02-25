@@ -791,7 +791,7 @@ let rec compile_lam env cenv lam sz cont =
     let arity = CPrimitives.arity op in
     let nparams = CPrimitives.nparams op in
     let nargs = arity - nparams in
-    assert (arity = Array.length args && arity <= 4);
+    assert (arity > 0 && arity = Array.length args && arity <= 4);
     let (jump, cont) = make_branch cont in
     let lbl_default = Label.create () in
     let default =
@@ -805,7 +805,9 @@ let rec compile_lam env cenv lam sz cont =
     comp_args (compile_lam env) cenv (Array.sub args nparams nargs) sz (Kcamlprim (op, lbl_default) :: cont)
 
   | Lprim (kn, op, args) ->
-    comp_args (compile_lam env) cenv args sz (Kprim(op, kn)::cont)
+    let cont = Kprim(op, kn)::cont in
+    if Array.is_empty args then cont
+    else comp_args (compile_lam env) cenv args sz cont
 
 and compile_get_global cenv (kn,u) sz cont =
   set_max_stack_size sz;

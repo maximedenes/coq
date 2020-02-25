@@ -218,56 +218,57 @@ let nocheck_prim_op = function
 
 
 let check_prim_op = function
-  | Int63head0     -> opCHECKHEAD0INT63
-  | Int63tail0     -> opCHECKTAIL0INT63
-  | Int63add       -> opCHECKADDINT63
-  | Int63sub       -> opCHECKSUBINT63
-  | Int63mul       -> opCHECKMULINT63
-  | Int63div       -> opCHECKDIVINT63
-  | Int63mod       -> opCHECKMODINT63
-  | Int63lsr       -> opCHECKLSRINT63
-  | Int63lsl       -> opCHECKLSLINT63
-  | Int63land      -> opCHECKLANDINT63
-  | Int63lor       -> opCHECKLORINT63
-  | Int63lxor      -> opCHECKLXORINT63
-  | Int63addc      -> opCHECKADDCINT63
-  | Int63subc      -> opCHECKSUBCINT63
-  | Int63addCarryC -> opCHECKADDCARRYCINT63
-  | Int63subCarryC -> opCHECKSUBCARRYCINT63
-  | Int63mulc      -> opCHECKMULCINT63
-  | Int63diveucl   -> opCHECKDIVEUCLINT63
-  | Int63div21     -> opCHECKDIV21INT63
-  | Int63addMulDiv -> opCHECKADDMULDIVINT63
-  | Int63eq        -> opCHECKEQINT63
-  | Int63lt        -> opCHECKLTINT63
-  | Int63le        -> opCHECKLEINT63
-  | Int63compare   -> opCHECKCOMPAREINT63
-  | Float64opp     -> opCHECKOPPFLOAT
-  | Float64abs     -> opCHECKABSFLOAT
-  | Float64eq      -> opCHECKEQFLOAT
-  | Float64lt      -> opCHECKLTFLOAT
-  | Float64le      -> opCHECKLEFLOAT
-  | Float64compare -> opCHECKCOMPAREFLOAT
-  | Float64classify -> opCHECKCLASSIFYFLOAT
-  | Float64add     -> opCHECKADDFLOAT
-  | Float64sub     -> opCHECKSUBFLOAT
-  | Float64mul     -> opCHECKMULFLOAT
-  | Float64div     -> opCHECKDIVFLOAT
-  | Float64sqrt    -> opCHECKSQRTFLOAT
-  | Float64ofInt63 -> opCHECKFLOATOFINT63
-  | Float64normfr_mantissa -> opCHECKFLOATNORMFRMANTISSA
-  | Float64frshiftexp -> opCHECKFRSHIFTEXP
-  | Float64ldshiftexp -> opCHECKLDSHIFTEXP
-  | Float64next_up    -> opCHECKNEXTUPFLOAT
-  | Float64next_down  -> opCHECKNEXTDOWNFLOAT
-  | Arraymake -> opISINT_CAML_CALL2
-  | Arrayget -> opISARRAY_INT_CAML_CALL2
-  | Arrayset -> opISARRAY_INT_CAML_CALL3
-  | Arraydestrset -> opISARRAY_INT_CAML_CALL3
-  | Arraymap -> opISARRAY_INT_CAML_CALL3
-  | Arrayinit -> opISARRAY_INT_CAML_CALL3
+  | Int63head0     -> Some opCHECKHEAD0INT63
+  | Int63tail0     -> Some opCHECKTAIL0INT63
+  | Int63add       -> Some opCHECKADDINT63
+  | Int63sub       -> Some opCHECKSUBINT63
+  | Int63mul       -> Some opCHECKMULINT63
+  | Int63div       -> Some opCHECKDIVINT63
+  | Int63mod       -> Some opCHECKMODINT63
+  | Int63lsr       -> Some opCHECKLSRINT63
+  | Int63lsl       -> Some opCHECKLSLINT63
+  | Int63land      -> Some opCHECKLANDINT63
+  | Int63lor       -> Some opCHECKLORINT63
+  | Int63lxor      -> Some opCHECKLXORINT63
+  | Int63addc      -> Some opCHECKADDCINT63
+  | Int63subc      -> Some opCHECKSUBCINT63
+  | Int63addCarryC -> Some opCHECKADDCARRYCINT63
+  | Int63subCarryC -> Some opCHECKSUBCARRYCINT63
+  | Int63mulc      -> Some opCHECKMULCINT63
+  | Int63diveucl   -> Some opCHECKDIVEUCLINT63
+  | Int63div21     -> Some opCHECKDIV21INT63
+  | Int63addMulDiv -> Some opCHECKADDMULDIVINT63
+  | Int63eq        -> Some opCHECKEQINT63
+  | Int63lt        -> Some opCHECKLTINT63
+  | Int63le        -> Some opCHECKLEINT63
+  | Int63compare   -> Some opCHECKCOMPAREINT63
+  | Float64opp     -> Some opCHECKOPPFLOAT
+  | Float64abs     -> Some opCHECKABSFLOAT
+  | Float64eq      -> Some opCHECKEQFLOAT
+  | Float64lt      -> Some opCHECKLTFLOAT
+  | Float64le      -> Some opCHECKLEFLOAT
+  | Float64compare -> Some opCHECKCOMPAREFLOAT
+  | Float64classify -> Some opCHECKCLASSIFYFLOAT
+  | Float64add     -> Some opCHECKADDFLOAT
+  | Float64sub     -> Some opCHECKSUBFLOAT
+  | Float64mul     -> Some opCHECKMULFLOAT
+  | Float64div     -> Some opCHECKDIVFLOAT
+  | Float64sqrt    -> Some opCHECKSQRTFLOAT
+  | Float64ofInt63 -> Some opCHECKFLOATOFINT63
+  | Float64normfr_mantissa -> Some opCHECKFLOATNORMFRMANTISSA
+  | Float64frshiftexp -> Some opCHECKFRSHIFTEXP
+  | Float64ldshiftexp -> Some opCHECKLDSHIFTEXP
+  | Float64next_up    -> Some opCHECKNEXTUPFLOAT
+  | Float64next_down  -> Some opCHECKNEXTDOWNFLOAT
+  | Arraymake -> Some opISINT_CAML_CALL2
+  | Arrayget -> Some opISARRAY_INT_CAML_CALL2
+  | Arrayset -> Some opISARRAY_INT_CAML_CALL3
+  | Arraydestrset -> Some opISARRAY_INT_CAML_CALL3
+  | Arraymap -> Some opISARRAY_INT_CAML_CALL3
+  | Arrayinit -> Some opISARRAY_INT_CAML_CALL3
   | Arraydefault | Arraycopy | Arrayreroot | Arraylength ->
-      opISARRAY_CAML_CALL1
+      Some opISARRAY_CAML_CALL1
+  | Arraymaxlength -> None
 
 let emit_instr env = function
   | Klabel lbl -> define_label env lbl
@@ -362,11 +363,11 @@ let emit_instr env = function
       out env (nocheck_prim_op op)
 
   | Kprim(op,Some (q,_u)) ->
-      out env (check_prim_op op);
+      Option.iter (out env) (check_prim_op op);
       slot_for_getglobal env q
 
   | Kcamlprim (op,lbl) ->
-    out env (check_prim_op op);
+    Option.iter (out env) (check_prim_op op);
     out_label env lbl;
     slot_for_caml_prim env op
 

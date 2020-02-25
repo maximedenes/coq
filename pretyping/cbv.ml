@@ -558,6 +558,16 @@ and cbv_stack_value info env = function
     | (COFIXP(cofix,env,[||]), APP(appl,TOP)) -> COFIXP(cofix,env,appl)
     | (CONSTR(c,[||]), APP(appl,TOP)) -> CONSTR(c,appl)
 
+    (* 0-arity primitive *)
+    | (PRIMITIVE(op,c,[||]) as v, stk) when CPrimitives.arity op = 0 ->
+        begin match VredNative.red_prim info.env () op [||] with
+        | Some (CONSTR (c, args)) ->
+          (* args must be moved to the stack to allow future reductions *)
+          cbv_stack_value info env (CONSTR(c, [||]), stack_app args stk)
+        | Some v ->  cbv_stack_value info env (v,stk)
+        | None -> mkSTACK(v, stk)
+        end
+
     (* primitive apply to arguments *)
     | (PRIMITIVE(op,c,[||]), APP(appl,stk)) ->
       let nargs = CPrimitives.arity op in

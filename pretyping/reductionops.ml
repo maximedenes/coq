@@ -1077,6 +1077,12 @@ let rec whd_state_gen ?csts ~refold ~tactic_mode flags env sigma =
         end
        | exception NotEvaluableConst (IsPrimitive p) when Stack.check_native_args p stack ->
           let kargs = CPrimitives.kind p in
+          if List.is_empty kargs then
+           begin match CredNative.red_prim env sigma p [||] with
+             | Some t -> whrec cst_l (t,stack)
+             | None -> fold ()
+           end
+          else
           let (kargs,o) = Stack.get_next_primitive_args kargs stack in
           (* Should not fail thanks to [check_native_args] *)
           let (before,a,after) = Option.get o in

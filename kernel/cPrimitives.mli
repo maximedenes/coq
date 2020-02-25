@@ -61,6 +61,7 @@ type t =
   | Arraylength
   | Arrayinit
   | Arraymap
+  | Arraymaxlength
 
 val equal : t -> t -> bool
 
