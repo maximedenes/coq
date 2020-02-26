@@ -1,6 +1,6 @@
-Require Import PArray.
+Require Import Int63 PArray.
 
-Definition t : array nat := [! 1; 3; 2 | 4 !].
+Definition t : array nat := [| 1; 3; 2 | 4 |].
 Check (eq_refl : default t = 4).
 Check (eq_refl 4 <: default t = 4).
 Check (eq_refl 4 <<: default t = 4).
