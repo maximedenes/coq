@@ -1,4 +1,4 @@
-Require Import PArray.
+Require Import Int63 PArray.
 
 Open Scope array_scope.
 
@@ -6,7 +6,7 @@ Open Scope array_scope.
 native_compute, cbv, cbn *)
 
 (* Immediate values *)
-Definition t : array nat := [! 1; 3; 2 | 4 !].
+Definition t : array nat := [| 1; 3; 2 | 4 |].
 Check (eq_refl : t.[0] = 1).
 Check (eq_refl 1 <: t.[0] = 1).
 Check (eq_refl 1 <<: t.[0] = 1).
@@ -32,7 +32,7 @@ Definition x6 := Eval cbn in t.[4].
 Check (eq_refl : x6 = 4).
 
 (* Computations inside the array *)
-Definition t2 : array nat := [! 1 + 3 | 5 !].
+Definition t2 : array nat := [| 1 + 3 | 5 |].
 Check (eq_refl : t2.[0] = 4).
 Check (eq_refl 4 <: t2.[0] = 4).
 Check (eq_refl 4 <<: t2.[0] = 4).
@@ -42,7 +42,7 @@ Definition x8 := Eval cbn in t2.[0].
 Check (eq_refl : x8 = 4).
 
 (* Functions inside the array *)
-Definition t3 : array (nat -> nat) := [! fun x => x | fun x => O !].
+Definition t3 : array (nat -> nat) := [| fun x => x | fun x => O |].
 Check (eq_refl : t3.[0] 2 = 2).
 Check (eq_refl 2 <: t3.[0] 2 = 2).
 Check (eq_refl 2 <<: t3.[0] 2 = 2).

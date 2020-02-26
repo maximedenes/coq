@@ -1,8 +1,8 @@
-Require Import PArray.
+Require Import Int63 PArray.
 
 Open Scope array_scope.
 
-Definition t : array nat := [! 1; 5; 2 | 4 !].
+Definition t : array nat := [| 1; 5; 2 | 4 |].
 Definition t' : array nat := PArray.copy t.
 
 Check (eq_refl : t'.[1] = 5).

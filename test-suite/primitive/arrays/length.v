@@ -1,8 +1,8 @@
-Require Import PArray.
+Require Import Int63 PArray.
 
 Open Scope int63_scope.
 
-Definition t : array nat := [! 1; 3; 2 | 4 !]%nat.
+Definition t : array nat := [| 1; 3; 2 | 4 |]%nat.
 Check (eq_refl : PArray.length t = 3).
 Check (eq_refl 3 <: PArray.length t = 3).
 Check (eq_refl 3 <<: PArray.length t = 3).

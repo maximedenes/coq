@@ -1,4 +1,4 @@
-Require Export Int63.
+Require Import Int63.
 
 Primitive array := #array_type.
 

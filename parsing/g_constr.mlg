@@ -32,7 +32,7 @@ let constr_kw =
     "SProp"; "Prop"; "Set"; "Type";
     ":="; "=>"; "->"; ".."; "<:"; "<<:"; ":>";
     ".("; "()"; "`{"; "`("; "@{"; "{|";
-    "_"; "@"; "+"; "!"; "?"; ";"; ","; ":"; "[!" ]
+    "_"; "@"; "+"; "!"; "?"; ";"; ","; ":" ]
 
 let _ = List.iter CLexer.add_keyword constr_kw
 
@@ -74,6 +74,18 @@ let test_name_colon =
   end
 
 let aliasvar = function { CAst.v = CPatAlias (_, na) } -> Some na | _ -> None
+
+let test_array_opening =
+  let open Pcoq.Lookahead in
+  entry_of_lookahead "test_array_opening" begin
+    lk_kw "[" >> lk_kw "|" >> check_no_space
+  end
+
+let test_array_closing =
+  let open Pcoq.Lookahead in
+  entry_of_lookahead "test_array_closing" begin
+    lk_kw "|" >> lk_kw "]" >> check_no_space
+  end
 
 }
 
@@ -182,7 +194,7 @@ GRAMMAR EXTEND Gram
         { CAst.make ~loc @@ CNotation(None,(InConstrEntrySomeLevel,"{ _ }"),([c],[],[],[])) }
       | "`{"; c = operconstr LEVEL "200"; "}" ->
         { CAst.make ~loc @@ CGeneralization (MaxImplicit, None, c) }
-      | "[!"; ls = array_elems; "|"; def = lconstr; "!]" ->
+      | test_array_opening; "["; "|"; ls = array_elems; "|"; def = lconstr; test_array_closing; "|"; "]" ->
         { let t = Array.make (List.length ls) def in
           List.iteri (fun i e -> t.(i) <- e) ls;
           CAst.make ~loc @@ CArray(t, def)
