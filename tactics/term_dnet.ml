@@ -348,7 +348,7 @@ struct
         Term (DApp (Term (DRef (ConstRef (Projection.constant p))), pat_of_constr c))
     | Int i -> Term (DInt i)
     | Float f -> Term (DFloat f)
-    | Array (t,def) ->
+    | Array (_u,t,def) ->
       Term (DArray (Array.map pat_of_constr t, pat_of_constr def))
 
     and ctx_of_constr ctx c = match Constr.kind c with

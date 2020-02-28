@@ -127,6 +127,7 @@ module type RedNativeEntries =
     type elem
     type args
     type evd (* will be unit in kernel, evar_map outside *)
+    type uinstance
 
     val get : args -> int -> elem
     val get_int : evd -> elem -> Uint63.t
@@ -154,7 +155,7 @@ module type RedNativeEntries =
     val mkPInf : env -> elem
     val mkNInf : env -> elem
     val mkNaN : env -> elem
-    val mkArray : env -> elem Parray.t -> elem
+    val mkArray : env -> uinstance -> elem Parray.t -> elem
   end
 
 module type RedNative =
@@ -162,17 +163,20 @@ module type RedNative =
    type elem
    type args
    type evd
-   val red_prim : env -> evd -> CPrimitives.t -> args -> elem option
+   type uinstance
+   val red_prim : env -> evd -> CPrimitives.t -> uinstance -> args -> elem option
  end
 
 module RedNative (E:RedNativeEntries) :
   RedNative with type elem = E.elem
   with type args = E.args
-  with type evd = E.evd =
+  with type evd = E.evd
+  with type uinstance = E.uinstance =
 struct
   type elem = E.elem
   type args = E.args
   type evd = E.evd
+  type uinstance = E.uinstance
 
   let get_int evd args i = E.get_int evd (E.get args i)
 
@@ -191,7 +195,7 @@ struct
 
   let get_parray evd args i = E.get_parray evd (E.get args i)
 
-  let red_prim_aux env evd op args =
+  let red_prim_aux env evd op u args =
     let open CPrimitives in
     match op with
     | Int63head0 ->
@@ -329,7 +333,7 @@ struct
     | Arraymake ->
       let i = get_int evd args 1 in
       let d = E.get args 2 in
-      E.mkArray env (Parray.make i d)
+      E.mkArray env u (Parray.make i d)
     | Arrayget ->
       let t = get_parray evd args 1 in
       let i = get_int evd args 2 in
@@ -342,11 +346,11 @@ struct
       let i = get_int evd args 2 in
       let a = E.get args 3 in
       let t' = Parray.set t i a in
-      E.mkArray env t'
+      E.mkArray env u t'
     | Arraycopy ->
       let t = get_parray evd args 1 in
       let t' = Parray.copy t in
-      E.mkArray env t'
+      E.mkArray env u t'
     | Arrayreroot ->
       let ar = E.get args 1 in
       let t = E.get_parray evd ar in
@@ -358,10 +362,10 @@ struct
     | Arraymaxlength ->
       E.mkInt env Parray.max_length
 
-  let red_prim env evd p args =
+  let red_prim env evd p u args =
     try
       let r =
-        red_prim_aux env evd p args
+        red_prim_aux env evd p u args
       in Some r
     with NativeDestKO -> None
 

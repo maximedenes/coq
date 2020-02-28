@@ -605,7 +605,7 @@ let rec lambda_of_constr cache env sigma c =
 
   | Float f -> Lfloat f
 
-  | Array (t, def) ->
+  | Array (_u, t, def) ->
     let def = lambda_of_constr cache env sigma def in
     makearray (lambda_of_args cache env sigma 0 t) def
 

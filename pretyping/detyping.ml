@@ -832,7 +832,7 @@ and detype_r d flags avoid env sigma t =
     | CoFix (n,recdef) -> detype_cofix (detype d) flags avoid env sigma n recdef
     | Int i -> GInt i
     | Float f -> GFloat f
-    | Array(t,def) -> GArray(Array.map (detype d flags avoid env sigma) t, detype d flags avoid env sigma def)
+    | Array(_u,t,def) -> GArray(Array.map (detype d flags avoid env sigma) t, detype d flags avoid env sigma def)
 
 and detype_eqns d flags avoid env sigma ci computable constructs consnargsl bl =
   try

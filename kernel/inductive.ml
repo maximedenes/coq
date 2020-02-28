@@ -1135,7 +1135,7 @@ let check_one_fix renv recpos trees def =
         | Sort _ | Int _ | Float _ ->
           assert (List.is_empty l)
 
-        | Array (t,def) ->
+        | Array (_u, t,def) ->
           assert (List.is_empty l);
           Array.iter (check_rec_call renv []) t;
           check_rec_call renv [] def

@@ -225,7 +225,7 @@ let pattern_of_constr env sigma t =
                   Array.map (pattern_of_constr env') bl))
     | Int i -> PInt i
     | Float f -> PFloat f
-    | Array (t, def) ->
+    | Array (_u, t, def) ->
       PArray (Array.map (pattern_of_constr env) t, pattern_of_constr env def)
     in
   pattern_of_constr env t

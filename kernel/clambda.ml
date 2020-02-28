@@ -781,7 +781,7 @@ let rec lambda_of_constr env c =
 
   | Int i -> Luint i
   | Float f -> Lfloat f
-  | Array(t,def) ->
+  | Array(_u, t,def) ->
     let def = lambda_of_constr env def in
     makearray (lambda_of_args env 0 t) def
 

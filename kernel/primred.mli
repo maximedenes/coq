@@ -24,6 +24,7 @@ module type RedNativeEntries =
     type elem
     type args
     type evd (* will be unit in kernel, evar_map outside *)
+    type uinstance
 
     val get : args -> int -> elem
     val get_int : evd -> elem -> Uint63.t
@@ -51,7 +52,7 @@ module type RedNativeEntries =
     val mkPInf : env -> elem
     val mkNInf : env -> elem
     val mkNaN : env -> elem
-    val mkArray : env -> elem Parray.t -> elem
+    val mkArray : env -> uinstance -> elem Parray.t -> elem
   end
 
 module type RedNative =
@@ -59,7 +60,8 @@ module type RedNative =
    type elem
    type args
    type evd
-   val red_prim : env -> evd -> CPrimitives.t -> args -> elem option
+   type uinstance
+   val red_prim : env -> evd -> CPrimitives.t -> uinstance -> args -> elem option
  end
 
 module RedNative :
@@ -67,3 +69,4 @@ module RedNative :
     RedNative with type elem = E.elem
     with type args = E.args
     with type evd = E.evd
+    with type uinstance = E.uinstance

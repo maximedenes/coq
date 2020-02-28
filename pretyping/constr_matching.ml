@@ -410,7 +410,7 @@ let matches_core env sigma allow_bound_rels
 
       | PFloat f1, Float f2 when Float64.equal f1 f2 -> subst
 
-      | PArray(pt,pdef), Array(t,def)
+      | PArray(pt,pdef), Array(_u,t,def)
              when Array.length pt = Array.length t ->
          sorec ctx env (Array.fold_left2 (sorec ctx env) subst pt t) pdef def
 
@@ -534,9 +534,9 @@ let sub_match ?(closed=true) env sigma pat c =
       aux env term mk_ctx next
     with Retyping.RetypeError _ -> next ()
     end
-  | Array(t,def) ->
+  | Array(u, t,def) ->
     let next_mk_ctx = function
-    | def :: l -> mk_ctx (mkArray(Array.of_list l, def))
+    | def :: l -> mk_ctx (mkArray(u, Array.of_list l, def))
     | _ -> assert false
     in
     let sub = (env,def) :: subargs env t in (* FIXME order of subterms seems wrong *)

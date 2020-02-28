@@ -90,15 +90,16 @@ let infer_declaration env (dcl : constant_entry) =
                         prim_entry_content = op_t;
                       }) ->
       let env = push_context_set ~strict:true uctxt env in
+      let u = Univ.Instance.empty (* FIXME *) in
       let ty = match otyp with
       | Some typ ->
         let typ = Typeops.infer_type env typ in
-        Typeops.check_primitive_type env op_t typ.utj_val;
+        Typeops.check_primitive_type env op_t u typ.utj_val;
         typ.utj_val
       | None ->
         match op_t with
-        | CPrimitives.OT_op op -> Typeops.type_of_prim env op
-        | CPrimitives.OT_type ty -> Typeops.type_of_prim_type env ty
+        | CPrimitives.OT_op op -> Typeops.type_of_prim env u op
+        | CPrimitives.OT_type ty -> Typeops.type_of_prim_type env u ty
       in
       let cd =
         match op_t with

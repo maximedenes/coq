@@ -281,7 +281,7 @@ let check_not_nested env sigma forbidden e =
       | Lambda(_,t,b) -> check_not_nested t;check_not_nested b
       | LetIn(_,v,t,b) -> check_not_nested t;check_not_nested b;check_not_nested v
       | App(f,l) -> check_not_nested f;Array.iter check_not_nested l
-      | Array(t,def) -> Array.iter check_not_nested t; check_not_nested def
+      | Array(_u,t,def) -> Array.iter check_not_nested t; check_not_nested def
       | Proj (p,c) -> check_not_nested c
       | Const _ -> ()
       | Ind _ -> ()

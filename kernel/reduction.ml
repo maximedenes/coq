@@ -631,7 +631,8 @@ and eqappr cv_pb l2r infos (lft1,st1) (lft2,st2) cuniv =
         if Float64.equal f1 f2 then convert_stacks l2r infos lft1 lft2 v1 v2 cuniv
         else raise NotConvertible
 
-    | FArray t1, FArray t2 ->
+    | FArray (_u1,t1), FArray (_u2,t2) ->
+      (* FIXME compare instances *)
       let len = Parray.length t1 in
       if Uint63.equal len (Parray.length t2) then
         let el1 = el_stack lft1 v1 in

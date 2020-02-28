@@ -147,9 +147,9 @@ let retype ?(polyprop=true) sigma =
     | Sort _ | Prod _ -> mkSort (sort_of env cstr)
     | Int _ -> EConstr.of_constr (Typeops.type_of_int env)
     | Float _ -> EConstr.of_constr (Typeops.type_of_float env)
-    | Array(_, def) ->
+    | Array(u, _, def) ->
       let ty = type_of env def in
-      let arr = EConstr.of_constr @@ Typeops.type_of_array env in
+      let arr = EConstr.of_constr @@ Typeops.type_of_array env (EInstance.kind sigma u) in
       mkApp(arr, [|ty|])
 
   and sort_of env t =

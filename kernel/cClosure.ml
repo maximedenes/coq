@@ -349,7 +349,7 @@ and fterm =
   | FEvar of existential * fconstr subs
   | FInt of Uint63.t
   | FFloat of Float64.t
-  | FArray of fconstr Parray.t
+  | FArray of Univ.Instance.t * fconstr Parray.t
   | FLIFT of int * fconstr
   | FCLOS of constr * fconstr subs
   | FLOCKED
@@ -517,6 +517,7 @@ module FNativeEntries =
     type elem = fconstr
     type args = fconstr array
     type evd = unit
+    type uinstance = Univ.Instance.t
 
     let get = Array.get
 
@@ -532,7 +533,7 @@ module FNativeEntries =
 
     let get_parray () e =
       match [@ocaml.warning "-4"] e.term with
-      | FArray t -> t
+      | FArray (_u,t) -> t
       | _ -> raise Not_found
 
     let dummy = {mark = mark Norm KnownR; term = FRel 0}
@@ -816,9 +817,9 @@ module FNativeEntries =
       check_f_class env;
       !fNaN
 
-    let mkArray env t =
+    let mkArray env u t =
       check_array env;
-      { mark = mark Whnf KnownR; term = FArray t}
+      { mark = mark Whnf KnownR; term = FArray (u,t)}
 
   end
 
@@ -861,12 +862,12 @@ let ref_value_cache ({ i_cache = cache; _ }) tab ref =
         in
         Def (inject body)
       with
-      | NotEvaluableConst (IsPrimitive op) when Int.equal (CPrimitives.arity op) 0 ->
-        begin match FredNative.red_prim cache.i_env () op [||] with
+      | NotEvaluableConst (IsPrimitive (u,op)) when Int.equal (CPrimitives.arity op) 0 ->
+        begin match FredNative.red_prim cache.i_env () op u [||] with
           | Some m -> Def m
           | None -> Primitive op
         end
-      | NotEvaluableConst (IsPrimitive op) (* Const *) -> Primitive op
+      | NotEvaluableConst (IsPrimitive (_u,op)) (* Const *) -> Primitive op
       | Not_found (* List.assoc *)
       | NotEvaluableConst _ (* Const *)
         -> Undef None
@@ -946,9 +947,9 @@ let rec to_constr lfts v =
     | FFloat f ->
         Constr.mkFloat f
 
-    | FArray t ->
+    | FArray (u,t) ->
       let init i = to_constr lfts (Parray.get t (Uint63.of_int i)) in
-      mkArray(Array.init (snd (* FIXME check ? *) (Uint63.to_int2 (Parray.length t))) init, to_constr lfts (Parray.default t))
+      mkArray(u,Array.init (snd (* FIXME check ? *) (Uint63.to_int2 (Parray.length t))) init, to_constr lfts (Parray.default t))
 
     | FCLOS (t,env) ->
       if is_subs_id env && is_lift_id lfts then t
@@ -1281,10 +1282,10 @@ and knht info e t stk =
     | LetIn (n,b,t,c) ->
       { mark = mark Red Unknown; term = FLetIn (n, mk_clos e b, mk_clos e t, c, e) }, stk
     | Evar ev -> { mark = mark Red Unknown; term = FEvar (ev, e) }, stk
-    | Array(t,def) ->
+    | Array(u,t,def) ->
       let len = Array.length t in
       let t = Parray.init (Uint63.of_int len) (fun i -> mk_clos e t.(i)) (mk_clos e def) in
-      let term = FArray t in
+      let term = FArray (u,t) in
       knh info { mark = mark Cstr Unknown; term } stk
 
 (* Computes a weak head normal form from the result of knh. *)
@@ -1294,7 +1295,7 @@ let rec knr info tab m stk =
       (match get_args n tys f e stk with
           Inl e', s -> knit info tab e' f s
         | Inr lam, s -> (lam,s))
-  | FFlex(ConstKey (kn,_ as c)) when red_set info.i_flags (fCONST kn) ->
+  | FFlex(ConstKey (kn,u as c)) when red_set info.i_flags (fCONST kn) ->
       (match ref_value_cache info tab (ConstKey c) with
         | Def v -> kni info tab v stk
         | Primitive op when check_native_args op stk ->
@@ -1302,7 +1303,7 @@ let rec knr info tab m stk =
             let rargs, a, nargs, stk = get_native_args1 op c stk in
             kni info tab a (Zprimitive(op,c,rargs,nargs)::stk)
           else
-           begin match FredNative.red_prim (info_env info) () op [||] with
+           begin match FredNative.red_prim (info_env info) () op u [||] with
              | Some m ->
                kni info tab m stk
              | None ->
@@ -1354,12 +1355,12 @@ let rec knr info tab m stk =
         | None -> (m,stk))
   | FInt _ | FFloat _ | FArray _ ->
     (match [@ocaml.warning "-4"] strip_update_shift_app m stk with
-     | (_, _, Zprimitive(op,c,rargs,nargs)::s) ->
+     | (_, _, Zprimitive(op,(_,u as c),rargs,nargs)::s) ->
        let (rargs, nargs) = skip_native_args (m::rargs) nargs in
        begin match nargs with
          | [] ->
            let args = Array.of_list (List.rev rargs) in
-           begin match FredNative.red_prim (info_env info) () op args with
+           begin match FredNative.red_prim (info_env info) () op u args with
              | Some m ->
              kni info tab m s
              | None ->

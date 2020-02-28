@@ -1251,12 +1251,13 @@ let pretype_type self c ?loc ~program_mode ~poly resolve_tc valcon (env : GlobEn
 
   let pretype_array self (t,def) =
     fun ?loc ~program_mode ~poly resolve_tc tycon env sigma ->
+          let u = Univ.Instance.empty in (* FIXME *)
           let sigma, jdef = eval_pretyper self ~program_mode ~poly resolve_tc empty_valcon env sigma def in
           let pretype_elem = eval_pretyper self ~program_mode ~poly resolve_tc (mk_tycon jdef.uj_type) env in
           let sigma, jt = Array.fold_left_map pretype_elem sigma t in
-          let ta = EConstr.of_constr @@ Typeops.type_of_array !!env in
+          let ta = EConstr.of_constr @@ Typeops.type_of_array !!env u in
           let j = {
-            uj_val = EConstr.mkArray(Array.map (fun j -> j.uj_val) jt, jdef.uj_val);
+            uj_val = EConstr.mkArray(EInstance.make u, Array.map (fun j -> j.uj_val) jt, jdef.uj_val);
             uj_type = EConstr.mkApp(ta,[|jdef.uj_type|])
           } in
           discard_trace @@ inh_conv_coerce_to_tycon ?loc ~program_mode resolve_tc env sigma j tycon

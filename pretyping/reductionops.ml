@@ -837,6 +837,7 @@ struct
   type elem = EConstr.t
   type args = EConstr.t array
   type evd = evar_map
+  type uinstance = EConstr.EInstance.t
 
   let get = Array.get
 
@@ -852,7 +853,7 @@ struct
 
   let get_parray evd e =
     match EConstr.kind evd e with
-    | Array(t,def) -> Parray.of_array t def
+    | Array(_u,t,def) -> Parray.of_array t def
     | _ -> raise Not_found
 
   let mkInt env i =
@@ -954,9 +955,9 @@ struct
       get_f_class_constructors env in
     mkConstruct nan
 
-  let mkArray env t =
+  let mkArray env u t =
     let (t,def) = Parray.to_array t in
-    mkArray(t,def)
+    mkArray(u,t,def)
 
 end
 
@@ -1075,10 +1076,10 @@ let rec whd_state_gen ?csts ~refold ~tactic_mode flags env sigma =
                 end
               end
         end
-       | exception NotEvaluableConst (IsPrimitive p) when Stack.check_native_args p stack ->
+       | exception NotEvaluableConst (IsPrimitive (u,p)) when Stack.check_native_args p stack ->
           let kargs = CPrimitives.kind p in
           if List.is_empty kargs then
-           begin match CredNative.red_prim env sigma p [||] with
+           begin match CredNative.red_prim env sigma p (EInstance.make u) [||] with
              | Some t -> whrec cst_l (t,stack)
              | None -> fold ()
            end
@@ -1222,7 +1223,7 @@ let rec whd_state_gen ?csts ~refold ~tactic_mode flags env sigma =
 
     | Int _ | Float _ | Array _ ->
       begin match Stack.strip_app stack with
-       | (_, Stack.Primitive(p,kn,rargs,kargs,cst_l')::s) ->
+       | (_, Stack.Primitive(p,(_, u as kn),rargs,kargs,cst_l')::s) ->
          let more_to_reduce = List.exists (fun k -> CPrimitives.Kwhnf = k) kargs in
          if more_to_reduce then
            let (kargs,o) = Stack.get_next_primitive_args kargs s in
@@ -1238,7 +1239,7 @@ let rec whd_state_gen ?csts ~refold ~tactic_mode flags env sigma =
            in
            let args = Array.of_list (Option.get (Stack.list_of_app_stack (rargs @ Stack.append_app [|x|] args))) in
            let s = extra_args @ s in
-           begin match CredNative.red_prim env sigma p args with
+           begin match CredNative.red_prim env sigma p u args with
              | Some t -> whrec cst_l' (t,s)
              | None -> ((mkApp (mkConstU kn, args), s), cst_l)
            end

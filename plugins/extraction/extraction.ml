@@ -692,7 +692,7 @@ let rec extract_term env sg mle mlt c args =
        extract_app env sg mle mlt extract_var args
     | Int i -> assert (args = []); MLuint i
     | Float f -> assert (args = []); MLfloat f
-    | Array (t,def) ->
+    | Array (_u,t,def) ->
       assert (args = []);
       let a = new_meta () in
       let ml_arr = Array.map (fun c -> extract_term env sg mle a c []) t in

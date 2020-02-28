@@ -52,7 +52,7 @@ type ('a, 'opaque) constant_def =
   | Undef of inline                       (** a global assumption *)
   | Def of 'a                             (** or a transparent global definition *)
   | OpaqueDef of 'opaque                  (** or an opaque global definition *)
-  | Primitive of CPrimitives.t            (** or a primitive operation *)
+  | Primitive of CPrimitives.t (** or a primitive operation *)
 
 type universes =
   | Monomorphic of Univ.ContextSet.t

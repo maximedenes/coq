@@ -213,11 +213,20 @@ let type_of_apply env func funt argsv argstv =
   apply_rec 0 (inject funt)
 
 (* Type of primitive constructs *)
-let type_of_prim_type _env (type a) (prim : a CPrimitives.prim_type) = match prim with
-  | CPrimitives.PT_int63 -> Constr.mkSet
-  | CPrimitives.PT_float64 -> Constr.mkSet
+let type_of_prim_type _env u (type a) (prim : a CPrimitives.prim_type) = match prim with
+  | CPrimitives.PT_int63 ->
+    assert (Univ.Instance.is_empty u);
+    Constr.mkSet
+  | CPrimitives.PT_float64 ->
+    assert (Univ.Instance.is_empty u);
+    Constr.mkSet
   | CPrimitives.PT_array ->
-    Constr.mkProd(Context.anonR, Constr.mkSet, Constr.mkSet)
+    begin match Univ.Instance.to_array u with
+    | [|u|] ->
+      let ty = Constr.mkType (Univ.Universe.make u) in
+      Constr.mkProd(Context.anonR, ty , ty)
+    | _ -> anomaly Pp.(str"universe instance for array type should have length 1")
+    end
 
 let type_of_int env =
   match env.retroknowledge.Retroknowledge.retro_int63 with
@@ -230,15 +239,15 @@ let type_of_float env =
   | None -> raise
         (Invalid_argument "Typeops.type_of_float: float64 not_defined")
 
-let type_of_array env =
+let type_of_array env u =
   match env.retroknowledge.Retroknowledge.retro_array with
-  | Some c -> mkConst c
+  | Some c -> mkConstU (c,u)
   | None -> CErrors.user_err Pp.(str"The type array must be registered before this construction can be typechecked.")
 
-let type_of_prim env t =
+let type_of_prim env u t =
   let int_ty () = type_of_int env in
   let float_ty () = type_of_float env in
-  let array_ty a = mkApp(type_of_array env, [|a|]) in
+  let array_ty a = mkApp(type_of_array env u, [|a|]) in
   let bool_ty () =
     match env.retroknowledge.Retroknowledge.retro_bool with
     | Some ((ind,_),_) -> Constr.mkInd ind
@@ -303,10 +312,10 @@ let type_of_prim env t =
   let params = List.make nparams (Context.anonR, mkSet) in
   compose_prod params @@ nary_op 0 sign
 
-let type_of_prim_or_type env = let open CPrimitives in
+let type_of_prim_or_type env u = let open CPrimitives in
   function
-  | OT_type t -> type_of_prim_type env t
-  | OT_op op -> type_of_prim env op
+  | OT_type t -> type_of_prim_type env u t
+  | OT_op op -> type_of_prim env u op
 
 (* Type of product *)
 
@@ -374,11 +383,12 @@ let judge_of_int env i =
 let judge_of_float env f =
   make_judge (Constr.mkFloat f) (type_of_float env)
 
-let judge_of_array env tj defj =
+let judge_of_array env u tj defj =
+  (* FIXME check u ? *)
   let def = defj.uj_val in
   let ty = defj.uj_type in
   Array.iter (fun j -> check_cast env j.uj_val j.uj_type DEFAULTcast ty) tj;
-  make_judge (mkArray(Array.map j_val tj, def)) (mkApp (type_of_array env, [|ty|]))
+  make_judge (mkArray(u, Array.map j_val tj, def)) (mkApp (type_of_array env u, [|ty|]))
 
 (* Inductive types. *)
 
@@ -617,14 +627,15 @@ let rec execute env cstr =
     (* Primitive types *)
     | Int _ -> cstr, type_of_int env
     | Float _ -> cstr, type_of_float env
-    | Array(t,def) ->
+    | Array(u, t,def) ->
+      (* FIXME check u? *)
       let def', ty = execute env def in
-      let ta = type_of_array env in
+      let ta = type_of_array env u in
       let t' = Array.Smart.map (fun x ->
         let x', xt = execute env x in
         check_cast env x' xt DEFAULTcast ty;
         x') t in
-      let cstr = if def'==def && t'==t then cstr else mkArray(t',def') in
+      let cstr = if def'==def && t'==t then cstr else mkArray(u, t',def') in
       cstr, mkApp(ta, [|ty|])
 
     (* Partial proofs: unsupported by the kernel *)
@@ -752,7 +763,7 @@ let judge_of_case env ci pj cj lfj =
 
 (* Building type of primitive operators and type *)
 
-let check_primitive_type env op_t t =
-  let inft = type_of_prim_or_type env op_t in
+let check_primitive_type env op_t u t =
+  let inft = type_of_prim_or_type env u op_t in
   try default_conv ~l2r:false CUMUL env inft t
   with NotConvertible -> error_incorrect_primitive env (make_judge op_t inft) t
