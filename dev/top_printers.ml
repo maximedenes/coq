@@ -54,8 +54,10 @@ let prrecarg = function
   | Declarations.Norec -> str "Norec"
   | Declarations.Mrec (mind,i) ->
      str "Mrec[" ++ MutInd.print mind ++ pr_comma () ++ int i ++ str "]"
-  | Declarations.Imbr (mind,i) ->
-     str "Imbr[" ++ MutInd.print mind ++ pr_comma () ++ int i ++ str "]"
+  | Declarations.(Nested (NestedInd (mind,i))) ->
+     str "Nested[" ++ MutInd.print mind ++ pr_comma () ++ int i ++ str "]"
+  | Declarations.(Nested (NestedPrimitive c)) ->
+     str "Nested[" ++ Constant.print c ++ str "]"
 let ppwf_paths x = pp (Rtree.pp_tree prrecarg x)
 
 let get_current_context () =
