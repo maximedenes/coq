@@ -107,11 +107,14 @@ type 'opaque constant_body = {
 }
 
 (** {6 Representation of mutual inductive types in the kernel } *)
+type nested_type =
+| NestedInd of inductive
+| NestedPrimitive of Constant.t
 
 type recarg =
-  | Norec
-  | Mrec of inductive
-  | Imbr of inductive
+| Norec
+| Mrec of inductive
+| Nested of nested_type
 
 type wf_paths = recarg Rtree.t
 

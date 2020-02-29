@@ -153,21 +153,36 @@ let hcons_const_body cb =
   }
 
 (** {6 Inductive types } *)
+let eq_nested_type t1 t2 = match t1, t2 with
+| NestedInd ind1, NestedInd ind2 -> Names.eq_ind ind1 ind2
+| NestedInd _, _ -> false
+| NestedPrimitive c1, NestedPrimitive c2 -> Names.Constant.equal c1 c2
+| NestedPrimitive _, _ -> false
 
 let eq_recarg r1 r2 = match r1, r2 with
 | Norec, Norec -> true
+| Norec, _ -> false
 | Mrec i1, Mrec i2 -> Names.eq_ind i1 i2
-| Imbr i1, Imbr i2 -> Names.eq_ind i1 i2
-| _ -> false
+| Mrec _, _ -> false
+| Nested ty1, Nested ty2 -> eq_nested_type ty1 ty2
+| Nested _, _ -> false
+
+let subst_nested_type sub ty = match ty with
+| NestedInd (kn,i) ->
+  let kn' = subst_mind sub kn in
+  if kn==kn' then ty else NestedInd (kn',i)
+| NestedPrimitive c ->
+  let c',_ = subst_con sub c in
+  if c==c' then ty else NestedPrimitive c'
 
 let subst_recarg sub r = match r with
   | Norec -> r
   | Mrec (kn,i) ->
     let kn' = subst_mind sub kn in
     if kn==kn' then r else Mrec (kn',i)
-  | Imbr (kn,i) ->
-    let kn' = subst_mind sub kn in
-    if kn==kn' then r else Imbr (kn',i)
+  | Nested ty ->
+    let ty' = subst_nested_type sub ty in
+    if ty==ty' then r else Nested ty'
 
 let mk_norec = Rtree.mk_node Norec [||]
 
