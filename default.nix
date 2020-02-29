@@ -22,7 +22,7 @@
 # a symlink to where Coq was installed.
 
 { pkgs ? import ./dev/nixpkgs.nix {}
-, ocamlPackages ? pkgs.ocamlPackages
+, ocamlPackages ? pkgs.ocaml-ng.ocamlPackages_4_09
 , buildIde ? true
 , buildDoc ? true
 , doInstallCheck ? true
@@ -64,7 +64,7 @@ stdenv.mkDerivation rec {
   )
   ++ optionals shell (
     [ jq curl gitFull gnupg ] # Dependencies of the merging script
-    ++ (with ocamlPackages; [ merlin ocp-indent ocp-index utop ocamlformat ]) # Dev tools
+    ++ (with ocamlPackages; [ merlin ocp-indent utop ocamlformat ]) # Dev tools
     ++ [ graphviz ] # Useful for STM debugging
     ++ [ dune_2 ] # Maybe the next build system
   );
