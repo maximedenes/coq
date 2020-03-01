@@ -263,8 +263,6 @@ let check_prim_op = function
   | Arraymake -> Some opISINT_CAML_CALL2
   | Arrayget -> Some opISARRAY_INT_CAML_CALL2
   | Arrayset -> Some opISARRAY_INT_CAML_CALL3
-  | Arraymap -> Some opISARRAY_INT_CAML_CALL3
-  | Arrayinit -> Some opISARRAY_INT_CAML_CALL3
   | Arraydefault | Arraycopy | Arrayreroot | Arraylength ->
       Some opISARRAY_CAML_CALL1
   | Arraymaxlength -> None

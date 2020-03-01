@@ -58,8 +58,6 @@ type t =
   | Arraycopy
   | Arrayreroot
   | Arraylength
-  | Arrayinit
-  | Arraymap
   | Arraymaxlength
 
 val equal : t -> t -> bool

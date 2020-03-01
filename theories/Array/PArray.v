@@ -23,13 +23,6 @@ Arguments copy {_} _.
 Primitive reroot := #array_reroot.
 Arguments reroot {_} _.
 
-(* Not done with the vm *)
-Primitive init := #array_init.
-Arguments init {_} _ _.
-
-Primitive map := #array_map.
-Arguments map {_ _} _ _.
-
 Declare Scope array_scope.
 Delimit Scope array_scope with array.
 Notation "t '.[' i ']'" := (get t i) (at level 50) : array_scope.
@@ -64,17 +57,7 @@ Axiom length_copy : forall A (t:array A), length (copy t) = length t.
 Axiom get_reroot : forall A (t:array A) i, (reroot t).[i] = t.[i].
 Axiom length_reroot : forall A (t:array A), length (reroot t) = length t.
 
-
-Axiom length_init : forall (A:Set) f size (def:A),
-  length (init size f def) = if size <= max_length then size else max_length.
-
-Axiom get_init : forall (A:Set) f size (def:A) i,
-  (init size f def).[i] = if i < length (init size f def) then f i else def.
-
-Axiom default_init : forall (A:Set) f size (def:A), default (init size f def) = def.
-
-(* Rename this ? *)
-Axiom get_ext : forall A (t1 t2:array A),
+Axiom array_ext : forall A (t1 t2:array A),
   length t1 = length t2 ->
   (forall i, i < length t1 = true -> t1.[i] = t2.[i]) ->
   default t1 = default t2 ->
