@@ -87,6 +87,7 @@ and ppwhd whd =
   | Vconstr_block b -> ppvblock b
   | Vint64 i -> printf "int64(%LiL)" i
   | Vfloat64 f -> printf "float64(%.17g)" f
+  | Varray t -> ppvarray t
   | Vatom_stk(a,s) ->
       open_hbox();ppatom a;close_box();
       print_string"@";ppstack s
@@ -100,6 +101,20 @@ and ppvblock b =
     print_string ",";ppvalues (bfield b i)
   done;
   print_string")";
+  close_box()
+
+and ppvarray t =
+  let length = snd (Uint63.to_int2 (Parray.length t)) in
+  open_hbox();
+  print_string "[|";
+  for i = 0 to length - 2 do
+    ppvalues (Parray.get t (Uint63.of_int i));
+    print_string "; "
+  done;
+  ppvalues (Parray.get t (Uint63.of_int (length - 1)));
+  print_string " | ";
+  ppvalues (Parray.default t);
+  print_string " |]";
   close_box()
 
 and ppvalues v =
