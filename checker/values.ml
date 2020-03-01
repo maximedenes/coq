@@ -232,7 +232,7 @@ let v_pol_arity =
   v_tuple "polymorphic_arity" [|List(Opt v_level);v_univ;v_context_set|]
 
 let v_primitive =
-  v_enum "primitive" 44 (* Number of "Primitive" in Int63.v and PrimFloat.v *)
+  v_enum "primitive" 50 (* Number of "Primitive" in Int63.v and PrimFloat.v *)
 
 let v_cst_def =
   v_sum "constant_def" 0
@@ -313,7 +313,7 @@ let v_ind_pack = v_tuple "mutual_inductive_body"
 let v_prim_ind = v_enum "prim_ind" 6
 (* Number of "Register ... as kernel.ind_..." in Int63.v and PrimFloat.v *)
 
-let v_prim_type = v_enum "prim_type" 2
+let v_prim_type = v_enum "prim_type" 3
 (* Number of constructors of prim_type in "kernel/cPrimitives.ml" *)
 
 let v_retro_action =
