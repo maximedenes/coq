@@ -25,8 +25,10 @@ Arguments reroot {_} _.
 
 Declare Scope array_scope.
 Delimit Scope array_scope with array.
-Notation "t '.[' i ']'" := (get t i) (at level 50) : array_scope.
-Notation "t '.[' i '<-' a ']'" := (set t i a) (at level 50) : array_scope.
+Notation "t .[ i ]" := (get t i)
+  (at level 2, left associativity, format "t .[ i ]").
+Notation "t .[ i <- a ]" := (set t i a)
+  (at level 2, left associativity, format "t .[ i <- a ]").
 
 Local Open Scope int63_scope.
 Local Open Scope array_scope.
@@ -38,7 +40,7 @@ Axiom get_outofbound : forall A (t:array A) i, (i < length t) = false -> t.[i] =
 
 Axiom get_set_same : forall (A:Set) t i (a:A), (i < length t) = true -> t.[i<-a].[i] = a.
 Axiom get_set_other : forall (A:Set) t i j (a:A), i <> j -> t.[i<-a].[j] = t.[j].
-Axiom default_set : forall (A:Set) t i (a:A), default (t.[i<-a]) = default t.
+Axiom default_set : forall (A:Set) t i (a:A), default t.[i<-a] = default t.
 
 
 Axiom get_make : forall (A:Set) (a:A) size i, (make size a).[i] = a.
@@ -49,7 +51,7 @@ Axiom ltb_length : forall A (t:array A), length t <= max_length = true.
 Axiom length_make : forall (A:Set) size (a:A),
   length (make size a) = if size <= max_length then size else max_length.
 Axiom length_set : forall (A:Set) t i (a:A),
-  length (t.[i<-a]) = length t.
+  length t.[i<-a] = length t.
 
 Axiom get_copy : forall A (t:array A) i, (copy t).[i] = t.[i].
 Axiom length_copy : forall A (t:array A), length (copy t) = length t.
@@ -65,41 +67,39 @@ Axiom array_ext : forall A (t1 t2:array A),
 
 (* Lemmas *)
 
-Lemma default_copy : forall A (t:array A), default (copy t) = default t.
+Lemma default_copy A (t:array A) : default (copy t) = default t.
 Proof.
-(*
- intros A t; case_eq (length t < length t).
-   apply Int63.ltbP. apply BinInt.Z.lt_irrefl.
-  apply Bool.not_true_is_false; apply leb_not_gtb; apply leb_refl.
- rewrite <- (get_outofbound _ (copy t) (length t)), <- (get_outofbound _ t (length t)), get_copy;trivial.
- rewrite length_copy;trivial.
-*)
-Admitted.
-
-Lemma reroot_default : forall A (t:array A), default (reroot t) = default t.
-Proof.
-(*
- intros A t;assert (length t < length t = false).
-  apply Bool.not_true_is_false; apply leb_not_gtb; apply leb_refl.
- rewrite <- (get_outofbound _ (reroot t) (length t)), <- (get_outofbound _ t (length t)), get_reroot;trivial.
- rewrite length_reroot;trivial.
-*)
-Admitted.
-
-Lemma get_set_same_default :
-   forall (A : Set) (t : array A) (i : int) ,
-       (t .[ i <- default t]) .[ i] = default t.
-Proof.
- intros A t i;case_eq (i < (length t));intros.
- rewrite get_set_same;trivial.
- rewrite get_outofbound, default_set;trivial.
- rewrite length_set;trivial.
+  assert (irr_lt : length t < length t = false).
+    destruct (Int63.ltbP (length t) (length t)); try reflexivity.
+    exfalso; eapply BinInt.Z.lt_irrefl; eassumption.
+  assert (get_copy := get_copy A t (length t)).
+  rewrite !get_outofbound in get_copy; try assumption.
+  rewrite length_copy; assumption.
 Qed.
 
-Lemma get_not_default_lt : forall A (t:array A) x,
+Lemma reroot_default A (t:array A) : default (reroot t) = default t.
+Proof.
+  assert (irr_lt : length t < length t = false).
+    destruct (Int63.ltbP (length t) (length t)); try reflexivity.
+    exfalso; eapply BinInt.Z.lt_irrefl; eassumption.
+  assert (get_reroot := get_reroot A t (length t)).
+  rewrite !get_outofbound in get_reroot; try assumption.
+  rewrite length_reroot; assumption.
+Qed.
+
+Lemma get_set_same_default (A : Set) (t : array A) (i : int) :
+  t.[i <- default t].[i] = default t.
+Proof.
+ case_eq (i < (length t)); intros.
+   rewrite get_set_same; trivial.
+ rewrite get_outofbound, default_set; trivial.
+ rewrite length_set; trivial.
+Qed.
+
+Lemma get_not_default_lt A (t:array A) x :
  t.[x] <> default t -> (x < length t)%int63 = true.
 Proof.
- intros A t x Hd.
- case_eq (x < length t);intros Heq;[trivial | ].
- elim Hd;rewrite get_outofbound;trivial.
+ intros Hd.
+ case_eq (x < length t); intros Heq; [trivial | ].
+ elim Hd; rewrite get_outofbound; trivial.
 Qed.
