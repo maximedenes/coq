@@ -55,7 +55,6 @@ type t =
   | Arrayget
   | Arraydefault
   | Arrayset
-  | Arraydestrset
   | Arraycopy
   | Arrayreroot
   | Arraylength

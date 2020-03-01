@@ -55,7 +55,6 @@ type t =
   | Arrayget
   | Arraydefault
   | Arrayset
-  | Arraydestrset
   | Arraycopy
   | Arrayreroot
   | Arraylength
@@ -113,13 +112,12 @@ let hash = function
   | Arrayget -> 44
   | Arraydefault -> 45
   | Arrayset -> 46
-  | Arraydestrset -> 47
-  | Arraycopy -> 48
-  | Arrayreroot -> 49
-  | Arraylength -> 50
-  | Arrayinit -> 51
-  | Arraymap -> 52
-  | Arraymaxlength -> 53
+  | Arraycopy -> 47
+  | Arrayreroot -> 48
+  | Arraylength -> 49
+  | Arrayinit -> 50
+  | Arraymap -> 51
+  | Arraymaxlength -> 52
 
 (* Should match names in nativevalues.ml *)
 let to_string = function
@@ -169,7 +167,6 @@ let to_string = function
   | Arrayget -> "arrayget"
   | Arraydefault -> "arraydefault"
   | Arrayset -> "arrayset"
-  | Arraydestrset -> "arraydestr_set"
   | Arraycopy -> "arraycopy"
   | Arrayreroot -> "arrayreroot"
   | Arraylength -> "arraylength"
@@ -233,7 +230,6 @@ let types =
   | Arrayget -> 1, [[array_ty (PITT_param 1)]; [int_ty]; [PITT_param 1]]
   | Arraydefault -> 1, [[array_ty (PITT_param 1)]; [PITT_param 1]]
   | Arrayset -> 1, [[array_ty (PITT_param 1)]; [int_ty]; [PITT_param 1]; [array_ty (PITT_param 1)]]
-  | Arraydestrset -> assert false (* FIXME *)
   | Arraycopy -> 1, [[array_ty (PITT_param 1)]; [array_ty (PITT_param 1)]]
   | Arrayreroot -> 1, [[array_ty (PITT_param 1)]; [array_ty (PITT_param 1)]]
   | Arraylength -> 1, [[array_ty (PITT_param 1)]; [int_ty]]
