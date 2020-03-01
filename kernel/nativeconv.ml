@@ -38,6 +38,19 @@ let rec conv_val env pb lvl v1 v2 cu =
     | Vfloat64 f1, Vfloat64 f2 ->
         if Float64.(equal (of_float f1) (of_float f2)) then cu
         else raise NotConvertible
+    | Varray t1, Varray t2 ->
+      let len = Parray.length t1 in
+      if not (Uint63.equal len (Parray.length t2)) then raise NotConvertible;
+      let len = snd (Uint63.to_int2 len) in
+      let rec aux lvl len t1 t2 i cu =
+        if Int.equal i len then
+          conv_val env CONV lvl (Parray.default t1) (Parray.default t2) cu
+        else
+          let i' = Uint63.of_int i in
+          let cu = conv_val env CONV lvl (Parray.get t1 i') (Parray.get t2 i') cu in
+          aux lvl len t1 t2 (i+1) cu
+      in
+      aux lvl len t1 t2 0 cu
     | Vblock b1, Vblock b2 ->
         let n1 = block_size b1 in
         let n2 = block_size b2 in
@@ -51,7 +64,7 @@ let rec conv_val env pb lvl v1 v2 cu =
             aux lvl max b1 b2 (i+1) cu
         in
         aux lvl (n1-1) b1 b2 0 cu
-    | (Vaccu _ | Vconst _ | Vint64 _ | Vfloat64 _ | Vblock _), _ -> raise NotConvertible
+    | (Vaccu _ | Vconst _ | Vint64 _ | Vfloat64 _ | Varray _ | Vblock _), _ -> raise NotConvertible
 
 and conv_accu env pb lvl k1 k2 cu =
   let n1 = accu_nargs k1 in
