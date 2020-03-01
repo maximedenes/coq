@@ -292,6 +292,7 @@ type whd =
   | Vconstr_block of vblock
   | Vint64 of int64
   | Vfloat64 of float
+  | Varray of values Parray.t
   | Vatom_stk of atom * stack
   | Vuniv_level of Univ.Level.t
 
@@ -324,6 +325,7 @@ let uni_lvl_val (v : values) : Univ.Level.t =
         | Vconstr_block _b -> str "Vconstr_block"
         | Vint64 _ -> str "Vint64"
         | Vfloat64 _ -> str "Vfloat64"
+        | Varray _ -> str "Varray"
         | Vatom_stk (_a,_stk) -> str "Vatom_stk"
         | Vuniv_level _ -> assert false
       in
@@ -403,7 +405,9 @@ let whd_val : values -> whd =
     else
       let tag = Obj.tag o in
       if tag = accu_tag then
-        if is_accumulate (fun_code o) then whd_accu o []
+        if Int.equal (Obj.size o) 1 then
+          Varray(Obj.obj o)
+        else if is_accumulate (fun_code o) then whd_accu o []
         else Vprod(Obj.obj o)
       else
         if tag = Obj.closure_tag || tag = Obj.infix_tag then
@@ -689,6 +693,7 @@ and pr_whd w =
   | Vconstr_block _b -> str "Vconstr_block"
   | Vint64 i -> i |> Format.sprintf "Vint64(%LiL)" |> str
   | Vfloat64 f -> str "Vfloat64(" ++ str (Float64.(to_string (of_float f))) ++ str ")"
+  | Varray _ -> str "Varray"
   | Vatom_stk (a,stk) -> str "Vatom_stk(" ++ pr_atom a ++ str ", " ++ pr_stack stk ++ str ")"
   | Vuniv_level _ -> assert false)
 and pr_stack stk =

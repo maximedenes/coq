@@ -129,6 +129,7 @@ type whd =
   | Vconstr_block of vblock
   | Vint64 of int64
   | Vfloat64 of float
+  | Varray of values Parray.t
   | Vatom_stk of atom * stack
   | Vuniv_level of Univ.Level.t
 
