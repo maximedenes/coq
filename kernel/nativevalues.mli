@@ -134,6 +134,7 @@ type kind_of_value =
   | Vconst of int
   | Vint64 of int64
   | Vfloat64 of float
+  | Varray of t Parray.t
   | Vblock of block
 
 val kind_of_value : t -> kind_of_value

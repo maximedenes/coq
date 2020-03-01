@@ -244,6 +244,7 @@ type kind_of_value =
   | Vconst of int
   | Vint64 of int64
   | Vfloat64 of float
+  | Varray of t Parray.t
   | Vblock of block
 
 let kind_of_value (v:t) =
@@ -253,7 +254,8 @@ let kind_of_value (v:t) =
   else
     let tag = Obj.tag o in
     if Int.equal tag accumulate_tag then
-      Vaccu (Obj.magic v)
+      if Int.equal (Obj.size o) 1 then Varray (Obj.magic v)
+      else Vaccu (Obj.magic v)
     else if Int.equal tag Obj.custom_tag then Vint64 (Obj.magic v)
     else if Int.equal tag Obj.double_tag then Vfloat64 (Obj.magic v)
     else if (tag < Obj.lazy_tag) then Vblock (Obj.magic v)
