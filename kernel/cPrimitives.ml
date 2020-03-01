@@ -58,8 +58,6 @@ type t =
   | Arraycopy
   | Arrayreroot
   | Arraylength
-  | Arrayinit
-  | Arraymap
   | Arraymaxlength
 
 let equal (p1 : t) (p2 : t) =
@@ -115,9 +113,7 @@ let hash = function
   | Arraycopy -> 47
   | Arrayreroot -> 48
   | Arraylength -> 49
-  | Arrayinit -> 50
-  | Arraymap -> 51
-  | Arraymaxlength -> 52
+  | Arraymaxlength -> 50
 
 (* Should match names in nativevalues.ml *)
 let to_string = function
@@ -170,8 +166,6 @@ let to_string = function
   | Arraycopy -> "arraycopy"
   | Arrayreroot -> "arrayreroot"
   | Arraylength -> "arraylength"
-  | Arrayinit -> "arrayinit"
-  | Arraymap -> "arraymap"
   | Arraymaxlength -> "arraymaxlength"
 
 type 'a prim_type =
@@ -233,8 +227,6 @@ let types =
   | Arraycopy -> 1, [[array_ty (PITT_param 1)]; [array_ty (PITT_param 1)]]
   | Arrayreroot -> 1, [[array_ty (PITT_param 1)]; [array_ty (PITT_param 1)]]
   | Arraylength -> 1, [[array_ty (PITT_param 1)]; [int_ty]]
-  | Arrayinit -> 1, [[int_ty];[int_ty;PITT_param 1];[PITT_param 1];[array_ty (PITT_param 1)]]
-  | Arraymap -> 2, [[PITT_param 1;PITT_param 2];[array_ty (PITT_param 1)];[array_ty (PITT_param 2)]]
   | Arraymaxlength -> 0, [[int_ty]]
 
 type arg_kind =
