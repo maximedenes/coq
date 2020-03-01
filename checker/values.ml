@@ -152,7 +152,8 @@ let rec v_constr =
     [|v_cofix|]; (* CoFix *)
     [|v_proj;v_constr|]; (* Proj *)
     [|v_uint63|]; (* Int *)
-    [|Float64|] (* Int *)
+    [|Float64|]; (* Float *)
+    [|v_constr;Array v_constr|] (* Array *)
   |])
 
 and v_prec = Tuple ("prec_declaration",
@@ -252,8 +253,11 @@ let v_cb = v_tuple "constant_body"
     v_bool;
     v_typing_flags|]
 
+let v_nested = v_sum "nested" 0
+  [|[|v_ind|] (* NestedInd *);[|v_cst|] (* NestedPrimitive *)|]
+
 let v_recarg = v_sum "recarg" 1 (* Norec *)
-  [|[|v_ind|] (* Mrec *);[|v_ind|] (* Imbr *)|]
+  [|[|v_ind|] (* Mrec *);[|v_nested|] (* Nested *)|]
 
 let rec v_wfp = Sum ("wf_paths",0,
     [|[|Int;Int|]; (* Rtree.Param *)
