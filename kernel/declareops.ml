@@ -167,6 +167,17 @@ let eq_recarg r1 r2 = match r1, r2 with
 | Nested ty1, Nested ty2 -> eq_nested_type ty1 ty2
 | Nested _, _ -> false
 
+let pp_recarg = let open Pp in function
+  | Declarations.Norec -> str "Norec"
+  | Declarations.Mrec (mind,i) ->
+     str "Mrec[" ++ Names.MutInd.print mind ++ pr_comma () ++ int i ++ str "]"
+  | Declarations.(Nested (NestedInd (mind,i))) ->
+     str "Nested[" ++ Names.MutInd.print mind ++ pr_comma () ++ int i ++ str "]"
+  | Declarations.(Nested (NestedPrimitive c)) ->
+     str "Nested[" ++ Names.Constant.print c ++ str "]"
+
+let pp_wf_paths x = Rtree.pp_tree pp_recarg x
+
 let subst_nested_type sub ty = match ty with
 | NestedInd (kn,i) ->
   let kn' = subst_mind sub kn in

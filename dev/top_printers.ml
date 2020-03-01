@@ -50,15 +50,8 @@ let ppqualid qid = pp(pr_qualid qid)
 let ppclindex cl = pp(Coercionops.pr_cl_index cl)
 let ppscheme k = pp (Ind_tables.pr_scheme_kind k)
 
-let prrecarg = function
-  | Declarations.Norec -> str "Norec"
-  | Declarations.Mrec (mind,i) ->
-     str "Mrec[" ++ MutInd.print mind ++ pr_comma () ++ int i ++ str "]"
-  | Declarations.(Nested (NestedInd (mind,i))) ->
-     str "Nested[" ++ MutInd.print mind ++ pr_comma () ++ int i ++ str "]"
-  | Declarations.(Nested (NestedPrimitive c)) ->
-     str "Nested[" ++ Constant.print c ++ str "]"
-let ppwf_paths x = pp (Rtree.pp_tree prrecarg x)
+let prrecarg = Declareops.pp_recarg
+let ppwf_paths x = pp (Declareops.pp_wf_paths x)
 
 let get_current_context () =
   try Vernacstate.Proof_global.get_current_context ()
