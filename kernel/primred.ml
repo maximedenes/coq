@@ -154,7 +154,7 @@ module type RedNativeEntries =
     val mkPInf : env -> elem
     val mkNInf : env -> elem
     val mkNaN : env -> elem
-    val mkArray : env -> elem Parray.t -> elem
+    val mkArray : env -> elem Parray.t -> elem -> elem
   end
 
 module type RedNative =
@@ -327,9 +327,10 @@ struct
     | Float64next_down ->
       let f = get_float1 evd args in E.mkFloat env (Float64.next_down f)
     | Arraymake ->
+      let ty = E.get args 0 in
       let i = get_int evd args 1 in
       let d = E.get args 2 in
-      E.mkArray env (Parray.make i d)
+      E.mkArray env (Parray.make i d) ty
     | Arrayget ->
       let t = get_parray evd args 1 in
       let i = get_int evd args 2 in

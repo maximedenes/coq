@@ -349,7 +349,7 @@ and fterm =
   | FEvar of existential * fconstr subs
   | FInt of Uint63.t
   | FFloat of Float64.t
-  | FArray of fconstr Parray.t
+  | FArray of fconstr Parray.t * fconstr
   | FLIFT of int * fconstr
   | FCLOS of constr * fconstr subs
   | FLOCKED
@@ -532,7 +532,7 @@ module FNativeEntries =
 
     let get_parray () e =
       match [@ocaml.warning "-4"] e.term with
-      | FArray t -> t
+      | FArray (t,_ty) -> t
       | _ -> raise Not_found
 
     let dummy = {mark = mark Norm KnownR; term = FRel 0}
@@ -816,9 +816,9 @@ module FNativeEntries =
       check_f_class env;
       !fNaN
 
-    let mkArray env t =
+    let mkArray env t ty =
       check_array env;
-      { mark = mark Whnf KnownR; term = FArray t}
+      { mark = mark Whnf KnownR; term = FArray (t,ty) }
 
   end
 
