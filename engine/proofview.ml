@@ -712,13 +712,13 @@ let guard_no_unifiable =
       let l = CList.map (fun id -> Names.Name id) l in
       tclUNIT (Some l)
 
-(** [unshelve l p] adds all the goals in [l] at the end of the focused
+(** [unshelve l p] adds all the goals in [l] at the beginning of the focused
     goals of p *)
 let unshelve l p =
   let l = List.map with_empty_state l in
   (* advance the goals in case of clear *)
   let l = undefined p.solution l in
-  { p with comb = p.comb@l }
+  { p with comb = l@p.comb }
 
 let mark_in_evm ~goal evd evars =
   let evd =
