@@ -1204,3 +1204,18 @@ let autoapply c i =
       let sigma = Typeclasses.make_unresolvables
           (fun ev -> Typeclasses.all_goals ev (Lazy.from_val (snd (Evd.find sigma ev).evar_source))) sigma in
       Proofview.Unsafe.tclEVARS sigma) end
+
+let resolve_tc c =
+  Proofview.Goal.enter begin fun gl ->
+    let env = Proofview.Goal.env gl in
+    let sigma = Proofview.Goal.sigma gl in
+    let debug = get_typeclasses_debug () in
+    let depth = get_typeclasses_depth () in
+    let unique = false (* FIXME flag is not accessible *) in
+    let evars = Evarutil.undefined_evars_of_term sigma c in
+    let filter = (fun ev _ -> Evar.Set.mem ev evars) in
+    let split = true in
+    let fail = true in
+    let sigma = resolve_all_evars debug depth unique env (initial_select_evars filter) sigma split fail in
+    Proofview.Unsafe.tclEVARS sigma
+  end
