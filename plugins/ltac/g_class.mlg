@@ -97,7 +97,16 @@ TACTIC EXTEND typeclasses_eauto
 END
 
 TACTIC EXTEND resolve_tc
-| [ "resolve_tc" constr(c) ] -> { resolve_tc c }
+| [ "resolve_tc" preident(id) ] -> {
+    let c = try Names.Id.Map.find (Names.Id.of_string id) ist.Geninterp.lfun
+      with Not_found -> CErrors.user_err Pp.(str id ++ str " not bound.")
+    in
+    let c = match Taccoerce.Value.to_constr c with
+      | Some c -> c
+      | None -> raise (Taccoerce.CannotCoerceTo "a term")
+    in
+    resolve_tc c
+  }
 END
 
 TACTIC EXTEND head_of_constr
